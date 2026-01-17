@@ -89,8 +89,10 @@ class _CategoryDetailViewState extends State<_CategoryDetailView> {
     }
     if (controller.isEmpty) return const EmptyState();
 
-    // Show all items - hidden items will be displayed greyed out
-    final displayItems = controller.displayItems;
+    // Filter out hidden items from display
+    final displayItems = controller.displayItems
+        .where((item) => !hiddenController.isHidden(item.id))
+        .toList();
 
     final favoriteStreamIds = favoritesController.favorites.map((f) => f.streamId).toSet();
     final hiddenStreamIds = hiddenController.hiddenStreamIds;

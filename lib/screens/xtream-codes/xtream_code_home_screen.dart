@@ -340,9 +340,16 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
     FavoritesController favoritesController,
     HiddenItemsController hiddenItemsController,
   ) {
-    // Show all items - hidden items will be displayed greyed out
+    // Filter out hidden items from display
+    final filteredCategory = CategoryViewModel(
+      category: category.category,
+      contentItems: category.contentItems
+          .where((item) => !hiddenStreamIds.contains(item.id))
+          .toList(),
+    );
+
     return CategorySection(
-      category: category,
+      category: filteredCategory,
       cardWidth: ResponsiveHelper.getCardWidth(context),
       cardHeight: ResponsiveHelper.getCardHeight(context),
       onSeeAllTap: () => _navigateToCategoryDetail(category),
