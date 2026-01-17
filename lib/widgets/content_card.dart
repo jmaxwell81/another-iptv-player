@@ -279,19 +279,24 @@ class _ContentCardState extends State<ContentCard> {
           PopupMenuItem<String>(
             value: 'rename',
             onTap: () {
+              // Capture navigator before async gap to avoid context invalidation
+              final navigator = Navigator.of(context);
+              final customRenameType = _getCustomRenameType(widget.content.contentType);
+              final currentDisplayName = widget.content.name.applyRenamingRules(
+                contentType: widget.content.contentType,
+                itemId: widget.content.id,
+                playlistId: widget.playlistId,
+              );
               Future.delayed(Duration.zero, () async {
-                final customRenameType = _getCustomRenameType(widget.content.contentType);
-                final currentDisplayName = widget.content.name.applyRenamingRules(
-                  contentType: widget.content.contentType,
-                  itemId: widget.content.id,
-                  playlistId: widget.playlistId,
-                );
-                final result = await RenameDialog.show(
-                  context: context,
-                  currentName: currentDisplayName,
-                  itemId: widget.content.id,
-                  playlistId: widget.playlistId,
-                  type: customRenameType,
+                if (!mounted) return;
+                final result = await showDialog<String>(
+                  context: navigator.context,
+                  builder: (dialogContext) => RenameDialog(
+                    currentName: currentDisplayName,
+                    itemId: widget.content.id,
+                    playlistId: widget.playlistId,
+                    type: customRenameType,
+                  ),
                 );
                 if (result != null) {
                   widget.onRename?.call(widget.content);

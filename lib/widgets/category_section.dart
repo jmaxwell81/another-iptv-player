@@ -81,13 +81,17 @@ class CategorySection extends StatelessWidget {
                             PopupMenuItem<String>(
                               value: 'rename',
                               onTap: () {
+                                // Capture navigator before async gap to avoid context invalidation
+                                final navigator = Navigator.of(context);
                                 Future.delayed(Duration.zero, () async {
-                                  final result = await RenameDialog.show(
-                                    context: context,
-                                    currentName: displayName,
-                                    itemId: category.category.categoryId,
-                                    playlistId: playlistId,
-                                    type: CustomRenameType.category,
+                                  final result = await showDialog<String>(
+                                    context: navigator.context,
+                                    builder: (dialogContext) => RenameDialog(
+                                      currentName: displayName,
+                                      itemId: category.category.categoryId,
+                                      playlistId: playlistId,
+                                      type: CustomRenameType.category,
+                                    ),
                                   );
                                   if (result != null) {
                                     onRenameCategory?.call();
