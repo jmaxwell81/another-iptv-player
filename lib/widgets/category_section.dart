@@ -8,7 +8,7 @@ import 'package:another_iptv_player/models/playlist_content_model.dart';
 
 import 'content_item_card_widget.dart';
 
-class CategorySection extends StatelessWidget {
+class CategorySection extends StatefulWidget {
   final CategoryViewModel category;
   final double cardWidth;
   final double cardHeight;
@@ -43,11 +43,16 @@ class CategorySection extends StatelessWidget {
   });
 
   @override
+  State<CategorySection> createState() => _CategorySectionState();
+}
+
+class _CategorySectionState extends State<CategorySection> {
+  @override
   Widget build(BuildContext context) {
-    final displayName = category.category.categoryName.applyRenamingRules(
+    final displayName = widget.category.category.categoryName.applyRenamingRules(
       isCategory: true,
-      itemId: category.category.categoryId,
-      playlistId: playlistId,
+      itemId: widget.category.category.categoryId,
+      playlistId: widget.playlistId,
     );
 
     // Capture navigator from outer context before popup menu
@@ -75,7 +80,7 @@ class CategorySection extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (showContextMenu)
+                      if (widget.showContextMenu)
                         PopupMenuButton<String>(
                           icon: const Icon(Icons.more_vert, size: 20),
                           padding: EdgeInsets.zero,
@@ -89,13 +94,14 @@ class CategorySection extends StatelessWidget {
                                     context: navigator.context,
                                     builder: (dialogContext) => RenameDialog(
                                       currentName: displayName,
-                                      itemId: category.category.categoryId,
-                                      playlistId: playlistId,
+                                      itemId: widget.category.category.categoryId,
+                                      playlistId: widget.playlistId,
                                       type: CustomRenameType.category,
                                     ),
                                   );
-                                  if (result != null) {
-                                    onRenameCategory?.call();
+                                  if (result != null && mounted) {
+                                    widget.onRenameCategory?.call();
+                                    setState(() {}); // Trigger rebuild to show new name
                                   }
                                 });
                               },
@@ -107,14 +113,14 @@ class CategorySection extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            if (onHideCategory != null)
+                            if (widget.onHideCategory != null)
                               PopupMenuItem<String>(
                                 value: 'hide',
                                 onTap: () {
                                   Future.delayed(Duration.zero, () {
-                                    onHideCategory?.call(
-                                      category.category.categoryId,
-                                      category.category.categoryName,
+                                    widget.onHideCategory?.call(
+                                      widget.category.category.categoryId,
+                                      widget.category.category.categoryName,
                                     );
                                   });
                                 },
@@ -132,7 +138,7 @@ class CategorySection extends StatelessWidget {
                   ),
                 ),
                 TextButton(
-                  onPressed: onSeeAllTap,
+                  onPressed: widget.onSeeAllTap,
                   child: Text(
                     context.loc.see_all,
                     style: TextStyle(fontSize: 11),
@@ -142,22 +148,22 @@ class CategorySection extends StatelessWidget {
             ),
           ),
           ContentItemCardWidget(
-            cardHeight: cardHeight,
-            cardWidth: cardWidth,
-            onContentTap: onContentTap,
-            contentItems: category.contentItems,
+            cardHeight: widget.cardHeight,
+            cardWidth: widget.cardWidth,
+            onContentTap: widget.onContentTap,
+            contentItems: widget.category.contentItems,
             isSelectionModeEnabled: false,
-            favoriteStreamIds: favoriteStreamIds,
-            hiddenStreamIds: hiddenStreamIds,
-            onToggleFavorite: onToggleFavorite,
-            onToggleHidden: onToggleHidden,
-            onRename: onRenameContent,
-            showContextMenu: showContextMenu,
-            categoryId: category.category.categoryId,
-            categoryName: category.category.categoryName,
-            onHideCategory: onHideCategory,
-            playlistId: playlistId,
-            key: key,
+            favoriteStreamIds: widget.favoriteStreamIds,
+            hiddenStreamIds: widget.hiddenStreamIds,
+            onToggleFavorite: widget.onToggleFavorite,
+            onToggleHidden: widget.onToggleHidden,
+            onRename: widget.onRenameContent,
+            showContextMenu: widget.showContextMenu,
+            categoryId: widget.category.category.categoryId,
+            categoryName: widget.category.category.categoryName,
+            onHideCategory: widget.onHideCategory,
+            playlistId: widget.playlistId,
+            key: widget.key,
           ),
         ],
       ),
