@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:another_iptv_player/models/renaming_rule.dart';
 import 'package:another_iptv_player/models/custom_rename.dart';
+import 'package:another_iptv_player/models/category_config.dart';
 
 class UserPreferences {
   static const String _keyLastPlaylist = 'last_playlist';
@@ -31,6 +32,7 @@ class UserPreferences {
   static const String _keySeekOnDoubleTap = 'seek_on_double_tap';
   static const String _renamingRulesKey = 'renaming_rules';
   static const String _customRenamesKey = 'custom_renames';
+  static const String _categoryConfigKey = 'category_configs';
 
   static Future<void> setLastPlaylist(String playlistId) async {
     final prefs = await SharedPreferences.getInstance();
@@ -414,5 +416,41 @@ class UserPreferences {
     } catch (e) {
       return null;
     }
+  }
+
+  // Category Configuration (merge/order)
+  static Future<Map<String, CategoryConfig>> getCategoryConfigs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_categoryConfigKey);
+    if (jsonString == null || jsonString.isEmpty) {
+      return {};
+    }
+    try {
+      return CategoryConfig.configsFromJson(jsonString);
+    } catch (e) {
+      return {};
+    }
+  }
+
+  static Future<void> setCategoryConfigs(Map<String, CategoryConfig> configs) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_categoryConfigKey, CategoryConfig.configsToJson(configs));
+  }
+
+  static Future<CategoryConfig?> getCategoryConfig(String playlistId) async {
+    final configs = await getCategoryConfigs();
+    return configs[playlistId];
+  }
+
+  static Future<void> setCategoryConfig(CategoryConfig config) async {
+    final configs = await getCategoryConfigs();
+    configs[config.playlistId] = config;
+    await setCategoryConfigs(configs);
+  }
+
+  static Future<void> removeCategoryConfig(String playlistId) async {
+    final configs = await getCategoryConfigs();
+    configs.remove(playlistId);
+    await setCategoryConfigs(configs);
   }
 }

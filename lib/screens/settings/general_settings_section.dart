@@ -25,6 +25,7 @@ import '../playlist_screen.dart';
 import '../xtream-codes/xtream_code_data_loader_screen.dart';
 import 'category_settings_section.dart';
 import 'renaming_rules_screen.dart';
+import 'category_config_screen.dart';
 
 final controller = XtreamCodeHomeController(true);
 
@@ -221,6 +222,27 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
                   );
                 },
               ),
+              if (isXtreamCode) const Divider(height: 1),
+              if (isXtreamCode)
+                ListTile(
+                  leading: const Icon(Icons.merge),
+                  title: const Text('Category Configuration'),
+                  subtitle: const Text('Merge and reorder categories'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CategoryConfigScreen(
+                          playlistId: AppState.currentPlaylist!.id,
+                          liveCategories: controller.liveCategories?.map((c) => c.category).toList() ?? [],
+                          vodCategories: controller.movieCategories.map((c) => c.category).toList(),
+                          seriesCategories: controller.seriesCategories.map((c) => c.category).toList(),
+                        ),
+                      ),
+                    );
+                  },
+                ),
               const Divider(height: 1),
               DropdownTileWidget<Locale>(
                 icon: Icons.language,
