@@ -201,7 +201,10 @@ class _ContentCardState extends State<ContentCard> {
     return cardWidget;
   }
 
-  Widget _buildContextMenu(BuildContext context) {
+  Widget _buildContextMenu(BuildContext outerContext) {
+    // Capture navigator from outer context (the widget's context, not popup menu's)
+    final navigator = Navigator.of(outerContext);
+
     return PopupMenuButton<String>(
       icon: Container(
         padding: const EdgeInsets.all(4),
@@ -229,7 +232,7 @@ class _ContentCardState extends State<ContentCard> {
             break;
         }
       },
-      itemBuilder: (context) {
+      itemBuilder: (popupContext) {
         return [
           PopupMenuItem<String>(
             value: 'favorite',
@@ -248,8 +251,8 @@ class _ContentCardState extends State<ContentCard> {
                 const SizedBox(width: 8),
                 Text(
                   widget.isFavorite
-                      ? context.loc.remove_from_favorites
-                      : context.loc.add_to_favorites,
+                      ? popupContext.loc.remove_from_favorites
+                      : popupContext.loc.add_to_favorites,
                 ),
               ],
             ),
@@ -270,8 +273,8 @@ class _ContentCardState extends State<ContentCard> {
                 const SizedBox(width: 8),
                 Text(
                   widget.isHidden
-                      ? context.loc.unhide_item
-                      : context.loc.hide_item,
+                      ? popupContext.loc.unhide_item
+                      : popupContext.loc.hide_item,
                 ),
               ],
             ),
@@ -279,8 +282,6 @@ class _ContentCardState extends State<ContentCard> {
           PopupMenuItem<String>(
             value: 'rename',
             onTap: () {
-              // Capture navigator before async gap to avoid context invalidation
-              final navigator = Navigator.of(context);
               final customRenameType = _getCustomRenameType(widget.content.contentType);
               final currentDisplayName = widget.content.name.applyRenamingRules(
                 contentType: widget.content.contentType,

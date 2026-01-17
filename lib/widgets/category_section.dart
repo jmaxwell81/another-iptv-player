@@ -50,6 +50,9 @@ class CategorySection extends StatelessWidget {
       playlistId: playlistId,
     );
 
+    // Capture navigator from outer context before popup menu
+    final navigator = Navigator.of(context);
+
     return Container(
       margin: EdgeInsets.only(bottom: 20),
       child: Column(
@@ -77,12 +80,10 @@ class CategorySection extends StatelessWidget {
                           icon: const Icon(Icons.more_vert, size: 20),
                           padding: EdgeInsets.zero,
                           position: PopupMenuPosition.under,
-                          itemBuilder: (context) => [
+                          itemBuilder: (popupContext) => [
                             PopupMenuItem<String>(
                               value: 'rename',
                               onTap: () {
-                                // Capture navigator before async gap to avoid context invalidation
-                                final navigator = Navigator.of(context);
                                 Future.delayed(Duration.zero, () async {
                                   final result = await showDialog<String>(
                                     context: navigator.context,
