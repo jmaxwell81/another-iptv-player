@@ -16,9 +16,11 @@ class ContentItemCardWidget extends StatefulWidget {
   final Set<String>? hiddenStreamIds;
   final Function(ContentItem)? onToggleFavorite;
   final Function(ContentItem)? onToggleHidden;
+  final Function(ContentItem)? onRename;
   final bool showContextMenu;
   final String? categoryId;
   final String? categoryName;
+  final String? playlistId;
   final Function(String categoryId, String categoryName)? onHideCategory;
 
   ContentItemCardWidget({
@@ -33,9 +35,11 @@ class ContentItemCardWidget extends StatefulWidget {
     this.hiddenStreamIds,
     this.onToggleFavorite,
     this.onToggleHidden,
+    this.onRename,
     this.showContextMenu = true,
     this.categoryId,
     this.categoryName,
+    this.playlistId,
     this.onHideCategory,
   });
 
@@ -162,8 +166,10 @@ class _ContentItemCardWidgetState extends State<ContentItemCardWidget> {
                       showContextMenu: widget.showContextMenu,
                       onToggleFavorite: widget.onToggleFavorite,
                       onToggleHidden: widget.onToggleHidden,
+                      onRename: widget.onRename,
                       categoryId: widget.categoryId,
                       categoryName: widget.categoryName,
+                      playlistId: widget.playlistId,
                       onHideCategory: widget.onHideCategory,
                       key: widget.key,
                     ),
@@ -194,8 +200,10 @@ class _ContentItemCardWidgetState extends State<ContentItemCardWidget> {
                     showContextMenu: widget.showContextMenu,
                     onToggleFavorite: widget.onToggleFavorite,
                     onToggleHidden: widget.onToggleHidden,
+                    onRename: widget.onRename,
                     categoryId: widget.categoryId,
                     categoryName: widget.categoryName,
+                    playlistId: widget.playlistId,
                     onHideCategory: widget.onHideCategory,
                     key: widget.key,
                   ),

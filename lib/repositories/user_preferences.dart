@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:another_iptv_player/models/renaming_rule.dart';
+import 'package:another_iptv_player/models/custom_rename.dart';
 
 class UserPreferences {
   static const String _keyLastPlaylist = 'last_playlist';
@@ -29,6 +30,7 @@ class UserPreferences {
   static const String _keySpeedUpOnLongPress = 'speed_up_on_long_press';
   static const String _keySeekOnDoubleTap = 'seek_on_double_tap';
   static const String _renamingRulesKey = 'renaming_rules';
+  static const String _customRenamesKey = 'custom_renames';
 
   static Future<void> setLastPlaylist(String playlistId) async {
     final prefs = await SharedPreferences.getInstance();
@@ -366,6 +368,51 @@ class UserPreferences {
     if (index != -1) {
       rules[index] = rules[index].copyWith(isEnabled: !rules[index].isEnabled);
       await setRenamingRules(rules);
+    }
+  }
+
+  // Custom Renames (individual item renames)
+  static Future<List<CustomRename>> getCustomRenames() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_customRenamesKey);
+    if (jsonString == null || jsonString.isEmpty) {
+      return [];
+    }
+    try {
+      return CustomRename.listFromJson(jsonString);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  static Future<void> setCustomRenames(List<CustomRename> renames) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_customRenamesKey, CustomRename.listToJson(renames));
+  }
+
+  static Future<void> setCustomRename(CustomRename rename) async {
+    final renames = await getCustomRenames();
+    final index = renames.indexWhere((r) => r.id == rename.id);
+    if (index != -1) {
+      renames[index] = rename;
+    } else {
+      renames.add(rename);
+    }
+    await setCustomRenames(renames);
+  }
+
+  static Future<void> removeCustomRename(String renameId) async {
+    final renames = await getCustomRenames();
+    renames.removeWhere((r) => r.id == renameId);
+    await setCustomRenames(renames);
+  }
+
+  static Future<CustomRename?> getCustomRename(String renameId) async {
+    final renames = await getCustomRenames();
+    try {
+      return renames.firstWhere((r) => r.id == renameId);
+    } catch (e) {
+      return null;
     }
   }
 }

@@ -1,5 +1,7 @@
 import 'package:another_iptv_player/l10n/localization_extension.dart';
+import 'package:another_iptv_player/models/custom_rename.dart';
 import 'package:another_iptv_player/utils/renaming_extension.dart';
+import 'package:another_iptv_player/widgets/rename_dialog.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
@@ -14,9 +16,11 @@ class ContentCard extends StatefulWidget {
   final bool showContextMenu;
   final Function(ContentItem)? onToggleFavorite;
   final Function(ContentItem)? onToggleHidden;
+  final Function(ContentItem)? onRename;
   final bool isHidden;
   final String? categoryId;
   final String? categoryName;
+  final String? playlistId;
   final Function(String categoryId, String categoryName)? onHideCategory;
 
   const ContentCard({
@@ -29,9 +33,11 @@ class ContentCard extends StatefulWidget {
     this.showContextMenu = false,
     this.onToggleFavorite,
     this.onToggleHidden,
+    this.onRename,
     this.isHidden = false,
     this.categoryId,
     this.categoryName,
+    this.playlistId,
     this.onHideCategory,
   });
 
@@ -163,6 +169,8 @@ class _ContentCardState extends State<ContentCard> {
                       child: Text(
                         widget.content.name.applyRenamingRules(
                           contentType: widget.content.contentType,
+                          itemId: widget.content.id,
+                          playlistId: widget.playlistId,
                         ),
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
@@ -268,6 +276,36 @@ class _ContentCardState extends State<ContentCard> {
               ],
             ),
           ),
+          PopupMenuItem<String>(
+            value: 'rename',
+            onTap: () {
+              Future.delayed(Duration.zero, () async {
+                final customRenameType = _getCustomRenameType(widget.content.contentType);
+                final currentDisplayName = widget.content.name.applyRenamingRules(
+                  contentType: widget.content.contentType,
+                  itemId: widget.content.id,
+                  playlistId: widget.playlistId,
+                );
+                final result = await RenameDialog.show(
+                  context: context,
+                  currentName: currentDisplayName,
+                  itemId: widget.content.id,
+                  playlistId: widget.playlistId,
+                  type: customRenameType,
+                );
+                if (result != null) {
+                  widget.onRename?.call(widget.content);
+                }
+              });
+            },
+            child: const Row(
+              children: [
+                Icon(Icons.edit, size: 20),
+                SizedBox(width: 8),
+                Text('Rename'),
+              ],
+            ),
+          ),
           if (widget.categoryId != null && widget.categoryName != null && widget.onHideCategory != null)
             PopupMenuItem<String>(
               value: 'hide_category',
@@ -315,6 +353,8 @@ class _ContentCardState extends State<ContentCard> {
           child: Text(
             widget.content.name.applyRenamingRules(
               contentType: widget.content.contentType,
+              itemId: widget.content.id,
+              playlistId: widget.playlistId,
             ),
             style: TextStyle(
               fontWeight: FontWeight.bold,
@@ -330,6 +370,17 @@ class _ContentCardState extends State<ContentCard> {
         ),
       ),
     );
+  }
+
+  CustomRenameType _getCustomRenameType(ContentType contentType) {
+    switch (contentType) {
+      case ContentType.liveStream:
+        return CustomRenameType.liveStream;
+      case ContentType.vod:
+        return CustomRenameType.vod;
+      case ContentType.series:
+        return CustomRenameType.series;
+    }
   }
 
   Widget? _buildRatingBadge(BuildContext context) {

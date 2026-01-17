@@ -1,5 +1,6 @@
 import 'package:another_iptv_player/controllers/playlist_controller.dart';
 import 'package:another_iptv_player/screens/app_initializer_screen.dart';
+import 'package:another_iptv_player/services/custom_rename_service.dart';
 import 'package:another_iptv_player/services/renaming_service.dart';
 import 'package:flutter/material.dart';
 import 'package:another_iptv_player/services/service_locator.dart';
@@ -14,6 +15,7 @@ import 'utils/app_themes.dart';
 Future<void> main() async {
   await setupServiceLocator();
   await RenamingService().loadRules();
+  await CustomRenameService().loadRenames();
   runApp(
     MultiProvider(
       providers: [
