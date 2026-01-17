@@ -77,9 +77,56 @@ class RenamingService {
     return result;
   }
 
+  /// Convert special placeholders in find text to regex patterns
+  /// Supported placeholders:
+  /// - %DATE% or %YEAR% - matches 4-digit year (e.g., 2022)
+  /// - %NUM% - matches any number
+  /// - %ANY% - matches any characters (non-greedy)
+  /// - %WORD% - matches a single word
+  String _convertPlaceholdersToRegex(String findText) {
+    String pattern = RegExp.escape(findText);
+
+    // Unescape the placeholders we want to convert
+    // %DATE% or %YEAR% - matches 4-digit year
+    pattern = pattern.replaceAll(r'\%DATE\%', r'\d{4}');
+    pattern = pattern.replaceAll(r'\%YEAR\%', r'\d{4}');
+
+    // %NUM% - matches any number (one or more digits)
+    pattern = pattern.replaceAll(r'\%NUM\%', r'\d+');
+
+    // %ANY% - matches any characters (non-greedy)
+    pattern = pattern.replaceAll(r'\%ANY\%', r'.*?');
+
+    // %WORD% - matches a single word (letters, numbers, some special chars)
+    pattern = pattern.replaceAll(r'\%WORD\%', r'[\w\-]+');
+
+    return pattern;
+  }
+
+  /// Check if find text contains any special placeholders
+  bool _hasPlaceholders(String findText) {
+    return findText.contains('%DATE%') ||
+        findText.contains('%YEAR%') ||
+        findText.contains('%NUM%') ||
+        findText.contains('%ANY%') ||
+        findText.contains('%WORD%');
+  }
+
   /// Apply a single rule to a string
   String _applyRule(String input, RenamingRule rule) {
     if (rule.findText.isEmpty) return input;
+
+    // Check if the rule uses special placeholders
+    if (_hasPlaceholders(rule.findText)) {
+      final regexPattern = _convertPlaceholdersToRegex(rule.findText);
+      try {
+        final pattern = RegExp(regexPattern, caseSensitive: true);
+        return input.replaceAll(pattern, rule.replaceText);
+      } catch (e) {
+        debugPrint('RenamingService: Invalid regex pattern: $regexPattern');
+        return input;
+      }
+    }
 
     if (rule.fullWordsOnly) {
       // Use word boundary regex for full word matching

@@ -294,12 +294,29 @@ class _RuleEditorDialogState extends State<RuleEditorDialog> {
               controller: _findController,
               decoration: const InputDecoration(
                 labelText: 'Find text',
-                hintText: 'Text to find and replace',
+                hintText: 'e.g., (%DATE%) or [%WORD%]',
                 border: OutlineInputBorder(),
               ),
               autofocus: true,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
+            ExpansionTile(
+              title: const Text('Pattern placeholders', style: TextStyle(fontSize: 13)),
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(bottom: 8),
+              children: [
+                _buildPlaceholderHelp('%DATE%', 'Matches 4-digit year (2022)'),
+                _buildPlaceholderHelp('%NUM%', 'Matches any number'),
+                _buildPlaceholderHelp('%WORD%', 'Matches a single word'),
+                _buildPlaceholderHelp('%ANY%', 'Matches anything'),
+                const SizedBox(height: 4),
+                Text(
+                  'Example: "(%DATE%)" removes "(2022)"',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[600], fontStyle: FontStyle.italic),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
             TextField(
               controller: _replaceController,
               decoration: const InputDecoration(
@@ -365,5 +382,38 @@ class _RuleEditorDialogState extends State<RuleEditorDialog> {
       case RuleAppliesTo.series:
         return 'Series only';
     }
+  }
+
+  Widget _buildPlaceholderHelp(String placeholder, String description) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              placeholder,
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              description,
+              style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
