@@ -46,7 +46,6 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
   static const double _defaultFontSize = 10.0;
   static const double _largeFontSize = 11.0;
   int? _hoveredIndex;
-  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -185,7 +184,7 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
         playlistId: widget.playlist.id,
       ),
       _buildContentPage(
-        controller.liveCategories!,
+        controller.visibleLiveCategories,
         ContentType.liveStream,
         controller,
         favoriteStreamIds,
@@ -194,7 +193,7 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
         hiddenItemsController,
       ),
       _buildContentPage(
-        controller.movieCategories,
+        controller.visibleMovieCategories,
         ContentType.vod,
         controller,
         favoriteStreamIds,
@@ -203,7 +202,7 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
         hiddenItemsController,
       ),
       _buildContentPage(
-        controller.seriesCategories,
+        controller.visibleSeriesCategories,
         ContentType.series,
         controller,
         favoriteStreamIds,
@@ -312,22 +311,17 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
     FavoritesController favoritesController,
     HiddenItemsController hiddenItemsController,
   ) {
-    return Scrollbar(
-      controller: _scrollController,
-      interactive: true,
-      child: ListView.builder(
-        controller: _scrollController,
-        shrinkWrap: true,
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: categories.length,
-        itemBuilder: (context, index) => _buildCategorySection(
-          categories[index],
-          contentType,
-          favoriteStreamIds,
-          hiddenStreamIds,
-          favoritesController,
-          hiddenItemsController,
-        ),
+    return ListView.builder(
+      shrinkWrap: true,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: categories.length,
+      itemBuilder: (context, index) => _buildCategorySection(
+        categories[index],
+        contentType,
+        favoriteStreamIds,
+        hiddenStreamIds,
+        favoritesController,
+        hiddenItemsController,
       ),
     );
   }
@@ -358,16 +352,48 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
       hiddenStreamIds: hiddenStreamIds,
       onToggleFavorite: (item) => _toggleFavorite(context, item, favoritesController),
       onToggleHidden: (item) => _toggleHidden(context, item, hiddenItemsController),
+      onHideCategory: (categoryId, categoryName) => _hideCategory(context, categoryId, categoryName),
     );
+  }
+
+  Future<void> _hideCategory(BuildContext context, String categoryId, String categoryName) async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Hide Category'),
+        content: Text('Are you sure you want to hide "$categoryName"? This will hide all items in this category. You can unhide it from Settings.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text('Hide'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _controller.hideCategory(categoryId);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Category "$categoryName" hidden.')),
+        );
+      }
+    }
   }
 
   void _toggleFavorite(BuildContext context, ContentItem item, FavoritesController controller) async {
     final isFav = controller.favorites.any((f) => f.streamId == item.id);
+
     if (isFav) {
-      await controller.removeFavoriteByStreamId(item.id);
+      final success = await controller.removeFavoriteByStreamId(item.id);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.loc.removed_from_favorites)),
+          SnackBar(content: Text(success ? context.loc.removed_from_favorites : 'Error removing favorite')),
         );
       }
     } else {
@@ -382,10 +408,10 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
         createdAt: now,
         updatedAt: now,
       );
-      await controller.addFavoriteFromData(favorite);
+      final success = await controller.addFavoriteFromData(favorite);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.loc.added_to_favorites)),
+          SnackBar(content: Text(success ? context.loc.added_to_favorites : 'Error: ${controller.error ?? "unknown"}')),
         );
       }
     }

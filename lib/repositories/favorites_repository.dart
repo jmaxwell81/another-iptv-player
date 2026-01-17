@@ -147,7 +147,7 @@ class FavoritesRepository {
     );
 
     if (isAlreadyFavorite) {
-      throw Exception('Bu içerik zaten favorilerde');
+      throw Exception('This content is already in favorites');
     }
 
     await _database.insertFavorite(favorite);

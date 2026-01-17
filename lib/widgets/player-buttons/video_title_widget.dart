@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:another_iptv_player/utils/renaming_extension.dart';
 import '../../../models/playlist_content_model.dart';
 import '../../../services/event_bus.dart';
 import '../../../services/player_state.dart';
@@ -57,7 +58,9 @@ class _VideoTitleWidgetState extends State<VideoTitleWidget> {
     }
     
     return Text(
-      videoTitle,
+      videoTitle.applyRenamingRules(
+        contentType: PlayerState.currentContent?.contentType,
+      ),
       style: const TextStyle(
         color: Colors.white,
       ),

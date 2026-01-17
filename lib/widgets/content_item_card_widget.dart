@@ -17,6 +17,9 @@ class ContentItemCardWidget extends StatefulWidget {
   final Function(ContentItem)? onToggleFavorite;
   final Function(ContentItem)? onToggleHidden;
   final bool showContextMenu;
+  final String? categoryId;
+  final String? categoryName;
+  final Function(String categoryId, String categoryName)? onHideCategory;
 
   ContentItemCardWidget({
     super.key,
@@ -31,6 +34,9 @@ class ContentItemCardWidget extends StatefulWidget {
     this.onToggleFavorite,
     this.onToggleHidden,
     this.showContextMenu = true,
+    this.categoryId,
+    this.categoryName,
+    this.onHideCategory,
   });
 
   @override
@@ -156,6 +162,9 @@ class _ContentItemCardWidgetState extends State<ContentItemCardWidget> {
                       showContextMenu: widget.showContextMenu,
                       onToggleFavorite: widget.onToggleFavorite,
                       onToggleHidden: widget.onToggleHidden,
+                      categoryId: widget.categoryId,
+                      categoryName: widget.categoryName,
+                      onHideCategory: widget.onHideCategory,
                       key: widget.key,
                     ),
                   );
@@ -185,6 +194,9 @@ class _ContentItemCardWidgetState extends State<ContentItemCardWidget> {
                     showContextMenu: widget.showContextMenu,
                     onToggleFavorite: widget.onToggleFavorite,
                     onToggleHidden: widget.onToggleHidden,
+                    categoryId: widget.categoryId,
+                    categoryName: widget.categoryName,
+                    onHideCategory: widget.onHideCategory,
                     key: widget.key,
                   ),
                 );

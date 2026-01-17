@@ -24,6 +24,7 @@ import '../m3u/m3u_data_loader_screen.dart';
 import '../playlist_screen.dart';
 import '../xtream-codes/xtream_code_data_loader_screen.dart';
 import 'category_settings_section.dart';
+import 'renaming_rules_screen.dart';
 
 final controller = XtreamCodeHomeController(true);
 
@@ -205,6 +206,21 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
                     }
                   },
                 ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.find_replace),
+                title: const Text('Renaming Rules'),
+                subtitle: const Text('Find and replace text in names'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const RenamingRulesScreen(),
+                    ),
+                  );
+                },
+              ),
               const Divider(height: 1),
               DropdownTileWidget<Locale>(
                 icon: Icons.language,

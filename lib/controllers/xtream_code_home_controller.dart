@@ -22,40 +22,44 @@ class XtreamCodeHomeController extends ChangeNotifier {
   final List<CategoryViewModel> _movieCategories = [];
   final List<CategoryViewModel> _seriesCategories = [];
 
-  // --- Categoriy hidden ---
-  final Set<String> _hiddenMovieCategoryIds = {};
-  final Set<String> _hiddenSeriesCategoryIds = {};
+  // --- Category hidden ---
+  Set<String> _hiddenCategoryIds = {};
 
-  // Getters publics
-  Set<String> get hiddenMovieCategoryIds => _hiddenMovieCategoryIds;
-  Set<String> get hiddenSeriesCategoryIds => _hiddenSeriesCategoryIds;
+  // Getter for hidden category IDs
+  Set<String> get hiddenCategoryIds => _hiddenCategoryIds;
 
-  // Fonctions toggle
-  void toggleMovieCategoryVisibility(String categoryId) {
-    if (_hiddenMovieCategoryIds.contains(categoryId)) {
-      _hiddenMovieCategoryIds.remove(categoryId);
-    } else {
-      _hiddenMovieCategoryIds.add(categoryId);
-    }
+  // Load hidden categories from preferences
+  Future<void> loadHiddenCategories() async {
+    final hidden = await UserPreferences.getHiddenCategories();
+    _hiddenCategoryIds = hidden.toSet();
     notifyListeners();
   }
 
-  void toggleSeriesCategoryVisibility(String categoryId) {
-    if (_hiddenSeriesCategoryIds.contains(categoryId)) {
-      _hiddenSeriesCategoryIds.remove(categoryId);
-    } else {
-      _hiddenSeriesCategoryIds.add(categoryId);
-    }
+  // Hide a category and update UI immediately
+  Future<void> hideCategory(String categoryId) async {
+    _hiddenCategoryIds.add(categoryId);
+    await UserPreferences.hideCategory(categoryId);
     notifyListeners();
   }
 
-  // Getters filtrés
+  // Unhide a category and update UI immediately
+  Future<void> unhideCategory(String categoryId) async {
+    _hiddenCategoryIds.remove(categoryId);
+    await UserPreferences.unhideCategory(categoryId);
+    notifyListeners();
+  }
+
+  // Getters for visible categories (filtered by hidden)
+  List<CategoryViewModel> get visibleLiveCategories => _liveCategories
+      .where((c) => !_hiddenCategoryIds.contains(c.category.categoryId))
+      .toList();
+
   List<CategoryViewModel> get visibleMovieCategories => _movieCategories
-      .where((c) => !_hiddenMovieCategoryIds.contains(c.category.categoryId))
+      .where((c) => !_hiddenCategoryIds.contains(c.category.categoryId))
       .toList();
 
   List<CategoryViewModel> get visibleSeriesCategories => _seriesCategories
-      .where((c) => !_hiddenSeriesCategoryIds.contains(c.category.categoryId))
+      .where((c) => !_hiddenCategoryIds.contains(c.category.categoryId))
       .toList();
 
   // Getters
@@ -73,7 +77,12 @@ class XtreamCodeHomeController extends ChangeNotifier {
 
   XtreamCodeHomeController(bool all) {
     _pageController = PageController();
-    _loadCategories(all);
+    _initializeData(all);
+  }
+
+  Future<void> _initializeData(bool all) async {
+    await loadHiddenCategories();
+    await _loadCategories(all);
   }
 
   @override

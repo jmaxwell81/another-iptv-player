@@ -3,9 +3,11 @@ import 'dart:ui';
 import 'package:another_iptv_player/l10n/localization_extension.dart';
 import 'package:another_iptv_player/models/api_configuration_model.dart';
 import 'package:another_iptv_player/models/content_type.dart';
+import 'package:another_iptv_player/models/favorite.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
 import 'package:another_iptv_player/models/watch_history.dart';
 import 'package:another_iptv_player/repositories/iptv_repository.dart';
+import 'package:another_iptv_player/repositories/favorites_repository.dart';
 import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/services/watch_history_service.dart';
 import 'package:another_iptv_player/utils/get_playlist_type.dart';
@@ -14,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../widgets/player_widget.dart';
 
@@ -29,17 +32,20 @@ class MovieScreen extends StatefulWidget {
 class _MovieScreenState extends State<MovieScreen> {
   late final WatchHistoryService _watchHistoryService;
   late final IptvRepository? _repository;
+  late final FavoritesRepository _favoritesRepository;
 
   WatchHistory? _watchHistory;
   Map<String, dynamic>? _vodInfo;
   bool _isLoadingHistory = true;
   bool _isLoadingVodInfo = true;
   List<ContentItem> _categoryMovies = [];
+  bool _isFavorite = false;
 
   @override
   void initState() {
     super.initState();
     _watchHistoryService = WatchHistoryService();
+    _favoritesRepository = FavoritesRepository();
 
     if (isXtreamCode && AppState.currentPlaylist != null) {
       _repository = IptvRepository(
@@ -57,6 +63,70 @@ class _MovieScreenState extends State<MovieScreen> {
     _loadWatchHistory();
     _loadVodInfo();
     _loadCategoryMovies();
+    _checkFavoriteStatus();
+  }
+
+  Future<void> _checkFavoriteStatus() async {
+    try {
+      final isFav = await _favoritesRepository.isFavorite(
+        widget.contentItem.id,
+        widget.contentItem.contentType,
+      );
+      if (mounted) {
+        setState(() {
+          _isFavorite = isFav;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error checking favorite status: $e');
+    }
+  }
+
+  Future<void> _toggleFavorite() async {
+    try {
+      if (_isFavorite) {
+        await _favoritesRepository.removeFavorite(
+          widget.contentItem.id,
+          widget.contentItem.contentType,
+        );
+        if (mounted) {
+          setState(() {
+            _isFavorite = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.loc.removed_from_favorites)),
+          );
+        }
+      } else {
+        final now = DateTime.now();
+        final favorite = Favorite(
+          id: const Uuid().v4(),
+          playlistId: AppState.currentPlaylist!.id,
+          contentType: widget.contentItem.contentType,
+          streamId: widget.contentItem.id,
+          name: widget.contentItem.name,
+          imagePath: widget.contentItem.imagePath,
+          createdAt: now,
+          updatedAt: now,
+        );
+        await _favoritesRepository.addFavoriteFromData(favorite);
+        if (mounted) {
+          setState(() {
+            _isFavorite = true;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.loc.added_to_favorites)),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error toggling favorite: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _loadCategoryMovies() async {
@@ -277,6 +347,25 @@ class _MovieScreenState extends State<MovieScreen> {
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
+        actions: [
+          Container(
+            margin: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.5),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: Icon(
+                _isFavorite ? Icons.star : Icons.star_border,
+                color: _isFavorite ? Colors.amber : Colors.white,
+              ),
+              onPressed: _toggleFavorite,
+              tooltip: _isFavorite
+                  ? context.loc.remove_from_favorites
+                  : context.loc.add_to_favorites,
+            ),
+          ),
+        ],
       ),
       body: Stack(
         fit: StackFit.expand,

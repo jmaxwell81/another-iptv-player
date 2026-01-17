@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:another_iptv_player/models/renaming_rule.dart';
 
 class UserPreferences {
   static const String _keyLastPlaylist = 'last_playlist';
@@ -26,6 +28,7 @@ class UserPreferences {
   static const String _keySeekGesture = 'seek_gesture';
   static const String _keySpeedUpOnLongPress = 'speed_up_on_long_press';
   static const String _keySeekOnDoubleTap = 'seek_on_double_tap';
+  static const String _renamingRulesKey = 'renaming_rules';
 
   static Future<void> setLastPlaylist(String playlistId) async {
     final prefs = await SharedPreferences.getInstance();
@@ -217,6 +220,32 @@ class UserPreferences {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getStringList(_hiddenCategoriesKey) ?? [];
   }
+
+  static Future<void> toggleHiddenCategory(String categoryId) async {
+    final hidden = await getHiddenCategories();
+    if (hidden.contains(categoryId)) {
+      hidden.remove(categoryId);
+    } else {
+      hidden.add(categoryId);
+    }
+    await setHiddenCategories(hidden);
+  }
+
+  static Future<void> hideCategory(String categoryId) async {
+    final hidden = await getHiddenCategories();
+    if (!hidden.contains(categoryId)) {
+      hidden.add(categoryId);
+      await setHiddenCategories(hidden);
+    }
+  }
+
+  static Future<void> unhideCategory(String categoryId) async {
+    final hidden = await getHiddenCategories();
+    if (hidden.contains(categoryId)) {
+      hidden.remove(categoryId);
+      await setHiddenCategories(hidden);
+    }
+  }
   
   static Future<void> setThemeMode(ThemeMode mode) async {
     final prefs = await SharedPreferences.getInstance();
@@ -285,5 +314,58 @@ class UserPreferences {
   static Future<void> setSeekOnDoubleTap(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keySeekOnDoubleTap, value);
+  }
+
+  // Renaming Rules
+  static Future<List<RenamingRule>> getRenamingRules() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_renamingRulesKey);
+    if (jsonString == null || jsonString.isEmpty) {
+      return [];
+    }
+    try {
+      final List<dynamic> jsonList = jsonDecode(jsonString);
+      return jsonList
+          .map((json) => RenamingRule.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  static Future<void> setRenamingRules(List<RenamingRule> rules) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = rules.map((rule) => rule.toJson()).toList();
+    await prefs.setString(_renamingRulesKey, jsonEncode(jsonList));
+  }
+
+  static Future<void> addRenamingRule(RenamingRule rule) async {
+    final rules = await getRenamingRules();
+    rules.add(rule);
+    await setRenamingRules(rules);
+  }
+
+  static Future<void> updateRenamingRule(RenamingRule updatedRule) async {
+    final rules = await getRenamingRules();
+    final index = rules.indexWhere((r) => r.id == updatedRule.id);
+    if (index != -1) {
+      rules[index] = updatedRule;
+      await setRenamingRules(rules);
+    }
+  }
+
+  static Future<void> deleteRenamingRule(String ruleId) async {
+    final rules = await getRenamingRules();
+    rules.removeWhere((r) => r.id == ruleId);
+    await setRenamingRules(rules);
+  }
+
+  static Future<void> toggleRenamingRule(String ruleId) async {
+    final rules = await getRenamingRules();
+    final index = rules.indexWhere((r) => r.id == ruleId);
+    if (index != -1) {
+      rules[index] = rules[index].copyWith(isEnabled: !rules[index].isEnabled);
+      await setRenamingRules(rules);
+    }
   }
 }

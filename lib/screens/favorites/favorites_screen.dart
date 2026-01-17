@@ -15,7 +15,7 @@ import '../../utils/get_playlist_type.dart';
 import '../../l10n/localization_extension.dart';
 import '../../repositories/favorites_repository.dart';
 
-class FavoritesScreen extends StatefulWidget {
+class FavoritesScreen extends StatelessWidget {
   final String playlistId;
   final Key? screenKey;
 
@@ -26,40 +26,11 @@ class FavoritesScreen extends StatefulWidget {
   });
 
   @override
-  State<FavoritesScreen> createState() => _FavoritesScreenState();
-}
-
-class _FavoritesScreenState extends State<FavoritesScreen> {
-  late FavoritesController _favoritesController;
-
-  @override
-  void initState() {
-    super.initState();
-    _favoritesController = FavoritesController();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _refreshData();
-    });
-  }
-
-  void _refreshData() {
-    if (mounted) {
-      _favoritesController.loadFavorites();
-    }
-  }
-
-  @override
-  void dispose() {
-    _favoritesController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider.value(
-      value: _favoritesController,
-      child: Scaffold(
-        body: Consumer<FavoritesController>(
-          builder: (context, controller, child) {
+    // Use the FavoritesController from the parent provider (xtream_code_home_screen or m3u_home_screen)
+    return Scaffold(
+      body: Consumer<FavoritesController>(
+        builder: (context, controller, child) {
             if (controller.isLoading) {
               return const Center(child: CircularProgressIndicator());
             }
@@ -72,16 +43,15 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               });
             }
 
-            return RefreshIndicator(
-              onRefresh: () async {
-                await controller.loadFavorites();
-              },
-              child: controller.favorites.isEmpty
-                  ? _buildEmptyState(context)
-                  : _buildContent(context, controller),
-            );
-          },
-        ),
+          return RefreshIndicator(
+            onRefresh: () async {
+              await controller.loadFavorites();
+            },
+            child: controller.favorites.isEmpty
+                ? _buildEmptyState(context)
+                : _buildContent(context, controller),
+          );
+        },
       ),
     );
   }

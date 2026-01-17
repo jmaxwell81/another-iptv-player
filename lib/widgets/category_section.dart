@@ -1,4 +1,5 @@
 import 'package:another_iptv_player/l10n/localization_extension.dart';
+import 'package:another_iptv_player/utils/renaming_extension.dart';
 import 'package:flutter/material.dart';
 import 'package:another_iptv_player/models/category_view_model.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
@@ -16,6 +17,7 @@ class CategorySection extends StatelessWidget {
   final Function(ContentItem)? onToggleFavorite;
   final Function(ContentItem)? onToggleHidden;
   final bool showContextMenu;
+  final Function(String categoryId, String categoryName)? onHideCategory;
 
   const CategorySection({
     super.key,
@@ -29,6 +31,7 @@ class CategorySection extends StatelessWidget {
     this.onToggleFavorite,
     this.onToggleHidden,
     this.showContextMenu = true,
+    this.onHideCategory,
   });
 
   @override
@@ -46,7 +49,9 @@ class CategorySection extends StatelessWidget {
               children: [
                 Expanded(
                   child: SelectableText(
-                    category.category.categoryName,
+                    category.category.categoryName.applyRenamingRules(
+                      isCategory: true,
+                    ),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -73,6 +78,9 @@ class CategorySection extends StatelessWidget {
             onToggleFavorite: onToggleFavorite,
             onToggleHidden: onToggleHidden,
             showContextMenu: showContextMenu,
+            categoryId: category.category.categoryId,
+            categoryName: category.category.categoryName,
+            onHideCategory: onHideCategory,
             key: key,
           ),
         ],

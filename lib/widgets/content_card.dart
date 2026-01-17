@@ -1,4 +1,5 @@
 import 'package:another_iptv_player/l10n/localization_extension.dart';
+import 'package:another_iptv_player/utils/renaming_extension.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
@@ -14,6 +15,9 @@ class ContentCard extends StatefulWidget {
   final Function(ContentItem)? onToggleFavorite;
   final Function(ContentItem)? onToggleHidden;
   final bool isHidden;
+  final String? categoryId;
+  final String? categoryName;
+  final Function(String categoryId, String categoryName)? onHideCategory;
 
   const ContentCard({
     super.key,
@@ -26,6 +30,9 @@ class ContentCard extends StatefulWidget {
     this.onToggleFavorite,
     this.onToggleHidden,
     this.isHidden = false,
+    this.categoryId,
+    this.categoryName,
+    this.onHideCategory,
   });
 
   @override
@@ -154,7 +161,9 @@ class _ContentCardState extends State<ContentCard> {
                       ),
                       color: Colors.black.withOpacity(0.7),
                       child: Text(
-                        widget.content.name,
+                        widget.content.name.applyRenamingRules(
+                          contentType: widget.content.contentType,
+                        ),
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
@@ -201,6 +210,8 @@ class _ContentCardState extends State<ContentCard> {
       padding: EdgeInsets.zero,
       position: PopupMenuPosition.under,
       onSelected: (value) {
+        // onSelected is not called when onTap is used on PopupMenuItem
+        // Keeping for fallback but actual logic is in onTap
         switch (value) {
           case 'favorite':
             widget.onToggleFavorite?.call(widget.content);
@@ -210,43 +221,79 @@ class _ContentCardState extends State<ContentCard> {
             break;
         }
       },
-      itemBuilder: (context) => [
-        PopupMenuItem<String>(
-          value: 'favorite',
-          child: Row(
-            children: [
-              Icon(
-                widget.isFavorite ? Icons.star : Icons.star_border,
-                color: widget.isFavorite ? Colors.amber : null,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                widget.isFavorite
-                    ? context.loc.remove_from_favorites
-                    : context.loc.add_to_favorites,
-              ),
-            ],
+      itemBuilder: (context) {
+        return [
+          PopupMenuItem<String>(
+            value: 'favorite',
+            onTap: () {
+              Future.delayed(Duration.zero, () {
+                widget.onToggleFavorite?.call(widget.content);
+              });
+            },
+            child: Row(
+              children: [
+                Icon(
+                  widget.isFavorite ? Icons.star : Icons.star_border,
+                  color: widget.isFavorite ? Colors.amber : null,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  widget.isFavorite
+                      ? context.loc.remove_from_favorites
+                      : context.loc.add_to_favorites,
+                ),
+              ],
+            ),
           ),
-        ),
-        PopupMenuItem<String>(
-          value: 'hidden',
-          child: Row(
-            children: [
-              Icon(
-                widget.isHidden ? Icons.visibility : Icons.visibility_off,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                widget.isHidden
-                    ? context.loc.unhide_item
-                    : context.loc.hide_item,
-              ),
-            ],
+          PopupMenuItem<String>(
+            value: 'hidden',
+            onTap: () {
+              Future.delayed(Duration.zero, () {
+                widget.onToggleHidden?.call(widget.content);
+              });
+            },
+            child: Row(
+              children: [
+                Icon(
+                  widget.isHidden ? Icons.visibility : Icons.visibility_off,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  widget.isHidden
+                      ? context.loc.unhide_item
+                      : context.loc.hide_item,
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+          if (widget.categoryId != null && widget.categoryName != null && widget.onHideCategory != null)
+            PopupMenuItem<String>(
+              value: 'hide_category',
+              onTap: () {
+                Future.delayed(Duration.zero, () {
+                  widget.onHideCategory?.call(widget.categoryId!, widget.categoryName!);
+                });
+              },
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.folder_off,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      'Hide "${widget.categoryName}"',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ];
+      },
     );
   }
 
@@ -266,7 +313,9 @@ class _ContentCardState extends State<ContentCard> {
         child: Padding(
           padding: const EdgeInsets.all(6),
           child: Text(
-            widget.content.name,
+            widget.content.name.applyRenamingRules(
+              contentType: widget.content.contentType,
+            ),
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 11,

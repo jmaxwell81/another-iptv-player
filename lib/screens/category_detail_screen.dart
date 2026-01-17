@@ -121,10 +121,10 @@ class _CategoryDetailViewState extends State<_CategoryDetailView> {
   void _toggleFavorite(BuildContext context, ContentItem item, FavoritesController controller) async {
     final isFav = controller.favorites.any((f) => f.streamId == item.id);
     if (isFav) {
-      await controller.removeFavoriteByStreamId(item.id);
+      final success = await controller.removeFavoriteByStreamId(item.id);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.loc.removed_from_favorites)),
+          SnackBar(content: Text(success ? context.loc.removed_from_favorites : 'Error removing favorite')),
         );
       }
     } else {
@@ -139,10 +139,10 @@ class _CategoryDetailViewState extends State<_CategoryDetailView> {
         createdAt: now,
         updatedAt: now,
       );
-      await controller.addFavoriteFromData(favorite);
+      final success = await controller.addFavoriteFromData(favorite);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.loc.added_to_favorites)),
+          SnackBar(content: Text(success ? context.loc.added_to_favorites : 'Error adding favorite')),
         );
       }
     }

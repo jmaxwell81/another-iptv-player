@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:another_iptv_player/models/content_type.dart';
 import 'package:another_iptv_player/models/watch_history.dart';
+import 'package:another_iptv_player/utils/renaming_extension.dart';
 
 class WatchHistoryCard extends StatelessWidget {
   final WatchHistory history;
@@ -88,7 +89,9 @@ class WatchHistoryCard extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        history.title,
+                        history.title.applyRenamingRules(
+                          contentType: history.contentType,
+                        ),
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 12,

@@ -3,6 +3,7 @@ import 'package:another_iptv_player/models/playlist_content_model.dart';
 import 'package:another_iptv_player/services/event_bus.dart';
 import 'package:another_iptv_player/services/player_state.dart';
 import 'package:another_iptv_player/l10n/localization_extension.dart';
+import 'package:another_iptv_player/utils/renaming_extension.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -194,7 +195,9 @@ class _VideoInfoWidgetState extends State<VideoInfoWidget> {
                           _buildInfoRow(
                             context,
                             context.loc.name,
-                            currentContent.name,
+                            currentContent.name.applyRenamingRules(
+                              contentType: currentContent.contentType,
+                            ),
                             Icons.title,
                           ),
                           const SizedBox(height: 12),
