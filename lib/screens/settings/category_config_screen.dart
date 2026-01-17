@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:another_iptv_player/models/category.dart';
 import 'package:another_iptv_player/models/category_config.dart';
 import 'package:another_iptv_player/models/category_type.dart';
+import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/services/category_config_service.dart';
 import 'package:another_iptv_player/utils/renaming_extension.dart';
 
@@ -25,16 +26,10 @@ class CategoryListItem {
 
 class CategoryConfigScreen extends StatefulWidget {
   final String playlistId;
-  final List<Category> liveCategories;
-  final List<Category> vodCategories;
-  final List<Category> seriesCategories;
 
   const CategoryConfigScreen({
     super.key,
     required this.playlistId,
-    required this.liveCategories,
-    required this.vodCategories,
-    required this.seriesCategories,
   });
 
   @override
@@ -49,11 +44,16 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
   final Set<String> _selectedIds = {};
   bool _isSelectionMode = false;
 
+  // Categories loaded from repository
+  List<Category> _liveCategories = [];
+  List<Category> _vodCategories = [];
+  List<Category> _seriesCategories = [];
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _loadConfig();
+    _loadData();
   }
 
   @override
@@ -62,8 +62,22 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
     super.dispose();
   }
 
-  Future<void> _loadConfig() async {
+  Future<void> _loadData() async {
     setState(() => _isLoading = true);
+
+    // Load categories from repository
+    final repository = AppState.xtreamCodeRepository;
+    if (repository != null) {
+      final liveCategories = await repository.getLiveCategories();
+      final vodCategories = await repository.getVodCategories();
+      final seriesCategories = await repository.getSeriesCategories();
+
+      _liveCategories = liveCategories ?? [];
+      _vodCategories = vodCategories ?? [];
+      _seriesCategories = seriesCategories ?? [];
+    }
+
+    // Load config
     final config = await CategoryConfigService().getConfig(widget.playlistId);
     setState(() {
       _config = config;
@@ -74,11 +88,11 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
   List<Category> _getCategoriesForType(CategoryType type) {
     switch (type) {
       case CategoryType.live:
-        return widget.liveCategories;
+        return _liveCategories;
       case CategoryType.vod:
-        return widget.vodCategories;
+        return _vodCategories;
       case CategoryType.series:
-        return widget.seriesCategories;
+        return _seriesCategories;
     }
   }
 
@@ -204,7 +218,7 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
         displayName: name,
       );
       _clearSelection();
-      await _loadConfig();
+      await _loadData();
     }
   }
 
@@ -215,7 +229,7 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
       type: type,
       mergeGroupId: mergeGroupId,
     );
-    await _loadConfig();
+    await _loadData();
   }
 
   Future<void> _moveToPosition(String itemId, int currentIndex) async {
@@ -238,7 +252,7 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
         itemId: itemId,
         newIndex: newPosition - 1,
       );
-      await _loadConfig();
+      await _loadData();
     }
   }
 
@@ -257,7 +271,7 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
         mergeGroupId: mergeGroupId,
         newName: newName,
       );
-      await _loadConfig();
+      await _loadData();
     }
   }
 
@@ -331,7 +345,7 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
           itemId: item.id,
           newIndex: newIndex,
         );
-        await _loadConfig();
+        await _loadData();
       },
       itemBuilder: (context, index) {
         final item = items[index];
