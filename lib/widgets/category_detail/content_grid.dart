@@ -7,11 +7,21 @@ import '../content_card.dart';
 class ContentGrid extends StatelessWidget {
   final List<ContentItem> items;
   final Function(ContentItem) onItemTap;
+  final Set<String>? favoriteStreamIds;
+  final Set<String>? hiddenStreamIds;
+  final Function(ContentItem)? onToggleFavorite;
+  final Function(ContentItem)? onToggleHidden;
+  final bool showContextMenu;
 
   const ContentGrid({
     super.key,
     required this.items,
     required this.onItemTap,
+    this.favoriteStreamIds,
+    this.hiddenStreamIds,
+    this.onToggleFavorite,
+    this.onToggleHidden,
+    this.showContextMenu = true,
   });
 
   @override
@@ -25,11 +35,19 @@ class ContentGrid extends StatelessWidget {
         mainAxisSpacing: 8,
       ),
       itemCount: items.length,
-      itemBuilder: (context, index) => ContentCard(
-        content: items[index],
-        width: 150,
-        onTap: () => onItemTap(items[index]),
-      ),
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return ContentCard(
+          content: item,
+          width: 150,
+          onTap: () => onItemTap(item),
+          isFavorite: favoriteStreamIds?.contains(item.id) ?? false,
+          isHidden: hiddenStreamIds?.contains(item.id) ?? false,
+          showContextMenu: showContextMenu,
+          onToggleFavorite: onToggleFavorite,
+          onToggleHidden: onToggleHidden,
+        );
+      },
     );
   }
 }

@@ -66,13 +66,47 @@ class FavoritesController extends ChangeNotifier {
   Future<bool> removeFavorite(String streamId, ContentType contentType, {String? episodeId}) async {
     try {
       _setError(null);
-      
+
       await _repository.removeFavorite(streamId, contentType, episodeId: episodeId);
       await loadFavorites();
-      
+
       return true;
     } catch (e) {
       _setError('Favori kaldırılırken hata oluştu: $e');
+      return false;
+    }
+  }
+
+  Future<bool> removeFavoriteByStreamId(String streamId) async {
+    try {
+      _setError(null);
+
+      final favorite = _favorites.firstWhere(
+        (f) => f.streamId == streamId,
+        orElse: () => throw Exception('Favorite not found'),
+      );
+      await _repository.removeFavorite(streamId, favorite.contentType);
+      _favorites.removeWhere((f) => f.streamId == streamId);
+      notifyListeners();
+
+      return true;
+    } catch (e) {
+      _setError('Favori kaldırılırken hata oluştu: $e');
+      return false;
+    }
+  }
+
+  Future<bool> addFavoriteFromData(Favorite favorite) async {
+    try {
+      _setError(null);
+
+      await _repository.addFavoriteFromData(favorite);
+      _favorites.insert(0, favorite);
+      notifyListeners();
+
+      return true;
+    } catch (e) {
+      _setError('Favori eklenirken hata oluştu: $e');
       return false;
     }
   }

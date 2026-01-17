@@ -197,6 +197,10 @@
   "select_all": "Select All",
   "deselect_all": "Deselect All",
   "hide_category": "Hide categories",
+  "hide_item": "Hide",
+  "unhide_item": "Unhide",
+  "item_hidden": "Item hidden",
+  "item_unhidden": "Item unhidden",
   "rating": "Rating",
   "remove_from_history": "Remove from History",
   "remove_from_history_confirmation": "Are you sure you want to remove this item from watch history?",
@@ -289,5 +293,15 @@
   "series_content_type": "Series",
   "last_update": "Last Update",
   "minutes": "min",
-  "duration_label": "Duration"
+  "duration_label": "Duration",
+  "no_favorites": "No Favorites Yet",
+  "add_favorites_hint": "Tap the heart icon on any content to add it to your favorites",
+  "mark_as_watched": "Mark as Watched",
+  "unmark_as_watched": "Unmark as Watched",
+  "marked_as_watched": "Marked as watched",
+  "unmarked_as_watched": "Unmarked as watched",
+  "hidden_items": "Hidden Items",
+  "no_hidden_items": "No Hidden Items",
+  "hidden_items_hint": "Items you mark as watched will appear here",
+  "continue_watching": "Continue Watching"
 }

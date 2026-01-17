@@ -197,6 +197,10 @@
   "select_all": "Alle auswählen",
   "deselect_all": "Auswahl aufheben",
   "hide_category": "Kategorien ausblenden",
+  "hide_item": "Ausblenden",
+  "unhide_item": "Einblenden",
+  "item_hidden": "Element ausgeblendet",
+  "item_unhidden": "Element eingeblendet",
   "rating": "Bewertung",
   "remove_from_history": "Aus Verlauf entfernen",
   "remove_from_history_confirmation": "Sind Sie sicher, dass Sie diesen Artikel aus dem Wiedergabeverlauf entfernen möchten?",
@@ -289,5 +293,14 @@
   "series_content_type": "Serie",
   "last_update": "Letzte Aktualisierung",
   "minutes": "Min",
-  "duration_label": "Dauer"
+  "duration_label": "Dauer",
+  "no_favorites": "Noch keine Favoriten",
+  "add_favorites_hint": "Tippen Sie auf das Herz-Symbol bei einem Inhalt, um ihn zu Ihren Favoriten hinzuzufügen",
+  "mark_as_watched": "Als gesehen markieren",
+  "unmark_as_watched": "Markierung aufheben",
+  "marked_as_watched": "Als gesehen markiert",
+  "unmarked_as_watched": "Markierung aufgehoben",
+  "hidden_items": "Ausgeblendete Elemente",
+  "no_hidden_items": "Keine ausgeblendeten Elemente",
+  "hidden_items_hint": "Elemente, die Sie als gesehen markieren, werden hier angezeigt"
 }

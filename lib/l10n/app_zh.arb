@@ -197,6 +197,10 @@
   "select_all": "全選",
   "deselect_all": "取消全選",
   "hide_category": "隱藏類別",
+  "hide_item": "隱藏",
+  "unhide_item": "顯示",
+  "item_hidden": "項目已隱藏",
+  "item_unhidden": "項目已顯示",
   "rating": "等級",
   "remove_from_history": "從歷史記錄中移除",
   "remove_from_history_confirmation": "您確定要從觀看歷史中移除此項目嗎？",
@@ -289,5 +293,14 @@
   "series_content_type": "剧集",
   "last_update": "最后更新",
   "minutes": "分钟",
-  "duration_label": "时长"
+  "duration_label": "时长",
+  "no_favorites": "暂无收藏",
+  "add_favorites_hint": "点击任何内容上的心形图标即可将其添加到收藏",
+  "mark_as_watched": "标记为已观看",
+  "unmark_as_watched": "取消已观看标记",
+  "marked_as_watched": "已标记为已观看",
+  "unmarked_as_watched": "已取消已观看标记",
+  "hidden_items": "隐藏的项目",
+  "no_hidden_items": "没有隐藏的项目",
+  "hidden_items_hint": "您标记为已观看的项目将显示在这里"
 }

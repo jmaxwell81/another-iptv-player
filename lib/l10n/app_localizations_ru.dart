@@ -651,6 +651,18 @@ class AppLocalizationsRu extends AppLocalizations {
   String get hide_category => 'Скрыть категории';
 
   @override
+  String get hide_item => 'Скрыть';
+
+  @override
+  String get unhide_item => 'Показать';
+
+  @override
+  String get item_hidden => 'Элемент скрыт';
+
+  @override
+  String get item_unhidden => 'Элемент показан';
+
+  @override
   String get rating => 'рейтинг';
 
   @override
@@ -844,4 +856,33 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get duration_label => 'Продолжительность';
+
+  @override
+  String get no_favorites => 'Пока нет избранного';
+
+  @override
+  String get add_favorites_hint =>
+      'Нажмите на значок сердца на любом контенте, чтобы добавить его в избранное';
+
+  @override
+  String get mark_as_watched => 'Отметить как просмотренное';
+
+  @override
+  String get unmark_as_watched => 'Снять отметку просмотра';
+
+  @override
+  String get marked_as_watched => 'Отмечено как просмотренное';
+
+  @override
+  String get unmarked_as_watched => 'Отметка просмотра снята';
+
+  @override
+  String get hidden_items => 'Скрытые элементы';
+
+  @override
+  String get no_hidden_items => 'Нет скрытых элементов';
+
+  @override
+  String get hidden_items_hint =>
+      'Элементы, которые вы отметите как просмотренные, появятся здесь';
 }

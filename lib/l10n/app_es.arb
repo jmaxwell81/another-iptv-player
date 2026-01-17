@@ -197,6 +197,10 @@
   "select_all": "Seleccionar todo",
   "deselect_all": "Deseleccionar todo",
   "hide_category": "Ocultar categorías",
+  "hide_item": "Ocultar",
+  "unhide_item": "Mostrar",
+  "item_hidden": "Elemento oculto",
+  "item_unhidden": "Elemento visible",
   "rating": "Clasificación",
   "remove_from_history": "Eliminar del historial",
   "remove_from_history_confirmation": "¿Estás seguro de que quieres eliminar este elemento del historial de reproducción?",
@@ -289,5 +293,14 @@
   "series_content_type": "Serie",
   "last_update": "Última Actualización",
   "minutes": "min",
-  "duration_label": "Duración"
+  "duration_label": "Duración",
+  "no_favorites": "Aún no hay favoritos",
+  "add_favorites_hint": "Toca el icono del corazón en cualquier contenido para agregarlo a tus favoritos",
+  "mark_as_watched": "Marcar como visto",
+  "unmark_as_watched": "Desmarcar como visto",
+  "marked_as_watched": "Marcado como visto",
+  "unmarked_as_watched": "Desmarcado como visto",
+  "hidden_items": "Elementos ocultos",
+  "no_hidden_items": "No hay elementos ocultos",
+  "hidden_items_hint": "Los elementos que marques como vistos aparecerán aquí"
 }

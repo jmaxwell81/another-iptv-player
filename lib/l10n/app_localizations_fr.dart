@@ -657,6 +657,18 @@ class AppLocalizationsFr extends AppLocalizations {
   String get hide_category => 'Masquer les catégories';
 
   @override
+  String get hide_item => 'Masquer';
+
+  @override
+  String get unhide_item => 'Afficher';
+
+  @override
+  String get item_hidden => 'Élément masqué';
+
+  @override
+  String get item_unhidden => 'Élément affiché';
+
+  @override
   String get rating => 'Note';
 
   @override
@@ -851,4 +863,33 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get duration_label => 'Durée';
+
+  @override
+  String get no_favorites => 'Pas encore de favoris';
+
+  @override
+  String get add_favorites_hint =>
+      'Appuyez sur l\'icône de cœur sur n\'importe quel contenu pour l\'ajouter à vos favoris';
+
+  @override
+  String get mark_as_watched => 'Marquer comme vu';
+
+  @override
+  String get unmark_as_watched => 'Retirer le marquage';
+
+  @override
+  String get marked_as_watched => 'Marqué comme vu';
+
+  @override
+  String get unmarked_as_watched => 'Marquage retiré';
+
+  @override
+  String get hidden_items => 'Éléments masqués';
+
+  @override
+  String get no_hidden_items => 'Aucun élément masqué';
+
+  @override
+  String get hidden_items_hint =>
+      'Les éléments que vous marquez comme vus apparaîtront ici';
 }

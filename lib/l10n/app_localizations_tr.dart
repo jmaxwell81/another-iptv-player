@@ -648,6 +648,18 @@ class AppLocalizationsTr extends AppLocalizations {
   String get hide_category => 'Kategorileri Gizle';
 
   @override
+  String get hide_item => 'Gizle';
+
+  @override
+  String get unhide_item => 'Göster';
+
+  @override
+  String get item_hidden => 'Öğe gizlendi';
+
+  @override
+  String get item_unhidden => 'Öğe gösterildi';
+
+  @override
   String get rating => 'Puan';
 
   @override
@@ -841,4 +853,33 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get duration_label => 'Süre';
+
+  @override
+  String get no_favorites => 'Henüz favori yok';
+
+  @override
+  String get add_favorites_hint =>
+      'Favorilerinize eklemek için herhangi bir içerikte kalp simgesine dokunun';
+
+  @override
+  String get mark_as_watched => 'İzlendi olarak işaretle';
+
+  @override
+  String get unmark_as_watched => 'İzlendi işaretini kaldır';
+
+  @override
+  String get marked_as_watched => 'İzlendi olarak işaretlendi';
+
+  @override
+  String get unmarked_as_watched => 'İzlendi işareti kaldırıldı';
+
+  @override
+  String get hidden_items => 'Gizli Öğeler';
+
+  @override
+  String get no_hidden_items => 'Gizli öğe yok';
+
+  @override
+  String get hidden_items_hint =>
+      'İzlendi olarak işaretlediğiniz öğeler burada görünecek';
 }

@@ -10275,6 +10275,474 @@ class FavoritesCompanion extends UpdateCompanion<FavoritesData> {
   }
 }
 
+class $HiddenItemsTable extends HiddenItems
+    with TableInfo<$HiddenItemsTable, HiddenItemsData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $HiddenItemsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _playlistIdMeta = const VerificationMeta(
+    'playlistId',
+  );
+  @override
+  late final GeneratedColumn<String> playlistId = GeneratedColumn<String>(
+    'playlist_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentTypeMeta = const VerificationMeta(
+    'contentType',
+  );
+  @override
+  late final GeneratedColumn<int> contentType = GeneratedColumn<int>(
+    'content_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _streamIdMeta = const VerificationMeta(
+    'streamId',
+  );
+  @override
+  late final GeneratedColumn<String> streamId = GeneratedColumn<String>(
+    'stream_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _imagePathMeta = const VerificationMeta(
+    'imagePath',
+  );
+  @override
+  late final GeneratedColumn<String> imagePath = GeneratedColumn<String>(
+    'image_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    playlistId,
+    contentType,
+    streamId,
+    name,
+    imagePath,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'hidden_items';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<HiddenItemsData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('playlist_id')) {
+      context.handle(
+        _playlistIdMeta,
+        playlistId.isAcceptableOrUnknown(data['playlist_id']!, _playlistIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_playlistIdMeta);
+    }
+    if (data.containsKey('content_type')) {
+      context.handle(
+        _contentTypeMeta,
+        contentType.isAcceptableOrUnknown(
+          data['content_type']!,
+          _contentTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_contentTypeMeta);
+    }
+    if (data.containsKey('stream_id')) {
+      context.handle(
+        _streamIdMeta,
+        streamId.isAcceptableOrUnknown(data['stream_id']!, _streamIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_streamIdMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('image_path')) {
+      context.handle(
+        _imagePathMeta,
+        imagePath.isAcceptableOrUnknown(data['image_path']!, _imagePathMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  HiddenItemsData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return HiddenItemsData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      playlistId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}playlist_id'],
+      )!,
+      contentType: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}content_type'],
+      )!,
+      streamId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}stream_id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      imagePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}image_path'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $HiddenItemsTable createAlias(String alias) {
+    return $HiddenItemsTable(attachedDatabase, alias);
+  }
+}
+
+class HiddenItemsData extends DataClass implements Insertable<HiddenItemsData> {
+  final String id;
+  final String playlistId;
+  final int contentType;
+  final String streamId;
+  final String name;
+  final String? imagePath;
+  final DateTime createdAt;
+  const HiddenItemsData({
+    required this.id,
+    required this.playlistId,
+    required this.contentType,
+    required this.streamId,
+    required this.name,
+    this.imagePath,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['playlist_id'] = Variable<String>(playlistId);
+    map['content_type'] = Variable<int>(contentType);
+    map['stream_id'] = Variable<String>(streamId);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || imagePath != null) {
+      map['image_path'] = Variable<String>(imagePath);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  HiddenItemsCompanion toCompanion(bool nullToAbsent) {
+    return HiddenItemsCompanion(
+      id: Value(id),
+      playlistId: Value(playlistId),
+      contentType: Value(contentType),
+      streamId: Value(streamId),
+      name: Value(name),
+      imagePath: imagePath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(imagePath),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory HiddenItemsData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return HiddenItemsData(
+      id: serializer.fromJson<String>(json['id']),
+      playlistId: serializer.fromJson<String>(json['playlistId']),
+      contentType: serializer.fromJson<int>(json['contentType']),
+      streamId: serializer.fromJson<String>(json['streamId']),
+      name: serializer.fromJson<String>(json['name']),
+      imagePath: serializer.fromJson<String?>(json['imagePath']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'playlistId': serializer.toJson<String>(playlistId),
+      'contentType': serializer.toJson<int>(contentType),
+      'streamId': serializer.toJson<String>(streamId),
+      'name': serializer.toJson<String>(name),
+      'imagePath': serializer.toJson<String?>(imagePath),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  HiddenItemsData copyWith({
+    String? id,
+    String? playlistId,
+    int? contentType,
+    String? streamId,
+    String? name,
+    Value<String?> imagePath = const Value.absent(),
+    DateTime? createdAt,
+  }) => HiddenItemsData(
+    id: id ?? this.id,
+    playlistId: playlistId ?? this.playlistId,
+    contentType: contentType ?? this.contentType,
+    streamId: streamId ?? this.streamId,
+    name: name ?? this.name,
+    imagePath: imagePath.present ? imagePath.value : this.imagePath,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  HiddenItemsData copyWithCompanion(HiddenItemsCompanion data) {
+    return HiddenItemsData(
+      id: data.id.present ? data.id.value : this.id,
+      playlistId: data.playlistId.present
+          ? data.playlistId.value
+          : this.playlistId,
+      contentType: data.contentType.present
+          ? data.contentType.value
+          : this.contentType,
+      streamId: data.streamId.present ? data.streamId.value : this.streamId,
+      name: data.name.present ? data.name.value : this.name,
+      imagePath: data.imagePath.present ? data.imagePath.value : this.imagePath,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HiddenItemsData(')
+          ..write('id: $id, ')
+          ..write('playlistId: $playlistId, ')
+          ..write('contentType: $contentType, ')
+          ..write('streamId: $streamId, ')
+          ..write('name: $name, ')
+          ..write('imagePath: $imagePath, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    playlistId,
+    contentType,
+    streamId,
+    name,
+    imagePath,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is HiddenItemsData &&
+          other.id == this.id &&
+          other.playlistId == this.playlistId &&
+          other.contentType == this.contentType &&
+          other.streamId == this.streamId &&
+          other.name == this.name &&
+          other.imagePath == this.imagePath &&
+          other.createdAt == this.createdAt);
+}
+
+class HiddenItemsCompanion extends UpdateCompanion<HiddenItemsData> {
+  final Value<String> id;
+  final Value<String> playlistId;
+  final Value<int> contentType;
+  final Value<String> streamId;
+  final Value<String> name;
+  final Value<String?> imagePath;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const HiddenItemsCompanion({
+    this.id = const Value.absent(),
+    this.playlistId = const Value.absent(),
+    this.contentType = const Value.absent(),
+    this.streamId = const Value.absent(),
+    this.name = const Value.absent(),
+    this.imagePath = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  HiddenItemsCompanion.insert({
+    required String id,
+    required String playlistId,
+    required int contentType,
+    required String streamId,
+    required String name,
+    this.imagePath = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       playlistId = Value(playlistId),
+       contentType = Value(contentType),
+       streamId = Value(streamId),
+       name = Value(name);
+  static Insertable<HiddenItemsData> custom({
+    Expression<String>? id,
+    Expression<String>? playlistId,
+    Expression<int>? contentType,
+    Expression<String>? streamId,
+    Expression<String>? name,
+    Expression<String>? imagePath,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (playlistId != null) 'playlist_id': playlistId,
+      if (contentType != null) 'content_type': contentType,
+      if (streamId != null) 'stream_id': streamId,
+      if (name != null) 'name': name,
+      if (imagePath != null) 'image_path': imagePath,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  HiddenItemsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? playlistId,
+    Value<int>? contentType,
+    Value<String>? streamId,
+    Value<String>? name,
+    Value<String?>? imagePath,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return HiddenItemsCompanion(
+      id: id ?? this.id,
+      playlistId: playlistId ?? this.playlistId,
+      contentType: contentType ?? this.contentType,
+      streamId: streamId ?? this.streamId,
+      name: name ?? this.name,
+      imagePath: imagePath ?? this.imagePath,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (playlistId.present) {
+      map['playlist_id'] = Variable<String>(playlistId.value);
+    }
+    if (contentType.present) {
+      map['content_type'] = Variable<int>(contentType.value);
+    }
+    if (streamId.present) {
+      map['stream_id'] = Variable<String>(streamId.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (imagePath.present) {
+      map['image_path'] = Variable<String>(imagePath.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HiddenItemsCompanion(')
+          ..write('id: $id, ')
+          ..write('playlistId: $playlistId, ')
+          ..write('contentType: $contentType, ')
+          ..write('streamId: $streamId, ')
+          ..write('name: $name, ')
+          ..write('imagePath: $imagePath, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -10293,6 +10761,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $M3uSeriesTable m3uSeries = $M3uSeriesTable(this);
   late final $M3uEpisodesTable m3uEpisodes = $M3uEpisodesTable(this);
   late final $FavoritesTable favorites = $FavoritesTable(this);
+  late final $HiddenItemsTable hiddenItems = $HiddenItemsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -10313,6 +10782,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     m3uSeries,
     m3uEpisodes,
     favorites,
+    hiddenItems,
   ];
 }
 
@@ -15225,6 +15695,248 @@ typedef $$FavoritesTableProcessedTableManager =
       FavoritesData,
       PrefetchHooks Function()
     >;
+typedef $$HiddenItemsTableCreateCompanionBuilder =
+    HiddenItemsCompanion Function({
+      required String id,
+      required String playlistId,
+      required int contentType,
+      required String streamId,
+      required String name,
+      Value<String?> imagePath,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$HiddenItemsTableUpdateCompanionBuilder =
+    HiddenItemsCompanion Function({
+      Value<String> id,
+      Value<String> playlistId,
+      Value<int> contentType,
+      Value<String> streamId,
+      Value<String> name,
+      Value<String?> imagePath,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$HiddenItemsTableFilterComposer
+    extends Composer<_$AppDatabase, $HiddenItemsTable> {
+  $$HiddenItemsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get playlistId => $composableBuilder(
+    column: $table.playlistId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get contentType => $composableBuilder(
+    column: $table.contentType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get streamId => $composableBuilder(
+    column: $table.streamId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get imagePath => $composableBuilder(
+    column: $table.imagePath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$HiddenItemsTableOrderingComposer
+    extends Composer<_$AppDatabase, $HiddenItemsTable> {
+  $$HiddenItemsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get playlistId => $composableBuilder(
+    column: $table.playlistId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get contentType => $composableBuilder(
+    column: $table.contentType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get streamId => $composableBuilder(
+    column: $table.streamId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get imagePath => $composableBuilder(
+    column: $table.imagePath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$HiddenItemsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $HiddenItemsTable> {
+  $$HiddenItemsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get playlistId => $composableBuilder(
+    column: $table.playlistId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get contentType => $composableBuilder(
+    column: $table.contentType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get streamId =>
+      $composableBuilder(column: $table.streamId, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get imagePath =>
+      $composableBuilder(column: $table.imagePath, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$HiddenItemsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $HiddenItemsTable,
+          HiddenItemsData,
+          $$HiddenItemsTableFilterComposer,
+          $$HiddenItemsTableOrderingComposer,
+          $$HiddenItemsTableAnnotationComposer,
+          $$HiddenItemsTableCreateCompanionBuilder,
+          $$HiddenItemsTableUpdateCompanionBuilder,
+          (
+            HiddenItemsData,
+            BaseReferences<_$AppDatabase, $HiddenItemsTable, HiddenItemsData>,
+          ),
+          HiddenItemsData,
+          PrefetchHooks Function()
+        > {
+  $$HiddenItemsTableTableManager(_$AppDatabase db, $HiddenItemsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$HiddenItemsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$HiddenItemsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$HiddenItemsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> playlistId = const Value.absent(),
+                Value<int> contentType = const Value.absent(),
+                Value<String> streamId = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> imagePath = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => HiddenItemsCompanion(
+                id: id,
+                playlistId: playlistId,
+                contentType: contentType,
+                streamId: streamId,
+                name: name,
+                imagePath: imagePath,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String playlistId,
+                required int contentType,
+                required String streamId,
+                required String name,
+                Value<String?> imagePath = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => HiddenItemsCompanion.insert(
+                id: id,
+                playlistId: playlistId,
+                contentType: contentType,
+                streamId: streamId,
+                name: name,
+                imagePath: imagePath,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$HiddenItemsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $HiddenItemsTable,
+      HiddenItemsData,
+      $$HiddenItemsTableFilterComposer,
+      $$HiddenItemsTableOrderingComposer,
+      $$HiddenItemsTableAnnotationComposer,
+      $$HiddenItemsTableCreateCompanionBuilder,
+      $$HiddenItemsTableUpdateCompanionBuilder,
+      (
+        HiddenItemsData,
+        BaseReferences<_$AppDatabase, $HiddenItemsTable, HiddenItemsData>,
+      ),
+      HiddenItemsData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -15259,4 +15971,6 @@ class $AppDatabaseManager {
       $$M3uEpisodesTableTableManager(_db, _db.m3uEpisodes);
   $$FavoritesTableTableManager get favorites =>
       $$FavoritesTableTableManager(_db, _db.favorites);
+  $$HiddenItemsTableTableManager get hiddenItems =>
+      $$HiddenItemsTableTableManager(_db, _db.hiddenItems);
 }

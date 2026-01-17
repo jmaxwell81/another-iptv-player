@@ -445,6 +445,26 @@ class Favorites extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+@DataClassName('HiddenItemsData')
+class HiddenItems extends Table {
+  TextColumn get id => text()();
+
+  TextColumn get playlistId => text()();
+
+  IntColumn get contentType => integer()();
+
+  TextColumn get streamId => text()();
+
+  TextColumn get name => text()();
+
+  TextColumn get imagePath => text().nullable()();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DriftDatabase(
   tables: [
     Playlists,
@@ -462,6 +482,7 @@ class Favorites extends Table {
     M3uSeries,
     M3uEpisodes,
     Favorites,
+    HiddenItems,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -489,7 +510,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   // === PLAYLIST İŞLEMLERİ ===
 
@@ -1646,12 +1667,79 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(favorites);
       }
 
-      if (from <= 8) {
+      if (from < 8) {
         await m.addColumn(vodStreams, vodStreams.genre);
         await m.addColumn(vodStreams, vodStreams.youtubeTrailer);
       }
+
+      if (from < 9) {
+        try {
+          await m.createTable(hiddenItems);
+        } catch (e) {
+          // Table might already exist, ignore error
+          print('HiddenItems table creation skipped: $e');
+        }
+      }
     },
   );
+
+  // === HIDDEN ITEMS CRUD ===
+
+  Future<void> insertHiddenItem(HiddenItemsCompanion item) async {
+    await into(hiddenItems).insert(item);
+  }
+
+  Future<void> deleteHiddenItem(String id) async {
+    await (delete(hiddenItems)..where((h) => h.id.equals(id))).go();
+  }
+
+  Future<void> deleteHiddenItemByStreamId(
+    String playlistId,
+    String streamId,
+    ContentType contentType,
+  ) async {
+    await (delete(hiddenItems)..where(
+          (h) =>
+              h.playlistId.equals(playlistId) &
+              h.streamId.equals(streamId) &
+              h.contentType.equals(contentType.index),
+        ))
+        .go();
+  }
+
+  Future<List<HiddenItemsData>> getAllHiddenItems() async {
+    return await select(hiddenItems).get();
+  }
+
+  Future<List<HiddenItemsData>> getHiddenItemsByPlaylist(
+    String playlistId,
+  ) async {
+    final query = select(hiddenItems)
+      ..where((h) => h.playlistId.equals(playlistId))
+      ..orderBy([(h) => OrderingTerm.desc(h.createdAt)]);
+    return await query.get();
+  }
+
+  Future<Set<String>> getHiddenStreamIds(String playlistId) async {
+    final items = await getHiddenItemsByPlaylist(playlistId);
+    return items.map((item) => item.streamId).toSet();
+  }
+
+  Future<bool> isHidden(
+    String playlistId,
+    String streamId,
+    ContentType contentType,
+  ) async {
+    final query = select(hiddenItems)
+      ..where(
+        (h) =>
+            h.playlistId.equals(playlistId) &
+            h.streamId.equals(streamId) &
+            h.contentType.equals(contentType.index),
+      );
+    final result = await query.getSingleOrNull();
+    return result != null;
+  }
 
   Future<void> deleteDatabase() async {
     await close();

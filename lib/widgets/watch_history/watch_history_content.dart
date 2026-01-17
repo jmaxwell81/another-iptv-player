@@ -6,24 +6,18 @@ import 'package:provider/provider.dart';
 import 'package:another_iptv_player/utils/responsive_helper.dart';
 import '../../controllers/watch_history_controller.dart';
 import '../../controllers/favorites_controller.dart';
-import '../../models/favorite.dart';
 import 'watch_history_section.dart';
-import 'favorites_section.dart';
 
 class WatchHistoryContent extends StatelessWidget {
   final Function(dynamic) onHistoryTap;
   final Function(dynamic) onHistoryRemove;
   final Function(String, List<WatchHistory>) onSeeAllTap;
-  final Function(Favorite)? onFavoriteRemove;
-  final VoidCallback? onSeeAllFavorites;
 
   const WatchHistoryContent({
     super.key,
     required this.onHistoryTap,
     required this.onHistoryRemove,
     required this.onSeeAllTap,
-    this.onFavoriteRemove,
-    this.onSeeAllFavorites,
   });
 
   @override
@@ -49,16 +43,22 @@ class WatchHistoryContent extends StatelessWidget {
           body: SingleChildScrollView(
             child: Column(
               children: [
-                Consumer<FavoritesController>(
-                  builder: (context, favoritesController, child) {
-                    return FavoritesSection(
-                      favorites: favoritesController.favorites,
-                      cardWidth: cardWidth,
-                      cardHeight: cardHeight,
-                      onSeeAllTap: onSeeAllFavorites,
-                      onFavoriteRemove: onFavoriteRemove,
-                    );
-                  },
+                // Continue Watching (Movies & Series with progress)
+                WatchHistorySection(
+                  title: context.loc.continue_watching,
+                  histories: controller.movieHistory.where((h) =>
+                      h.watchDuration != null &&
+                      h.totalDuration != null &&
+                      h.watchDuration!.inMilliseconds > 0 &&
+                      h.totalDuration!.inMilliseconds > 0 &&
+                      (h.watchDuration!.inMilliseconds / h.totalDuration!.inMilliseconds) < 0.95).toList(),
+                  cardWidth: cardWidth,
+                  cardHeight: cardHeight,
+                  showProgress: true,
+                  onHistoryTap: onHistoryTap,
+                  onHistoryRemove: onHistoryRemove,
+                  onSeeAllTap: () =>
+                      onSeeAllTap(context.loc.continue_watching, controller.movieHistory),
                 ),
                 WatchHistorySection(
                   title: context.loc.live_streams,

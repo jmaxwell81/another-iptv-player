@@ -1302,6 +1302,30 @@ abstract class AppLocalizations {
   /// **'Hide categories'**
   String get hide_category;
 
+  /// No description provided for @hide_item.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide'**
+  String get hide_item;
+
+  /// No description provided for @unhide_item.
+  ///
+  /// In en, this message translates to:
+  /// **'Unhide'**
+  String get unhide_item;
+
+  /// No description provided for @item_hidden.
+  ///
+  /// In en, this message translates to:
+  /// **'Item hidden'**
+  String get item_hidden;
+
+  /// No description provided for @item_unhidden.
+  ///
+  /// In en, this message translates to:
+  /// **'Item unhidden'**
+  String get item_unhidden;
+
   /// No description provided for @rating.
   ///
   /// In en, this message translates to:
@@ -1661,6 +1685,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Duration'**
   String get duration_label;
+
+  /// No description provided for @no_favorites.
+  ///
+  /// In en, this message translates to:
+  /// **'No Favorites Yet'**
+  String get no_favorites;
+
+  /// No description provided for @add_favorites_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the heart icon on any content to add it to your favorites'**
+  String get add_favorites_hint;
+
+  /// No description provided for @mark_as_watched.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark as Watched'**
+  String get mark_as_watched;
+
+  /// No description provided for @unmark_as_watched.
+  ///
+  /// In en, this message translates to:
+  /// **'Unmark as Watched'**
+  String get unmark_as_watched;
+
+  /// No description provided for @marked_as_watched.
+  ///
+  /// In en, this message translates to:
+  /// **'Marked as watched'**
+  String get marked_as_watched;
+
+  /// No description provided for @unmarked_as_watched.
+  ///
+  /// In en, this message translates to:
+  /// **'Unmarked as watched'**
+  String get unmarked_as_watched;
+
+  /// No description provided for @hidden_items.
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden Items'**
+  String get hidden_items;
+
+  /// No description provided for @no_hidden_items.
+  ///
+  /// In en, this message translates to:
+  /// **'No Hidden Items'**
+  String get no_hidden_items;
+
+  /// No description provided for @hidden_items_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Items you mark as watched will appear here'**
+  String get hidden_items_hint;
 }
 
 class _AppLocalizationsDelegate

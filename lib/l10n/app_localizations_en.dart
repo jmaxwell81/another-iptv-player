@@ -649,6 +649,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get hide_category => 'Hide categories';
 
   @override
+  String get hide_item => 'Hide';
+
+  @override
+  String get unhide_item => 'Unhide';
+
+  @override
+  String get item_hidden => 'Item hidden';
+
+  @override
+  String get item_unhidden => 'Item unhidden';
+
+  @override
   String get rating => 'Rating';
 
   @override
@@ -843,4 +855,32 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get duration_label => 'Duration';
+
+  @override
+  String get no_favorites => 'No Favorites Yet';
+
+  @override
+  String get add_favorites_hint =>
+      'Tap the heart icon on any content to add it to your favorites';
+
+  @override
+  String get mark_as_watched => 'Mark as Watched';
+
+  @override
+  String get unmark_as_watched => 'Unmark as Watched';
+
+  @override
+  String get marked_as_watched => 'Marked as watched';
+
+  @override
+  String get unmarked_as_watched => 'Unmarked as watched';
+
+  @override
+  String get hidden_items => 'Hidden Items';
+
+  @override
+  String get no_hidden_items => 'No Hidden Items';
+
+  @override
+  String get hidden_items_hint => 'Items you mark as watched will appear here';
 }

@@ -13,7 +13,9 @@ import 'package:another_iptv_player/utils/responsive_helper.dart';
 import 'package:another_iptv_player/utils/navigate_by_content_type.dart';
 
 import '../../services/app_state.dart';
+import '../../controllers/favorites_controller.dart';
 import '../watch_history_screen.dart';
+import '../favorites/favorites_screen.dart';
 
 class M3UHomeScreen extends StatefulWidget {
   final Playlist playlist;
@@ -26,6 +28,7 @@ class M3UHomeScreen extends StatefulWidget {
 
 class _M3UHomeScreenState extends State<M3UHomeScreen> {
   late M3UHomeController _controller;
+  late FavoritesController _favoritesController;
 
   static const double _desktopBreakpoint = 900.0;
   static const double _largeScreenBreakpoint = 1200.0;
@@ -42,11 +45,14 @@ class _M3UHomeScreenState extends State<M3UHomeScreen> {
   void initState() {
     super.initState();
     _initializeController();
+    _favoritesController = FavoritesController();
+    _favoritesController.loadFavorites();
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _favoritesController.dispose();
     super.dispose();
   }
 
@@ -57,8 +63,11 @@ class _M3UHomeScreenState extends State<M3UHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider.value(
-      value: _controller,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: _controller),
+        ChangeNotifierProvider.value(value: _favoritesController),
+      ],
       child: Consumer<M3UHomeController>(
         builder: (context, controller, child) =>
             _buildMainContent(context, controller),
@@ -133,6 +142,10 @@ class _M3UHomeScreenState extends State<M3UHomeScreen> {
     return [
       WatchHistoryScreen(
         key: ValueKey('watch_history_${controller.currentIndex}'),
+        playlistId: widget.playlist.id,
+      ),
+      FavoritesScreen(
+        key: ValueKey('favorites_${controller.currentIndex}'),
         playlistId: widget.playlist.id,
       ),
       M3uItemsScreen(m3uItems: controller.m3uItems!),
@@ -364,22 +377,23 @@ class _M3UHomeScreenState extends State<M3UHomeScreen> {
   List<NavigationItem> _getNavigationItems(BuildContext context) {
     return [
       NavigationItem(icon: Icons.history, label: context.loc.history, index: 0),
-      NavigationItem(icon: Icons.all_inbox, label: context.loc.all, index: 1),
-      // NavigationItem(icon: Icons.live_tv, label: context.loc.live, index: 2),
+      NavigationItem(icon: Icons.favorite, label: context.loc.favorites, index: 1),
+      NavigationItem(icon: Icons.all_inbox, label: context.loc.all, index: 2),
+      // NavigationItem(icon: Icons.live_tv, label: context.loc.live, index: 3),
       // NavigationItem(
       //   icon: Icons.movie_outlined,
       //   label: context.loc.movie,
-      //   index: 3,
+      //   index: 4,
       // ),
       // NavigationItem(
       //   icon: Icons.tv,
       //   label: context.loc.series_plural,
-      //   index: 4,
+      //   index: 5,
       // ),
       NavigationItem(
         icon: Icons.settings,
         label: context.loc.settings,
-        index: 2,
+        index: 3,
       ),
     ];
   }

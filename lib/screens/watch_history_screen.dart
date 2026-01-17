@@ -3,12 +3,10 @@ import 'package:provider/provider.dart';
 import '../controllers/watch_history_controller.dart';
 import '../controllers/favorites_controller.dart';
 import '../models/watch_history.dart';
-import '../models/favorite.dart';
 import '../widgets/watch_history/watch_history_empty_state.dart';
 import '../widgets/watch_history/watch_history_content.dart';
 import '../widgets/watch_history/watch_history_dialogs.dart';
 import '../widgets/watch_history/watch_history_list_screen.dart';
-import '../l10n/localization_extension.dart';
 
 class WatchHistoryScreen extends StatefulWidget {
   final String playlistId;
@@ -84,15 +82,13 @@ class _WatchHistoryScreenState extends State<WatchHistoryScreen> {
                 await historyController.loadWatchHistory();
                 await favoritesController.loadFavorites();
               },
-              child: historyController.isAllEmpty && favoritesController.favorites.isEmpty
+              child: historyController.isAllEmpty
                   ? const WatchHistoryEmptyState()
                   : WatchHistoryContent(
                       onHistoryTap: (history) =>
                           historyController.playContent(context, history),
                       onHistoryRemove: (history) => _showRemoveDialog(history),
                       onSeeAllTap: _showAllHistory,
-                      onFavoriteRemove: _removeFavorite,
-                      onSeeAllFavorites: _showAllFavorites,
                     ),
             );
           },
@@ -119,29 +115,6 @@ class _WatchHistoryScreenState extends State<WatchHistoryScreen> {
     WatchHistoryDialogs.showRemoveDialog(
       context,
       onConfirm: () => _historyController.removeHistory(history),
-    );
-  }
-
-  void _removeFavorite(Favorite favorite) async {
-    final success = await _favoritesController.removeFavorite(
-      favorite.streamId,
-      favorite.contentType,
-      episodeId: favorite.episodeId,
-    );
-    
-    if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.loc.removed_from_favorites),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
-  }
-
-  void _showAllFavorites() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Favoriler listesi yakında eklenecek')),
     );
   }
 }

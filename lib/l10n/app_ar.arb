@@ -197,6 +197,10 @@
   "select_all": "حدد الكل",
   "deselect_all": "إلغاء تحديد الكل",
   "hide_category": "إخفاء الفئة",
+  "hide_item": "إخفاء",
+  "unhide_item": "إظهار",
+  "item_hidden": "تم إخفاء العنصر",
+  "item_unhidden": "تم إظهار العنصر",
   "rating": "تصنيف",
   "remove_from_history": "إزالة من السجل",
   "remove_from_history_confirmation": "هل أنت متأكد من أنك تريد إزالة هذا العنصر من سجل المشاهدة؟",
@@ -289,5 +293,14 @@
   "series_content_type": "مسلسل",
   "last_update": "آخر تحديث",
   "minutes": "دقيقة",
-  "duration_label": "المدة"
+  "duration_label": "المدة",
+  "no_favorites": "لا توجد مفضلات بعد",
+  "add_favorites_hint": "اضغط على أيقونة القلب على أي محتوى لإضافته إلى مفضلاتك",
+  "mark_as_watched": "وضع علامة كمشاهَد",
+  "unmark_as_watched": "إزالة علامة المشاهَد",
+  "marked_as_watched": "تم وضع علامة كمشاهَد",
+  "unmarked_as_watched": "تم إزالة علامة المشاهَد",
+  "hidden_items": "العناصر المخفية",
+  "no_hidden_items": "لا توجد عناصر مخفية",
+  "hidden_items_hint": "ستظهر العناصر التي تضع عليها علامة كمشاهَدة هنا"
 }

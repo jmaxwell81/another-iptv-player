@@ -633,6 +633,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get hide_category => '隱藏類別';
 
   @override
+  String get hide_item => '隱藏';
+
+  @override
+  String get unhide_item => '顯示';
+
+  @override
+  String get item_hidden => '項目已隱藏';
+
+  @override
+  String get item_unhidden => '項目已顯示';
+
+  @override
   String get rating => '等級';
 
   @override
@@ -819,4 +831,31 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get duration_label => '时长';
+
+  @override
+  String get no_favorites => '暂无收藏';
+
+  @override
+  String get add_favorites_hint => '点击任何内容上的心形图标即可将其添加到收藏';
+
+  @override
+  String get mark_as_watched => '标记为已观看';
+
+  @override
+  String get unmark_as_watched => '取消已观看标记';
+
+  @override
+  String get marked_as_watched => '已标记为已观看';
+
+  @override
+  String get unmarked_as_watched => '已取消已观看标记';
+
+  @override
+  String get hidden_items => '隐藏的项目';
+
+  @override
+  String get no_hidden_items => '没有隐藏的项目';
+
+  @override
+  String get hidden_items_hint => '您标记为已观看的项目将显示在这里';
 }

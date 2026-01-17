@@ -197,6 +197,10 @@
   "select_all": "Выбрать всё",
   "deselect_all": "Отменить выбор всего",
   "hide_category": "Скрыть категории",
+  "hide_item": "Скрыть",
+  "unhide_item": "Показать",
+  "item_hidden": "Элемент скрыт",
+  "item_unhidden": "Элемент показан",
   "rating": "рейтинг",
   "remove_from_history": "Удалить из истории",
   "remove_from_history_confirmation": "Вы уверены, что хотите удалить этот элемент из истории просмотров?",
@@ -289,5 +293,14 @@
   "series_content_type": "Сериал",
   "last_update": "Последнее Обновление",
   "minutes": "мин",
-  "duration_label": "Продолжительность"
+  "duration_label": "Продолжительность",
+  "no_favorites": "Пока нет избранного",
+  "add_favorites_hint": "Нажмите на значок сердца на любом контенте, чтобы добавить его в избранное",
+  "mark_as_watched": "Отметить как просмотренное",
+  "unmark_as_watched": "Снять отметку просмотра",
+  "marked_as_watched": "Отмечено как просмотренное",
+  "unmarked_as_watched": "Отметка просмотра снята",
+  "hidden_items": "Скрытые элементы",
+  "no_hidden_items": "Нет скрытых элементов",
+  "hidden_items_hint": "Элементы, которые вы отметите как просмотренные, появятся здесь"
 }

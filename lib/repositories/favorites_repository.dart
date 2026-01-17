@@ -138,6 +138,21 @@ class FavoritesRepository {
     await _database.updateFavorite(favorite);
   }
 
+  Future<void> addFavoriteFromData(Favorite favorite) async {
+    final isAlreadyFavorite = await _database.isFavorite(
+      favorite.playlistId,
+      favorite.streamId,
+      favorite.contentType,
+      favorite.episodeId,
+    );
+
+    if (isAlreadyFavorite) {
+      throw Exception('Bu içerik zaten favorilerde');
+    }
+
+    await _database.insertFavorite(favorite);
+  }
+
   Future<void> clearAllFavorites() async {
     final playlistId = AppState.currentPlaylist!.id;
     final favorites = await _database.getFavoritesByPlaylist(playlistId);

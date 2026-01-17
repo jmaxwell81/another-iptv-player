@@ -654,6 +654,18 @@ class AppLocalizationsPt extends AppLocalizations {
   String get hide_category => 'Ocultar categorias';
 
   @override
+  String get hide_item => 'Ocultar';
+
+  @override
+  String get unhide_item => 'Mostrar';
+
+  @override
+  String get item_hidden => 'Item ocultado';
+
+  @override
+  String get item_unhidden => 'Item visível';
+
+  @override
   String get rating => 'Avaliação';
 
   @override
@@ -849,4 +861,33 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get duration_label => 'Duração';
+
+  @override
+  String get no_favorites => 'Ainda não há favoritos';
+
+  @override
+  String get add_favorites_hint =>
+      'Toque no ícone de coração em qualquer conteúdo para adicioná-lo aos seus favoritos';
+
+  @override
+  String get mark_as_watched => 'Marcar como assistido';
+
+  @override
+  String get unmark_as_watched => 'Desmarcar como assistido';
+
+  @override
+  String get marked_as_watched => 'Marcado como assistido';
+
+  @override
+  String get unmarked_as_watched => 'Desmarcado como assistido';
+
+  @override
+  String get hidden_items => 'Itens ocultos';
+
+  @override
+  String get no_hidden_items => 'Nenhum item oculto';
+
+  @override
+  String get hidden_items_hint =>
+      'Os itens que você marcar como assistidos aparecerão aqui';
 }

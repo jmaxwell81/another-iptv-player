@@ -10,10 +10,16 @@ import 'package:another_iptv_player/repositories/iptv_repository.dart';
 import 'package:another_iptv_player/screens/category_detail_screen.dart';
 import 'package:another_iptv_player/screens/xtream-codes/xtream_code_playlist_settings_screen.dart';
 import 'package:another_iptv_player/screens/watch_history_screen.dart';
+import 'package:another_iptv_player/screens/favorites/favorites_screen.dart';
 import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/utils/navigate_by_content_type.dart';
 import 'package:another_iptv_player/utils/responsive_helper.dart';
 import 'package:another_iptv_player/widgets/category_section.dart';
+import 'package:another_iptv_player/controllers/favorites_controller.dart';
+import 'package:another_iptv_player/controllers/hidden_items_controller.dart';
+import 'package:another_iptv_player/models/favorite.dart';
+import 'package:another_iptv_player/models/playlist_content_model.dart';
+import 'package:uuid/uuid.dart';
 import '../../models/content_type.dart';
 
 class XtreamCodeHomeScreen extends StatefulWidget {
@@ -27,6 +33,8 @@ class XtreamCodeHomeScreen extends StatefulWidget {
 
 class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
   late XtreamCodeHomeController _controller;
+  late FavoritesController _favoritesController;
+  late HiddenItemsController _hiddenItemsController;
   static const double _desktopBreakpoint = 900.0;
   static const double _largeScreenBreakpoint = 1200.0;
   static const double _defaultNavWidth = 80.0;
@@ -44,11 +52,17 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
   void initState() {
     super.initState();
     _initializeController();
+    _favoritesController = FavoritesController();
+    _favoritesController.loadFavorites();
+    _hiddenItemsController = HiddenItemsController();
+    _hiddenItemsController.loadHiddenItems();
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _favoritesController.dispose();
+    _hiddenItemsController.dispose();
     super.dispose();
   }
 
@@ -67,11 +81,15 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider.value(
-      value: _controller,
-      child: Consumer<XtreamCodeHomeController>(
-        builder: (context, controller, child) =>
-            _buildMainContent(context, controller),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: _controller),
+        ChangeNotifierProvider.value(value: _favoritesController),
+        ChangeNotifierProvider.value(value: _hiddenItemsController),
+      ],
+      child: Consumer3<XtreamCodeHomeController, FavoritesController, HiddenItemsController>(
+        builder: (context, controller, favoritesController, hiddenItemsController, child) =>
+            _buildMainContent(context, controller, favoritesController, hiddenItemsController),
       ),
     );
   }
@@ -79,6 +97,8 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
   Widget _buildMainContent(
     BuildContext context,
     XtreamCodeHomeController controller,
+    FavoritesController favoritesController,
+    HiddenItemsController hiddenItemsController,
   ) {
     if (controller.isLoading) {
       return _buildLoadingScreen(context);
@@ -86,9 +106,9 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth >= _desktopBreakpoint) {
-          return _buildDesktopLayout(context, controller, constraints);
+          return _buildDesktopLayout(context, controller, constraints, favoritesController, hiddenItemsController);
         }
-        return _buildMobileLayout(context, controller);
+        return _buildMobileLayout(context, controller, favoritesController, hiddenItemsController);
       },
     );
   }
@@ -111,9 +131,11 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
   Widget _buildMobileLayout(
     BuildContext context,
     XtreamCodeHomeController controller,
+    FavoritesController favoritesController,
+    HiddenItemsController hiddenItemsController,
   ) {
     return Scaffold(
-      body: _buildPageView(controller),
+      body: _buildPageView(controller, favoritesController, hiddenItemsController),
       bottomNavigationBar: _buildBottomNavigationBar(context, controller),
     );
   }
@@ -122,44 +144,72 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
     BuildContext context,
     XtreamCodeHomeController controller,
     BoxConstraints constraints,
+    FavoritesController favoritesController,
+    HiddenItemsController hiddenItemsController,
   ) {
     return Scaffold(
       body: Row(
         children: [
           _buildDesktopNavigationBar(context, controller, constraints),
-          Expanded(child: _buildPageView(controller)),
+          Expanded(child: _buildPageView(controller, favoritesController, hiddenItemsController)),
         ],
       ),
     );
   }
 
-  Widget _buildPageView(XtreamCodeHomeController controller) {
+  Widget _buildPageView(
+    XtreamCodeHomeController controller,
+    FavoritesController favoritesController,
+    HiddenItemsController hiddenItemsController,
+  ) {
     return IndexedStack(
       index: controller.currentIndex,
-      children: _buildPages(controller),
+      children: _buildPages(controller, favoritesController, hiddenItemsController),
     );
   }
 
-  List<Widget> _buildPages(XtreamCodeHomeController controller) {
+  List<Widget> _buildPages(
+    XtreamCodeHomeController controller,
+    FavoritesController favoritesController,
+    HiddenItemsController hiddenItemsController,
+  ) {
+    final favoriteStreamIds = favoritesController.favorites.map((f) => f.streamId).toSet();
+    final hiddenStreamIds = hiddenItemsController.hiddenStreamIds;
     return [
       WatchHistoryScreen(
         key: ValueKey('watch_history_${controller.currentIndex}'),
+        playlistId: widget.playlist.id,
+      ),
+      FavoritesScreen(
+        key: ValueKey('favorites_${controller.currentIndex}'),
         playlistId: widget.playlist.id,
       ),
       _buildContentPage(
         controller.liveCategories!,
         ContentType.liveStream,
         controller,
+        favoriteStreamIds,
+        hiddenStreamIds,
+        favoritesController,
+        hiddenItemsController,
       ),
       _buildContentPage(
         controller.movieCategories,
         ContentType.vod,
         controller,
+        favoriteStreamIds,
+        hiddenStreamIds,
+        favoritesController,
+        hiddenItemsController,
       ),
       _buildContentPage(
         controller.seriesCategories,
         ContentType.series,
         controller,
+        favoriteStreamIds,
+        hiddenStreamIds,
+        favoritesController,
+        hiddenItemsController,
       ),
       XtreamCodePlaylistSettingsScreen(playlist: widget.playlist),
     ];
@@ -169,10 +219,21 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
     List<CategoryViewModel> categories,
     ContentType contentType,
     XtreamCodeHomeController controller,
+    Set<String> favoriteStreamIds,
+    Set<String> hiddenStreamIds,
+    FavoritesController favoritesController,
+    HiddenItemsController hiddenItemsController,
   ) {
     return Scaffold(
       appBar: _buildAppBar(context, controller, contentType),
-      body: _buildCategoryList(categories, contentType),
+      body: _buildCategoryList(
+        categories,
+        contentType,
+        favoriteStreamIds,
+        hiddenStreamIds,
+        favoritesController,
+        hiddenItemsController,
+      ),
     );
   }
 
@@ -246,6 +307,10 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
   Widget _buildCategoryList(
     List<CategoryViewModel> categories,
     ContentType contentType,
+    Set<String> favoriteStreamIds,
+    Set<String> hiddenStreamIds,
+    FavoritesController favoritesController,
+    HiddenItemsController hiddenItemsController,
   ) {
     return Scrollbar(
       controller: _scrollController,
@@ -255,8 +320,14 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
         shrinkWrap: true,
         padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: categories.length,
-        itemBuilder: (context, index) =>
-            _buildCategorySection(categories[index], contentType),
+        itemBuilder: (context, index) => _buildCategorySection(
+          categories[index],
+          contentType,
+          favoriteStreamIds,
+          hiddenStreamIds,
+          favoritesController,
+          hiddenItemsController,
+        ),
       ),
     );
   }
@@ -264,14 +335,74 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
   Widget _buildCategorySection(
     CategoryViewModel category,
     ContentType contentType,
+    Set<String> favoriteStreamIds,
+    Set<String> hiddenStreamIds,
+    FavoritesController favoritesController,
+    HiddenItemsController hiddenItemsController,
   ) {
+    // Show all items - hidden items will be displayed greyed out
     return CategorySection(
       category: category,
       cardWidth: ResponsiveHelper.getCardWidth(context),
       cardHeight: ResponsiveHelper.getCardHeight(context),
       onSeeAllTap: () => _navigateToCategoryDetail(category),
       onContentTap: (content) => navigateByContentType(context, content),
+      favoriteStreamIds: favoriteStreamIds,
+      hiddenStreamIds: hiddenStreamIds,
+      onToggleFavorite: (item) => _toggleFavorite(context, item, favoritesController),
+      onToggleHidden: (item) => _toggleHidden(context, item, hiddenItemsController),
     );
+  }
+
+  void _toggleFavorite(BuildContext context, ContentItem item, FavoritesController controller) async {
+    final isFav = controller.favorites.any((f) => f.streamId == item.id);
+    if (isFav) {
+      await controller.removeFavoriteByStreamId(item.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.loc.removed_from_favorites)),
+        );
+      }
+    } else {
+      final now = DateTime.now();
+      final favorite = Favorite(
+        id: const Uuid().v4(),
+        playlistId: AppState.currentPlaylist!.id,
+        contentType: item.contentType,
+        streamId: item.id,
+        name: item.name,
+        imagePath: item.imagePath,
+        createdAt: now,
+        updatedAt: now,
+      );
+      await controller.addFavoriteFromData(favorite);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.loc.added_to_favorites)),
+        );
+      }
+    }
+  }
+
+  void _toggleHidden(BuildContext context, ContentItem item, HiddenItemsController controller) async {
+    final isHid = controller.isHidden(item.id);
+    if (isHid) {
+      await controller.unhideItem(item);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          // ignore: deprecated_member_use_from_same_package
+          SnackBar(content: Text(context.loc.unmarked_as_watched)),
+        );
+      }
+    } else {
+      await controller.hideItem(item);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          // ignore: deprecated_member_use_from_same_package
+          SnackBar(content: Text(context.loc.marked_as_watched)),
+        );
+      }
+    }
   }
 
   void _navigateToCategoryDetail(CategoryViewModel category) {
@@ -430,21 +561,22 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
   List<NavigationItem> _getNavigationItems(BuildContext context) {
     return [
       NavigationItem(icon: Icons.history, label: context.loc.history, index: 0),
-      NavigationItem(icon: Icons.live_tv, label: context.loc.live, index: 1),
+      NavigationItem(icon: Icons.favorite, label: context.loc.favorites, index: 1),
+      NavigationItem(icon: Icons.live_tv, label: context.loc.live, index: 2),
       NavigationItem(
         icon: Icons.movie_outlined,
         label: context.loc.movie,
-        index: 2,
+        index: 3,
       ),
       NavigationItem(
         icon: Icons.tv,
         label: context.loc.series_plural,
-        index: 3,
+        index: 4,
       ),
       NavigationItem(
         icon: Icons.settings,
         label: context.loc.settings,
-        index: 4,
+        index: 5,
       ),
     ];
   }

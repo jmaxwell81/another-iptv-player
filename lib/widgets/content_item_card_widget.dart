@@ -12,6 +12,11 @@ class ContentItemCardWidget extends StatefulWidget {
   final List<ContentItem> contentItems;
   int initialSelectedIndex;
   final bool isSelectionModeEnabled;
+  final Set<String>? favoriteStreamIds;
+  final Set<String>? hiddenStreamIds;
+  final Function(ContentItem)? onToggleFavorite;
+  final Function(ContentItem)? onToggleHidden;
+  final bool showContextMenu;
 
   ContentItemCardWidget({
     super.key,
@@ -21,6 +26,11 @@ class ContentItemCardWidget extends StatefulWidget {
     this.onContentTap,
     this.initialSelectedIndex = -1,
     this.isSelectionModeEnabled = false,
+    this.favoriteStreamIds,
+    this.hiddenStreamIds,
+    this.onToggleFavorite,
+    this.onToggleHidden,
+    this.showContextMenu = true,
   });
 
   @override
@@ -104,6 +114,16 @@ class _ContentItemCardWidgetState extends State<ContentItemCardWidget> {
     // _scrollToIndex(index);
   }
 
+  bool _isFavorite(ContentItem item) {
+    if (widget.favoriteStreamIds == null) return false;
+    return widget.favoriteStreamIds!.contains(item.id);
+  }
+
+  bool _isHidden(ContentItem item) {
+    if (widget.hiddenStreamIds == null) return false;
+    return widget.hiddenStreamIds!.contains(item.id);
+  }
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -119,17 +139,23 @@ class _ContentItemCardWidgetState extends State<ContentItemCardWidget> {
                 padding: EdgeInsets.symmetric(horizontal: 12),
                 itemCount: widget.contentItems.length,
                 itemBuilder: (context, index) {
+                  final item = widget.contentItems[index];
                   return Container(
                     width: widget.cardWidth,
                     margin: EdgeInsets.symmetric(horizontal: 4),
                     child: ContentCard(
-                      content: widget.contentItems[index],
+                      content: item,
                       width: widget.cardWidth,
                       onTap: () {
                         selectAndScrollToIndex(index);
-                        widget.onContentTap?.call(widget.contentItems[index]);
+                        widget.onContentTap?.call(item);
                       },
                       isSelected: selectedIndex == index,
+                      isFavorite: _isFavorite(item),
+                      isHidden: _isHidden(item),
+                      showContextMenu: widget.showContextMenu,
+                      onToggleFavorite: widget.onToggleFavorite,
+                      onToggleHidden: widget.onToggleHidden,
                       key: widget.key,
                     ),
                   );
@@ -142,19 +168,24 @@ class _ContentItemCardWidgetState extends State<ContentItemCardWidget> {
               padding: EdgeInsets.symmetric(horizontal: 12),
               itemCount: widget.contentItems.length,
               itemBuilder: (context, index) {
+                final item = widget.contentItems[index];
                 return Container(
                   width: widget.cardWidth,
                   margin: EdgeInsets.symmetric(horizontal: 4),
                   child: ContentCard(
-                    content: widget.contentItems[index],
+                    content: item,
                     width: widget.cardWidth,
                     onTap: () {
                       selectAndScrollToIndex(index);
-                      widget.onContentTap?.call(widget.contentItems[index]);
+                      widget.onContentTap?.call(item);
                     },
                     isSelected: selectedIndex == index,
+                    isFavorite: _isFavorite(item),
+                    isHidden: _isHidden(item),
+                    showContextMenu: widget.showContextMenu,
+                    onToggleFavorite: widget.onToggleFavorite,
+                    onToggleHidden: widget.onToggleHidden,
                     key: widget.key,
-
                   ),
                 );
               },

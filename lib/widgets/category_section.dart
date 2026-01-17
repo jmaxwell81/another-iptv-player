@@ -11,6 +11,11 @@ class CategorySection extends StatelessWidget {
   final double cardHeight;
   final VoidCallback? onSeeAllTap;
   final Function(ContentItem)? onContentTap;
+  final Set<String>? favoriteStreamIds;
+  final Set<String>? hiddenStreamIds;
+  final Function(ContentItem)? onToggleFavorite;
+  final Function(ContentItem)? onToggleHidden;
+  final bool showContextMenu;
 
   const CategorySection({
     super.key,
@@ -19,6 +24,11 @@ class CategorySection extends StatelessWidget {
     required this.cardHeight,
     this.onSeeAllTap,
     this.onContentTap,
+    this.favoriteStreamIds,
+    this.hiddenStreamIds,
+    this.onToggleFavorite,
+    this.onToggleHidden,
+    this.showContextMenu = true,
   });
 
   @override
@@ -58,6 +68,11 @@ class CategorySection extends StatelessWidget {
             onContentTap: onContentTap,
             contentItems: category.contentItems,
             isSelectionModeEnabled: false,
+            favoriteStreamIds: favoriteStreamIds,
+            hiddenStreamIds: hiddenStreamIds,
+            onToggleFavorite: onToggleFavorite,
+            onToggleHidden: onToggleHidden,
+            showContextMenu: showContextMenu,
             key: key,
           ),
         ],

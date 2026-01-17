@@ -197,6 +197,10 @@
   "select_all": "सभी चुनें",
   "deselect_all": "सभी का चयन रद्द करें",
   "hide_category": "श्रेणियाँ छिपाएँ",
+  "hide_item": "छिपाएँ",
+  "unhide_item": "दिखाएँ",
+  "item_hidden": "आइटम छिपाया गया",
+  "item_unhidden": "आइटम दिखाया गया",
   "rating": "रेटिंग",
   "remove_from_history": "इतिहास से हटाएं",
   "remove_from_history_confirmation": "क्या आप वाकई इस आइटम को देखने के इतिहास से हटाना चाहते हैं?",
@@ -289,5 +293,14 @@
   "series_content_type": "सीरियल",
   "last_update": "अंतिम अपडेट",
   "minutes": "मिनट",
-  "duration_label": "अवधि"
+  "duration_label": "अवधि",
+  "no_favorites": "अभी तक कोई पसंदीदा नहीं",
+  "add_favorites_hint": "किसी भी सामग्री पर दिल के आइकन पर टैप करें और उसे अपने पसंदीदा में जोड़ें",
+  "mark_as_watched": "देखा गया के रूप में चिह्नित करें",
+  "unmark_as_watched": "देखा गया चिह्न हटाएं",
+  "marked_as_watched": "देखा गया के रूप में चिह्नित",
+  "unmarked_as_watched": "देखा गया चिह्न हटाया गया",
+  "hidden_items": "छिपे हुए आइटम",
+  "no_hidden_items": "कोई छिपे हुए आइटम नहीं",
+  "hidden_items_hint": "जिन आइटम को आप देखा गया के रूप में चिह्नित करते हैं वे यहाँ दिखाई देंगे"
 }

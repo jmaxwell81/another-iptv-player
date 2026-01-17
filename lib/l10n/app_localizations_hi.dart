@@ -649,6 +649,18 @@ class AppLocalizationsHi extends AppLocalizations {
   String get hide_category => 'श्रेणियाँ छिपाएँ';
 
   @override
+  String get hide_item => 'छिपाएँ';
+
+  @override
+  String get unhide_item => 'दिखाएँ';
+
+  @override
+  String get item_hidden => 'आइटम छिपाया गया';
+
+  @override
+  String get item_unhidden => 'आइटम दिखाया गया';
+
+  @override
   String get rating => 'रेटिंग';
 
   @override
@@ -842,4 +854,33 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get duration_label => 'अवधि';
+
+  @override
+  String get no_favorites => 'अभी तक कोई पसंदीदा नहीं';
+
+  @override
+  String get add_favorites_hint =>
+      'किसी भी सामग्री पर दिल के आइकन पर टैप करें और उसे अपने पसंदीदा में जोड़ें';
+
+  @override
+  String get mark_as_watched => 'देखा गया के रूप में चिह्नित करें';
+
+  @override
+  String get unmark_as_watched => 'देखा गया चिह्न हटाएं';
+
+  @override
+  String get marked_as_watched => 'देखा गया के रूप में चिह्नित';
+
+  @override
+  String get unmarked_as_watched => 'देखा गया चिह्न हटाया गया';
+
+  @override
+  String get hidden_items => 'छिपे हुए आइटम';
+
+  @override
+  String get no_hidden_items => 'कोई छिपे हुए आइटम नहीं';
+
+  @override
+  String get hidden_items_hint =>
+      'जिन आइटम को आप देखा गया के रूप में चिह्नित करते हैं वे यहाँ दिखाई देंगे';
 }

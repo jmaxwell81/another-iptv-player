@@ -197,6 +197,10 @@
   "select_all": "Selecionar tudo",
   "deselect_all": "Desmarcar tudo",
   "hide_category": "Ocultar categorias",
+  "hide_item": "Ocultar",
+  "unhide_item": "Mostrar",
+  "item_hidden": "Item ocultado",
+  "item_unhidden": "Item visível",
   "rating": "Avaliação",
   "remove_from_history": "Remover do histórico",
   "remove_from_history_confirmation": "Tem certeza de que deseja remover este item do histórico de reprodução?",
@@ -289,5 +293,14 @@
   "series_content_type": "Série",
   "last_update": "Última Atualização",
   "minutes": "min",
-  "duration_label": "Duração"
+  "duration_label": "Duração",
+  "no_favorites": "Ainda não há favoritos",
+  "add_favorites_hint": "Toque no ícone de coração em qualquer conteúdo para adicioná-lo aos seus favoritos",
+  "mark_as_watched": "Marcar como assistido",
+  "unmark_as_watched": "Desmarcar como assistido",
+  "marked_as_watched": "Marcado como assistido",
+  "unmarked_as_watched": "Desmarcado como assistido",
+  "hidden_items": "Itens ocultos",
+  "no_hidden_items": "Nenhum item oculto",
+  "hidden_items_hint": "Os itens que você marcar como assistidos aparecerão aqui"
 }

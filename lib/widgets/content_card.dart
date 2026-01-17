@@ -4,11 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
 import 'package:another_iptv_player/models/content_type.dart';
 
-class ContentCard extends StatelessWidget {
+class ContentCard extends StatefulWidget {
   final ContentItem content;
   final double width;
   final VoidCallback? onTap;
   final bool isSelected;
+  final bool isFavorite;
+  final bool showContextMenu;
+  final Function(ContentItem)? onToggleFavorite;
+  final Function(ContentItem)? onToggleHidden;
+  final bool isHidden;
 
   const ContentCard({
     super.key,
@@ -16,7 +21,19 @@ class ContentCard extends StatelessWidget {
     required this.width,
     this.onTap,
     this.isSelected = false,
+    this.isFavorite = false,
+    this.showContextMenu = false,
+    this.onToggleFavorite,
+    this.onToggleHidden,
+    this.isHidden = false,
   });
+
+  @override
+  State<ContentCard> createState() => _ContentCardState();
+}
+
+class _ContentCardState extends State<ContentCard> {
+  bool _isHovered = false;
 
   @override
   Widget build(BuildContext context) {
@@ -24,8 +41,8 @@ class ContentCard extends StatelessWidget {
     String? releaseDateStr;
     DateTime? releaseDate;
 
-    if (content.contentType == ContentType.series) {
-      releaseDateStr = content.seriesStream?.releaseDate;
+    if (widget.content.contentType == ContentType.series) {
+      releaseDateStr = widget.content.seriesStream?.releaseDate;
     }
 
     if (releaseDateStr != null && releaseDateStr.isNotEmpty) {
@@ -41,17 +58,25 @@ class ContentCard extends StatelessWidget {
       isRecent = diff <= 15;
     }
 
-    final bool isLiveStream = content.contentType == ContentType.liveStream;
+    final bool isLiveStream = widget.content.contentType == ContentType.liveStream;
     final Widget? ratingBadge =
     isLiveStream ? null : _buildRatingBadge(context);
 
-    Widget cardWidget = Card(
-      clipBehavior: Clip.antiAlias,
-      margin: const EdgeInsets.fromLTRB(0, 0, 0, 1),
-      color: isSelected ? Theme.of(context).colorScheme.primaryContainer : null,
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
+    // Show context menu only when hovered or selected
+    final bool shouldShowContextMenu = widget.showContextMenu && (_isHovered || widget.isSelected);
+
+    Widget cardWidget = MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        margin: const EdgeInsets.fromLTRB(0, 0, 0, 1),
+        color: widget.isSelected ? Theme.of(context).colorScheme.primaryContainer : null,
+        child: Opacity(
+          opacity: widget.isHidden ? 0.4 : 1.0,
+          child: InkWell(
+            onTap: widget.onTap,
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -59,9 +84,9 @@ class ContentCard extends StatelessWidget {
               child: Stack(
                 children: [
                   Positioned.fill(
-                    child: content.imagePath.isNotEmpty
+                    child: widget.content.imagePath.isNotEmpty
                         ? CachedNetworkImage(
-                      imageUrl: content.imagePath,
+                      imageUrl: widget.content.imagePath,
                       fit: _getFitForContentType(),
                       placeholder: (context, url) => Container(
                         color: Theme.of(context)
@@ -106,6 +131,18 @@ class ContentCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                  if (widget.isFavorite)
+                    Positioned(
+                      top: 4,
+                      left: isRecent ? null : 4,
+                      right: isRecent ? 4 : null,
+                      child: Icon(
+                        Icons.star,
+                        color: Colors.amber,
+                        size: 20,
+                        shadows: [Shadow(color: Colors.black54, blurRadius: 2)],
+                      ),
+                    ),
                   Positioned(
                     left: 0,
                     right: 0,
@@ -117,7 +154,7 @@ class ContentCard extends StatelessWidget {
                       ),
                       color: Colors.black.withOpacity(0.7),
                       child: Text(
-                        content.name,
+                        widget.content.name,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
@@ -129,18 +166,92 @@ class ContentCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (shouldShowContextMenu)
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      child: _buildContextMenu(context),
+                    ),
                 ],
               ),
             ),
           ],
         ),
+        ),
+      ),
       ),
     );
     return cardWidget;
   }
 
+  Widget _buildContextMenu(BuildContext context) {
+    return PopupMenuButton<String>(
+      icon: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: const Icon(
+          Icons.more_vert,
+          color: Colors.white,
+          size: 18,
+        ),
+      ),
+      padding: EdgeInsets.zero,
+      position: PopupMenuPosition.under,
+      onSelected: (value) {
+        switch (value) {
+          case 'favorite':
+            widget.onToggleFavorite?.call(widget.content);
+            break;
+          case 'hidden':
+            widget.onToggleHidden?.call(widget.content);
+            break;
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem<String>(
+          value: 'favorite',
+          child: Row(
+            children: [
+              Icon(
+                widget.isFavorite ? Icons.star : Icons.star_border,
+                color: widget.isFavorite ? Colors.amber : null,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                widget.isFavorite
+                    ? context.loc.remove_from_favorites
+                    : context.loc.add_to_favorites,
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'hidden',
+          child: Row(
+            children: [
+              Icon(
+                widget.isHidden ? Icons.visibility : Icons.visibility_off,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                widget.isHidden
+                    ? context.loc.unhide_item
+                    : context.loc.hide_item,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   BoxFit _getFitForContentType() {
-    if (content.contentType == ContentType.liveStream) {
+    if (widget.content.contentType == ContentType.liveStream) {
       return BoxFit.contain;
     }
     return BoxFit.cover;
@@ -148,18 +259,18 @@ class ContentCard extends StatelessWidget {
 
   Widget _buildTitleCard(BuildContext context) {
     return Container(
-      color: isSelected
+      color: widget.isSelected
           ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3)
           : Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Center(
         child: Padding(
           padding: const EdgeInsets.all(6),
           child: Text(
-            content.name,
+            widget.content.name,
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 11,
-              color: isSelected
+              color: widget.isSelected
                   ? Theme.of(context).colorScheme.onPrimaryContainer
                   : null,
             ),
@@ -173,9 +284,9 @@ class ContentCard extends StatelessWidget {
   }
 
   Widget? _buildRatingBadge(BuildContext context) {
-    final dynamic rawRating = content.contentType == ContentType.series
-        ? content.seriesStream?.rating
-        : content.vodStream?.rating;
+    final dynamic rawRating = widget.content.contentType == ContentType.series
+        ? widget.content.seriesStream?.rating
+        : widget.content.vodStream?.rating;
 
     final double? rating = _parseRating(rawRating);
     if (rating == null || rating <= 0) {

@@ -648,6 +648,18 @@ class AppLocalizationsAr extends AppLocalizations {
   String get hide_category => 'إخفاء الفئة';
 
   @override
+  String get hide_item => 'إخفاء';
+
+  @override
+  String get unhide_item => 'إظهار';
+
+  @override
+  String get item_hidden => 'تم إخفاء العنصر';
+
+  @override
+  String get item_unhidden => 'تم إظهار العنصر';
+
+  @override
   String get rating => 'تصنيف';
 
   @override
@@ -841,4 +853,33 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get duration_label => 'المدة';
+
+  @override
+  String get no_favorites => 'لا توجد مفضلات بعد';
+
+  @override
+  String get add_favorites_hint =>
+      'اضغط على أيقونة القلب على أي محتوى لإضافته إلى مفضلاتك';
+
+  @override
+  String get mark_as_watched => 'وضع علامة كمشاهَد';
+
+  @override
+  String get unmark_as_watched => 'إزالة علامة المشاهَد';
+
+  @override
+  String get marked_as_watched => 'تم وضع علامة كمشاهَد';
+
+  @override
+  String get unmarked_as_watched => 'تم إزالة علامة المشاهَد';
+
+  @override
+  String get hidden_items => 'العناصر المخفية';
+
+  @override
+  String get no_hidden_items => 'لا توجد عناصر مخفية';
+
+  @override
+  String get hidden_items_hint =>
+      'ستظهر العناصر التي تضع عليها علامة كمشاهَدة هنا';
 }

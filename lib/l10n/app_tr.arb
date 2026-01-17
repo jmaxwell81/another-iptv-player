@@ -197,6 +197,10 @@
   "select_all": "Tümünü Seç",
   "deselect_all": "Tümünün Seçimini Kaldır",
   "hide_category": "Kategorileri Gizle",
+  "hide_item": "Gizle",
+  "unhide_item": "Göster",
+  "item_hidden": "Öğe gizlendi",
+  "item_unhidden": "Öğe gösterildi",
   "rating": "Puan",
   "remove_from_history": "Geçmişten Kaldır",
   "remove_from_history_confirmation": "Bu öğeyi izleme geçmişinden kaldırmak istediğinizden emin misiniz?",
@@ -283,5 +287,14 @@
   "series_content_type": "Dizi",
   "last_update": "Son Güncelleme",
   "minutes": "dk",
-  "duration_label": "Süre"
+  "duration_label": "Süre",
+  "no_favorites": "Henüz favori yok",
+  "add_favorites_hint": "Favorilerinize eklemek için herhangi bir içerikte kalp simgesine dokunun",
+  "mark_as_watched": "İzlendi olarak işaretle",
+  "unmark_as_watched": "İzlendi işaretini kaldır",
+  "marked_as_watched": "İzlendi olarak işaretlendi",
+  "unmarked_as_watched": "İzlendi işareti kaldırıldı",
+  "hidden_items": "Gizli Öğeler",
+  "no_hidden_items": "Gizli öğe yok",
+  "hidden_items_hint": "İzlendi olarak işaretlediğiniz öğeler burada görünecek"
 }
