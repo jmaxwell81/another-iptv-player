@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:another_iptv_player/models/category.dart';
-import 'package:another_iptv_player/models/category_config.dart';
+import 'package:another_iptv_player/models/category_configuration.dart';
 import 'package:another_iptv_player/models/category_type.dart';
 import 'package:another_iptv_player/models/category_view_model.dart';
 import 'package:another_iptv_player/repositories/user_preferences.dart';

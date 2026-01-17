@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:another_iptv_player/models/renaming_rule.dart';
 import 'package:another_iptv_player/models/custom_rename.dart';
-import 'package:another_iptv_player/models/category_config.dart';
+import 'package:another_iptv_player/models/category_configuration.dart';
 
 class UserPreferences {
   static const String _keyLastPlaylist = 'last_playlist';
