@@ -1,11 +1,13 @@
 import 'package:another_iptv_player/l10n/localization_extension.dart';
 import 'package:flutter/material.dart';
+import 'package:another_iptv_player/models/category_type.dart';
 import 'package:another_iptv_player/models/category_view_model.dart';
 import 'package:another_iptv_player/models/content_type.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
 import 'package:another_iptv_player/models/view_state.dart';
 import 'package:another_iptv_player/repositories/iptv_repository.dart';
 import 'package:another_iptv_player/services/app_state.dart';
+import 'package:another_iptv_player/services/category_config_service.dart';
 import '../repositories/user_preferences.dart';
 import '../screens/xtream-codes/xtream_code_data_loader_screen.dart';
 
@@ -49,18 +51,45 @@ class XtreamCodeHomeController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Getters for visible categories (filtered by hidden)
-  List<CategoryViewModel> get visibleLiveCategories => _liveCategories
-      .where((c) => !_hiddenCategoryIds.contains(c.category.categoryId))
-      .toList();
+  // Getters for visible categories (filtered by hidden, then merged/ordered)
+  List<CategoryViewModel> get visibleLiveCategories {
+    final filtered = _liveCategories
+        .where((c) => !_hiddenCategoryIds.contains(c.category.categoryId))
+        .toList();
+    final playlistId = AppState.currentPlaylist?.id;
+    if (playlistId == null) return filtered;
+    return CategoryConfigService().applyConfig(
+      playlistId: playlistId,
+      type: CategoryType.live,
+      categories: filtered,
+    );
+  }
 
-  List<CategoryViewModel> get visibleMovieCategories => _movieCategories
-      .where((c) => !_hiddenCategoryIds.contains(c.category.categoryId))
-      .toList();
+  List<CategoryViewModel> get visibleMovieCategories {
+    final filtered = _movieCategories
+        .where((c) => !_hiddenCategoryIds.contains(c.category.categoryId))
+        .toList();
+    final playlistId = AppState.currentPlaylist?.id;
+    if (playlistId == null) return filtered;
+    return CategoryConfigService().applyConfig(
+      playlistId: playlistId,
+      type: CategoryType.vod,
+      categories: filtered,
+    );
+  }
 
-  List<CategoryViewModel> get visibleSeriesCategories => _seriesCategories
-      .where((c) => !_hiddenCategoryIds.contains(c.category.categoryId))
-      .toList();
+  List<CategoryViewModel> get visibleSeriesCategories {
+    final filtered = _seriesCategories
+        .where((c) => !_hiddenCategoryIds.contains(c.category.categoryId))
+        .toList();
+    final playlistId = AppState.currentPlaylist?.id;
+    if (playlistId == null) return filtered;
+    return CategoryConfigService().applyConfig(
+      playlistId: playlistId,
+      type: CategoryType.series,
+      categories: filtered,
+    );
+  }
 
   // Getters
   PageController get pageController => _pageController;
