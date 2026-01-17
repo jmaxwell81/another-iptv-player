@@ -235,9 +235,6 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
                       MaterialPageRoute(
                         builder: (context) => CategoryConfigScreen(
                           playlistId: AppState.currentPlaylist!.id,
-                          liveCategories: controller.liveCategories?.map((c) => c.category).toList() ?? [],
-                          vodCategories: controller.movieCategories.map((c) => c.category).toList(),
-                          seriesCategories: controller.seriesCategories.map((c) => c.category).toList(),
                         ),
                       ),
                     );
