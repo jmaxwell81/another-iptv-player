@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:another_iptv_player/models/category.dart';
 import 'package:another_iptv_player/models/category_configuration.dart';
 import 'package:another_iptv_player/models/category_type.dart';
+import 'package:another_iptv_player/repositories/user_preferences.dart';
 import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/services/category_config_service.dart';
 import 'package:another_iptv_player/utils/renaming_extension.dart';
@@ -65,6 +66,9 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
 
+    // Load hidden categories
+    final hiddenCategoryIds = (await UserPreferences.getHiddenCategories()).toSet();
+
     // Load categories from repository
     final repository = AppState.xtreamCodeRepository;
     if (repository != null) {
@@ -72,9 +76,16 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
       final vodCategories = await repository.getVodCategories();
       final seriesCategories = await repository.getSeriesCategories();
 
-      _liveCategories = liveCategories ?? [];
-      _vodCategories = vodCategories ?? [];
-      _seriesCategories = seriesCategories ?? [];
+      // Filter out hidden categories
+      _liveCategories = (liveCategories ?? [])
+          .where((c) => !hiddenCategoryIds.contains(c.categoryId))
+          .toList();
+      _vodCategories = (vodCategories ?? [])
+          .where((c) => !hiddenCategoryIds.contains(c.categoryId))
+          .toList();
+      _seriesCategories = (seriesCategories ?? [])
+          .where((c) => !hiddenCategoryIds.contains(c.categoryId))
+          .toList();
     }
 
     // Load config
