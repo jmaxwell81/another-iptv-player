@@ -86,19 +86,20 @@ class RenamingService {
   String _convertPlaceholdersToRegex(String findText) {
     String pattern = RegExp.escape(findText);
 
-    // Unescape the placeholders we want to convert
+    // Replace placeholders with regex patterns
+    // Note: % is not a special regex char, so it's not escaped by RegExp.escape
     // %DATE% or %YEAR% - matches 4-digit year
-    pattern = pattern.replaceAll(r'\%DATE\%', r'\d{4}');
-    pattern = pattern.replaceAll(r'\%YEAR\%', r'\d{4}');
+    pattern = pattern.replaceAll('%DATE%', r'\d{4}');
+    pattern = pattern.replaceAll('%YEAR%', r'\d{4}');
 
     // %NUM% - matches any number (one or more digits)
-    pattern = pattern.replaceAll(r'\%NUM\%', r'\d+');
+    pattern = pattern.replaceAll('%NUM%', r'\d+');
 
     // %ANY% - matches any characters (non-greedy)
-    pattern = pattern.replaceAll(r'\%ANY\%', r'.*?');
+    pattern = pattern.replaceAll('%ANY%', r'.*?');
 
     // %WORD% - matches a single word (letters, numbers, some special chars)
-    pattern = pattern.replaceAll(r'\%WORD\%', r'[\w\-]+');
+    pattern = pattern.replaceAll('%WORD%', r'[\w\-]+');
 
     return pattern;
   }
