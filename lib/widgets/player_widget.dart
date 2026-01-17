@@ -150,6 +150,9 @@ class _PlayerWidgetState extends State<PlayerWidget>
           totalDuration: _pendingTotalDuration,
           watchDuration: _pendingWatchDuration,
           seriesId: contentItem.seriesStream?.seriesId,
+          seasonNumber: contentItem.season,
+          episodeNumber: contentItem.episodeNumber,
+          totalEpisodes: contentItem.totalEpisodes,
         ),
       );
       _pendingWatchDuration = null;

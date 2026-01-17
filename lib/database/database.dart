@@ -313,6 +313,12 @@ class WatchHistories extends Table {
 
   TextColumn get seriesId => text().nullable()();
 
+  IntColumn get seasonNumber => integer().nullable()();
+
+  IntColumn get episodeNumber => integer().nullable()();
+
+  IntColumn get totalEpisodes => integer().nullable()();
+
   IntColumn get watchDuration => integer().nullable()();
 
   IntColumn get totalDuration => integer().nullable()();
@@ -510,7 +516,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   // === PLAYLIST İŞLEMLERİ ===
 
@@ -1678,6 +1684,16 @@ class AppDatabase extends _$AppDatabase {
         } catch (e) {
           // Table might already exist, ignore error
           print('HiddenItems table creation skipped: $e');
+        }
+      }
+
+      if (from < 10) {
+        try {
+          await m.addColumn(watchHistories, watchHistories.seasonNumber);
+          await m.addColumn(watchHistories, watchHistories.episodeNumber);
+          await m.addColumn(watchHistories, watchHistories.totalEpisodes);
+        } catch (e) {
+          print('WatchHistories columns migration skipped: $e');
         }
       }
     },

@@ -72,6 +72,12 @@ class _EpisodeScreenState extends State<EpisodeScreen> {
   }
 
   Future<void> _initializeQueue() async {
+    // Count episodes per season for totalEpisodes
+    final episodesPerSeason = <int, int>{};
+    for (final ep in widget.episodes) {
+      episodesPerSeason[ep.season] = (episodesPerSeason[ep.season] ?? 0) + 1;
+    }
+
     // Tüm sezonların tüm bölümlerini ekle (sadece mevcut sezonu değil)
     allContents = widget.episodes
         .map((x) {
@@ -82,6 +88,8 @@ class _EpisodeScreenState extends State<EpisodeScreen> {
         ContentType.series,
         containerExtension: x.containerExtension,
         season: x.season,
+        episodeNumber: x.episodeNum,
+        totalEpisodes: episodesPerSeason[x.season],
       );
     })
         .toList();

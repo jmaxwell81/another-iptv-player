@@ -7,6 +7,9 @@ class WatchHistory {
   late ContentType contentType;
   late String streamId;
   late String? seriesId;
+  late int? seasonNumber;
+  late int? episodeNumber;
+  late int? totalEpisodes;
   late Duration? watchDuration;
   late Duration? totalDuration;
   late DateTime lastWatched;
@@ -18,6 +21,9 @@ class WatchHistory {
     required this.contentType,
     required this.streamId,
     this.seriesId,
+    this.seasonNumber,
+    this.episodeNumber,
+    this.totalEpisodes,
     this.watchDuration,
     this.totalDuration,
     required this.lastWatched,
@@ -30,6 +36,9 @@ class WatchHistory {
     contentType = data.contentType;
     streamId = data.streamId;
     seriesId = data.seriesId;
+    seasonNumber = data.seasonNumber;
+    episodeNumber = data.episodeNumber;
+    totalEpisodes = data.totalEpisodes;
     watchDuration = data.watchDuration != null
         ? Duration(milliseconds: data.watchDuration!)
         : null;
@@ -47,6 +56,9 @@ class WatchHistory {
       contentType: Value(contentType),
       streamId: Value(streamId),
       seriesId: Value(seriesId),
+      seasonNumber: Value(seasonNumber),
+      episodeNumber: Value(episodeNumber),
+      totalEpisodes: Value(totalEpisodes),
       watchDuration: Value(watchDuration?.inMilliseconds),
       totalDuration: Value(totalDuration?.inMilliseconds),
       lastWatched: Value(lastWatched),

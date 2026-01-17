@@ -7214,6 +7214,39 @@ class $WatchHistoriesTable extends WatchHistories
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _seasonNumberMeta = const VerificationMeta(
+    'seasonNumber',
+  );
+  @override
+  late final GeneratedColumn<int> seasonNumber = GeneratedColumn<int>(
+    'season_number',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _episodeNumberMeta = const VerificationMeta(
+    'episodeNumber',
+  );
+  @override
+  late final GeneratedColumn<int> episodeNumber = GeneratedColumn<int>(
+    'episode_number',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _totalEpisodesMeta = const VerificationMeta(
+    'totalEpisodes',
+  );
+  @override
+  late final GeneratedColumn<int> totalEpisodes = GeneratedColumn<int>(
+    'total_episodes',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _watchDurationMeta = const VerificationMeta(
     'watchDuration',
   );
@@ -7273,6 +7306,9 @@ class $WatchHistoriesTable extends WatchHistories
     contentType,
     streamId,
     seriesId,
+    seasonNumber,
+    episodeNumber,
+    totalEpisodes,
     watchDuration,
     totalDuration,
     lastWatched,
@@ -7311,6 +7347,33 @@ class $WatchHistoriesTable extends WatchHistories
       context.handle(
         _seriesIdMeta,
         seriesId.isAcceptableOrUnknown(data['series_id']!, _seriesIdMeta),
+      );
+    }
+    if (data.containsKey('season_number')) {
+      context.handle(
+        _seasonNumberMeta,
+        seasonNumber.isAcceptableOrUnknown(
+          data['season_number']!,
+          _seasonNumberMeta,
+        ),
+      );
+    }
+    if (data.containsKey('episode_number')) {
+      context.handle(
+        _episodeNumberMeta,
+        episodeNumber.isAcceptableOrUnknown(
+          data['episode_number']!,
+          _episodeNumberMeta,
+        ),
+      );
+    }
+    if (data.containsKey('total_episodes')) {
+      context.handle(
+        _totalEpisodesMeta,
+        totalEpisodes.isAcceptableOrUnknown(
+          data['total_episodes']!,
+          _totalEpisodesMeta,
+        ),
       );
     }
     if (data.containsKey('watch_duration')) {
@@ -7383,6 +7446,18 @@ class $WatchHistoriesTable extends WatchHistories
         DriftSqlType.string,
         data['${effectivePrefix}series_id'],
       ),
+      seasonNumber: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}season_number'],
+      ),
+      episodeNumber: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}episode_number'],
+      ),
+      totalEpisodes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}total_episodes'],
+      ),
       watchDuration: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}watch_duration'],
@@ -7421,6 +7496,9 @@ class WatchHistoriesData extends DataClass
   final ContentType contentType;
   final String streamId;
   final String? seriesId;
+  final int? seasonNumber;
+  final int? episodeNumber;
+  final int? totalEpisodes;
   final int? watchDuration;
   final int? totalDuration;
   final DateTime lastWatched;
@@ -7431,6 +7509,9 @@ class WatchHistoriesData extends DataClass
     required this.contentType,
     required this.streamId,
     this.seriesId,
+    this.seasonNumber,
+    this.episodeNumber,
+    this.totalEpisodes,
     this.watchDuration,
     this.totalDuration,
     required this.lastWatched,
@@ -7449,6 +7530,15 @@ class WatchHistoriesData extends DataClass
     map['stream_id'] = Variable<String>(streamId);
     if (!nullToAbsent || seriesId != null) {
       map['series_id'] = Variable<String>(seriesId);
+    }
+    if (!nullToAbsent || seasonNumber != null) {
+      map['season_number'] = Variable<int>(seasonNumber);
+    }
+    if (!nullToAbsent || episodeNumber != null) {
+      map['episode_number'] = Variable<int>(episodeNumber);
+    }
+    if (!nullToAbsent || totalEpisodes != null) {
+      map['total_episodes'] = Variable<int>(totalEpisodes);
     }
     if (!nullToAbsent || watchDuration != null) {
       map['watch_duration'] = Variable<int>(watchDuration);
@@ -7472,6 +7562,15 @@ class WatchHistoriesData extends DataClass
       seriesId: seriesId == null && nullToAbsent
           ? const Value.absent()
           : Value(seriesId),
+      seasonNumber: seasonNumber == null && nullToAbsent
+          ? const Value.absent()
+          : Value(seasonNumber),
+      episodeNumber: episodeNumber == null && nullToAbsent
+          ? const Value.absent()
+          : Value(episodeNumber),
+      totalEpisodes: totalEpisodes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(totalEpisodes),
       watchDuration: watchDuration == null && nullToAbsent
           ? const Value.absent()
           : Value(watchDuration),
@@ -7498,6 +7597,9 @@ class WatchHistoriesData extends DataClass
       ),
       streamId: serializer.fromJson<String>(json['streamId']),
       seriesId: serializer.fromJson<String?>(json['seriesId']),
+      seasonNumber: serializer.fromJson<int?>(json['seasonNumber']),
+      episodeNumber: serializer.fromJson<int?>(json['episodeNumber']),
+      totalEpisodes: serializer.fromJson<int?>(json['totalEpisodes']),
       watchDuration: serializer.fromJson<int?>(json['watchDuration']),
       totalDuration: serializer.fromJson<int?>(json['totalDuration']),
       lastWatched: serializer.fromJson<DateTime>(json['lastWatched']),
@@ -7515,6 +7617,9 @@ class WatchHistoriesData extends DataClass
       ),
       'streamId': serializer.toJson<String>(streamId),
       'seriesId': serializer.toJson<String?>(seriesId),
+      'seasonNumber': serializer.toJson<int?>(seasonNumber),
+      'episodeNumber': serializer.toJson<int?>(episodeNumber),
+      'totalEpisodes': serializer.toJson<int?>(totalEpisodes),
       'watchDuration': serializer.toJson<int?>(watchDuration),
       'totalDuration': serializer.toJson<int?>(totalDuration),
       'lastWatched': serializer.toJson<DateTime>(lastWatched),
@@ -7528,6 +7633,9 @@ class WatchHistoriesData extends DataClass
     ContentType? contentType,
     String? streamId,
     Value<String?> seriesId = const Value.absent(),
+    Value<int?> seasonNumber = const Value.absent(),
+    Value<int?> episodeNumber = const Value.absent(),
+    Value<int?> totalEpisodes = const Value.absent(),
     Value<int?> watchDuration = const Value.absent(),
     Value<int?> totalDuration = const Value.absent(),
     DateTime? lastWatched,
@@ -7538,6 +7646,13 @@ class WatchHistoriesData extends DataClass
     contentType: contentType ?? this.contentType,
     streamId: streamId ?? this.streamId,
     seriesId: seriesId.present ? seriesId.value : this.seriesId,
+    seasonNumber: seasonNumber.present ? seasonNumber.value : this.seasonNumber,
+    episodeNumber: episodeNumber.present
+        ? episodeNumber.value
+        : this.episodeNumber,
+    totalEpisodes: totalEpisodes.present
+        ? totalEpisodes.value
+        : this.totalEpisodes,
     watchDuration: watchDuration.present
         ? watchDuration.value
         : this.watchDuration,
@@ -7558,6 +7673,15 @@ class WatchHistoriesData extends DataClass
           : this.contentType,
       streamId: data.streamId.present ? data.streamId.value : this.streamId,
       seriesId: data.seriesId.present ? data.seriesId.value : this.seriesId,
+      seasonNumber: data.seasonNumber.present
+          ? data.seasonNumber.value
+          : this.seasonNumber,
+      episodeNumber: data.episodeNumber.present
+          ? data.episodeNumber.value
+          : this.episodeNumber,
+      totalEpisodes: data.totalEpisodes.present
+          ? data.totalEpisodes.value
+          : this.totalEpisodes,
       watchDuration: data.watchDuration.present
           ? data.watchDuration.value
           : this.watchDuration,
@@ -7579,6 +7703,9 @@ class WatchHistoriesData extends DataClass
           ..write('contentType: $contentType, ')
           ..write('streamId: $streamId, ')
           ..write('seriesId: $seriesId, ')
+          ..write('seasonNumber: $seasonNumber, ')
+          ..write('episodeNumber: $episodeNumber, ')
+          ..write('totalEpisodes: $totalEpisodes, ')
           ..write('watchDuration: $watchDuration, ')
           ..write('totalDuration: $totalDuration, ')
           ..write('lastWatched: $lastWatched, ')
@@ -7594,6 +7721,9 @@ class WatchHistoriesData extends DataClass
     contentType,
     streamId,
     seriesId,
+    seasonNumber,
+    episodeNumber,
+    totalEpisodes,
     watchDuration,
     totalDuration,
     lastWatched,
@@ -7608,6 +7738,9 @@ class WatchHistoriesData extends DataClass
           other.contentType == this.contentType &&
           other.streamId == this.streamId &&
           other.seriesId == this.seriesId &&
+          other.seasonNumber == this.seasonNumber &&
+          other.episodeNumber == this.episodeNumber &&
+          other.totalEpisodes == this.totalEpisodes &&
           other.watchDuration == this.watchDuration &&
           other.totalDuration == this.totalDuration &&
           other.lastWatched == this.lastWatched &&
@@ -7620,6 +7753,9 @@ class WatchHistoriesCompanion extends UpdateCompanion<WatchHistoriesData> {
   final Value<ContentType> contentType;
   final Value<String> streamId;
   final Value<String?> seriesId;
+  final Value<int?> seasonNumber;
+  final Value<int?> episodeNumber;
+  final Value<int?> totalEpisodes;
   final Value<int?> watchDuration;
   final Value<int?> totalDuration;
   final Value<DateTime> lastWatched;
@@ -7631,6 +7767,9 @@ class WatchHistoriesCompanion extends UpdateCompanion<WatchHistoriesData> {
     this.contentType = const Value.absent(),
     this.streamId = const Value.absent(),
     this.seriesId = const Value.absent(),
+    this.seasonNumber = const Value.absent(),
+    this.episodeNumber = const Value.absent(),
+    this.totalEpisodes = const Value.absent(),
     this.watchDuration = const Value.absent(),
     this.totalDuration = const Value.absent(),
     this.lastWatched = const Value.absent(),
@@ -7643,6 +7782,9 @@ class WatchHistoriesCompanion extends UpdateCompanion<WatchHistoriesData> {
     required ContentType contentType,
     required String streamId,
     this.seriesId = const Value.absent(),
+    this.seasonNumber = const Value.absent(),
+    this.episodeNumber = const Value.absent(),
+    this.totalEpisodes = const Value.absent(),
     this.watchDuration = const Value.absent(),
     this.totalDuration = const Value.absent(),
     required DateTime lastWatched,
@@ -7659,6 +7801,9 @@ class WatchHistoriesCompanion extends UpdateCompanion<WatchHistoriesData> {
     Expression<int>? contentType,
     Expression<String>? streamId,
     Expression<String>? seriesId,
+    Expression<int>? seasonNumber,
+    Expression<int>? episodeNumber,
+    Expression<int>? totalEpisodes,
     Expression<int>? watchDuration,
     Expression<int>? totalDuration,
     Expression<DateTime>? lastWatched,
@@ -7671,6 +7816,9 @@ class WatchHistoriesCompanion extends UpdateCompanion<WatchHistoriesData> {
       if (contentType != null) 'content_type': contentType,
       if (streamId != null) 'stream_id': streamId,
       if (seriesId != null) 'series_id': seriesId,
+      if (seasonNumber != null) 'season_number': seasonNumber,
+      if (episodeNumber != null) 'episode_number': episodeNumber,
+      if (totalEpisodes != null) 'total_episodes': totalEpisodes,
       if (watchDuration != null) 'watch_duration': watchDuration,
       if (totalDuration != null) 'total_duration': totalDuration,
       if (lastWatched != null) 'last_watched': lastWatched,
@@ -7685,6 +7833,9 @@ class WatchHistoriesCompanion extends UpdateCompanion<WatchHistoriesData> {
     Value<ContentType>? contentType,
     Value<String>? streamId,
     Value<String?>? seriesId,
+    Value<int?>? seasonNumber,
+    Value<int?>? episodeNumber,
+    Value<int?>? totalEpisodes,
     Value<int?>? watchDuration,
     Value<int?>? totalDuration,
     Value<DateTime>? lastWatched,
@@ -7697,6 +7848,9 @@ class WatchHistoriesCompanion extends UpdateCompanion<WatchHistoriesData> {
       contentType: contentType ?? this.contentType,
       streamId: streamId ?? this.streamId,
       seriesId: seriesId ?? this.seriesId,
+      seasonNumber: seasonNumber ?? this.seasonNumber,
+      episodeNumber: episodeNumber ?? this.episodeNumber,
+      totalEpisodes: totalEpisodes ?? this.totalEpisodes,
       watchDuration: watchDuration ?? this.watchDuration,
       totalDuration: totalDuration ?? this.totalDuration,
       lastWatched: lastWatched ?? this.lastWatched,
@@ -7722,6 +7876,15 @@ class WatchHistoriesCompanion extends UpdateCompanion<WatchHistoriesData> {
     }
     if (seriesId.present) {
       map['series_id'] = Variable<String>(seriesId.value);
+    }
+    if (seasonNumber.present) {
+      map['season_number'] = Variable<int>(seasonNumber.value);
+    }
+    if (episodeNumber.present) {
+      map['episode_number'] = Variable<int>(episodeNumber.value);
+    }
+    if (totalEpisodes.present) {
+      map['total_episodes'] = Variable<int>(totalEpisodes.value);
     }
     if (watchDuration.present) {
       map['watch_duration'] = Variable<int>(watchDuration.value);
@@ -7751,6 +7914,9 @@ class WatchHistoriesCompanion extends UpdateCompanion<WatchHistoriesData> {
           ..write('contentType: $contentType, ')
           ..write('streamId: $streamId, ')
           ..write('seriesId: $seriesId, ')
+          ..write('seasonNumber: $seasonNumber, ')
+          ..write('episodeNumber: $episodeNumber, ')
+          ..write('totalEpisodes: $totalEpisodes, ')
           ..write('watchDuration: $watchDuration, ')
           ..write('totalDuration: $totalDuration, ')
           ..write('lastWatched: $lastWatched, ')
@@ -14187,6 +14353,9 @@ typedef $$WatchHistoriesTableCreateCompanionBuilder =
       required ContentType contentType,
       required String streamId,
       Value<String?> seriesId,
+      Value<int?> seasonNumber,
+      Value<int?> episodeNumber,
+      Value<int?> totalEpisodes,
       Value<int?> watchDuration,
       Value<int?> totalDuration,
       required DateTime lastWatched,
@@ -14200,6 +14369,9 @@ typedef $$WatchHistoriesTableUpdateCompanionBuilder =
       Value<ContentType> contentType,
       Value<String> streamId,
       Value<String?> seriesId,
+      Value<int?> seasonNumber,
+      Value<int?> episodeNumber,
+      Value<int?> totalEpisodes,
       Value<int?> watchDuration,
       Value<int?> totalDuration,
       Value<DateTime> lastWatched,
@@ -14235,6 +14407,21 @@ class $$WatchHistoriesTableFilterComposer
 
   ColumnFilters<String> get seriesId => $composableBuilder(
     column: $table.seriesId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get seasonNumber => $composableBuilder(
+    column: $table.seasonNumber,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get episodeNumber => $composableBuilder(
+    column: $table.episodeNumber,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get totalEpisodes => $composableBuilder(
+    column: $table.totalEpisodes,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -14293,6 +14480,21 @@ class $$WatchHistoriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get seasonNumber => $composableBuilder(
+    column: $table.seasonNumber,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get episodeNumber => $composableBuilder(
+    column: $table.episodeNumber,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get totalEpisodes => $composableBuilder(
+    column: $table.totalEpisodes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get watchDuration => $composableBuilder(
     column: $table.watchDuration,
     builder: (column) => ColumnOrderings(column),
@@ -14344,6 +14546,21 @@ class $$WatchHistoriesTableAnnotationComposer
 
   GeneratedColumn<String> get seriesId =>
       $composableBuilder(column: $table.seriesId, builder: (column) => column);
+
+  GeneratedColumn<int> get seasonNumber => $composableBuilder(
+    column: $table.seasonNumber,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get episodeNumber => $composableBuilder(
+    column: $table.episodeNumber,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get totalEpisodes => $composableBuilder(
+    column: $table.totalEpisodes,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<int> get watchDuration => $composableBuilder(
     column: $table.watchDuration,
@@ -14408,6 +14625,9 @@ class $$WatchHistoriesTableTableManager
                 Value<ContentType> contentType = const Value.absent(),
                 Value<String> streamId = const Value.absent(),
                 Value<String?> seriesId = const Value.absent(),
+                Value<int?> seasonNumber = const Value.absent(),
+                Value<int?> episodeNumber = const Value.absent(),
+                Value<int?> totalEpisodes = const Value.absent(),
                 Value<int?> watchDuration = const Value.absent(),
                 Value<int?> totalDuration = const Value.absent(),
                 Value<DateTime> lastWatched = const Value.absent(),
@@ -14419,6 +14639,9 @@ class $$WatchHistoriesTableTableManager
                 contentType: contentType,
                 streamId: streamId,
                 seriesId: seriesId,
+                seasonNumber: seasonNumber,
+                episodeNumber: episodeNumber,
+                totalEpisodes: totalEpisodes,
                 watchDuration: watchDuration,
                 totalDuration: totalDuration,
                 lastWatched: lastWatched,
@@ -14432,6 +14655,9 @@ class $$WatchHistoriesTableTableManager
                 required ContentType contentType,
                 required String streamId,
                 Value<String?> seriesId = const Value.absent(),
+                Value<int?> seasonNumber = const Value.absent(),
+                Value<int?> episodeNumber = const Value.absent(),
+                Value<int?> totalEpisodes = const Value.absent(),
                 Value<int?> watchDuration = const Value.absent(),
                 Value<int?> totalDuration = const Value.absent(),
                 required DateTime lastWatched,
@@ -14443,6 +14669,9 @@ class $$WatchHistoriesTableTableManager
                 contentType: contentType,
                 streamId: streamId,
                 seriesId: seriesId,
+                seasonNumber: seasonNumber,
+                episodeNumber: episodeNumber,
+                totalEpisodes: totalEpisodes,
                 watchDuration: watchDuration,
                 totalDuration: totalDuration,
                 lastWatched: lastWatched,

@@ -55,15 +55,18 @@ class WatchHistoryCard extends StatelessWidget {
                   ),
                 ),
 
-              // Progress Bar (if applicable)
+              // Progress percentage badge (if applicable)
               if (showProgress &&
                   history.watchDuration != null &&
-                  history.totalDuration != null)
+                  history.totalDuration != null &&
+                  history.totalDuration!.inMilliseconds > 0)
                 Positioned(
-                  bottom: 30,
-                  left: 8,
                   right: 8,
-                  child: _buildProgressBar(),
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: _buildProgressBadge(),
+                  ),
                 ),
 
               // Content Info
@@ -154,35 +157,54 @@ class WatchHistoryCard extends StatelessWidget {
     );
   }
 
-  Widget _buildProgressBar() {
+  Widget _buildProgressBadge() {
+    // For series, show episode progress
+    if (history.contentType == ContentType.series &&
+        history.seasonNumber != null &&
+        history.episodeNumber != null) {
+      final episodeText = history.totalEpisodes != null
+          ? 'S${history.seasonNumber} E${history.episodeNumber}/${history.totalEpisodes}'
+          : 'S${history.seasonNumber} E${history.episodeNumber}';
+
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.75),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          episodeText,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+    }
+
+    // For movies, show percentage watched
     final progress = history.totalDuration!.inMilliseconds.isInfinite
         ? 0.0
         : (history.watchDuration!.inMilliseconds /
               history.totalDuration!.inMilliseconds);
 
-    return Column(
-      children: [
-        LinearProgressIndicator(
-          value: progress.isInfinite || progress.isNaN ? 0 : progress,
-          backgroundColor: Colors.white30,
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-          minHeight: 3,
+    final percentage = ((progress.isInfinite || progress.isNaN ? 0 : progress) * 100).round();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.75),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        '$percentage%',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
         ),
-        SizedBox(height: 4),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              _formatDuration(history.watchDuration!),
-              style: TextStyle(color: Colors.white, fontSize: 10),
-            ),
-            Text(
-              _formatDuration(history.totalDuration!),
-              style: TextStyle(color: Colors.white, fontSize: 10),
-            ),
-          ],
-        ),
-      ],
+      ),
     );
   }
 
