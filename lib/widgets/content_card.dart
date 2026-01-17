@@ -299,8 +299,9 @@ class _ContentCardState extends State<ContentCard> {
                     type: customRenameType,
                   ),
                 );
-                if (result != null) {
+                if (result != null && mounted) {
                   widget.onRename?.call(widget.content);
+                  setState(() {}); // Trigger rebuild to show new name
                 }
               });
             },
