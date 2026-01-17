@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:another_iptv_player/models/category.dart';
-import 'package:another_iptv_player/models/category_config.dart';
+import 'package:another_iptv_player/models/category_configuration.dart';
 import 'package:another_iptv_player/models/category_type.dart';
 import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/services/category_config_service.dart';
