@@ -12,14 +12,18 @@ import 'package:another_iptv_player/utils/renaming_extension.dart';
 class CategoryListItem {
   final String id;
   final String displayName;
+  final String originalName;
   final bool isMerged;
+  final bool isHidden;
   final List<String>? mergedCategoryIds;
   final List<String>? mergedCategoryNames;
 
   CategoryListItem({
     required this.id,
     required this.displayName,
+    required this.originalName,
     this.isMerged = false,
+    this.isHidden = false,
     this.mergedCategoryIds,
     this.mergedCategoryNames,
   });
@@ -45,47 +49,58 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
   final Set<String> _selectedIds = {};
   bool _isSelectionMode = false;
 
-  // Categories loaded from repository
-  List<Category> _liveCategories = [];
-  List<Category> _vodCategories = [];
-  List<Category> _seriesCategories = [];
+  // Search and filter
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  bool _showHiddenOnly = false;
+  bool _showVisibleOnly = true; // Default to showing visible only
+
+  // Hidden category IDs
+  Set<String> _hiddenCategoryIds = {};
+
+  // Categories loaded from repository (ALL categories)
+  List<Category> _allLiveCategories = [];
+  List<Category> _allVodCategories = [];
+  List<Category> _allSeriesCategories = [];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _searchController.addListener(_onSearchChanged);
     _loadData();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text.toLowerCase();
+    });
   }
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
 
     // Load hidden categories
-    final hiddenCategoryIds = (await UserPreferences.getHiddenCategories()).toSet();
+    _hiddenCategoryIds = (await UserPreferences.getHiddenCategories()).toSet();
 
-    // Load categories from repository
-    final repository = AppState.xtreamCodeRepository;
+    // Load ALL categories from repository
+    // In combined mode, use xtreamRepositories; otherwise use xtreamCodeRepository
+    final repository = AppState.xtreamRepositories[widget.playlistId] ?? AppState.xtreamCodeRepository;
     if (repository != null) {
       final liveCategories = await repository.getLiveCategories();
       final vodCategories = await repository.getVodCategories();
       final seriesCategories = await repository.getSeriesCategories();
 
-      // Filter out hidden categories
-      _liveCategories = (liveCategories ?? [])
-          .where((c) => !hiddenCategoryIds.contains(c.categoryId))
-          .toList();
-      _vodCategories = (vodCategories ?? [])
-          .where((c) => !hiddenCategoryIds.contains(c.categoryId))
-          .toList();
-      _seriesCategories = (seriesCategories ?? [])
-          .where((c) => !hiddenCategoryIds.contains(c.categoryId))
-          .toList();
+      _allLiveCategories = liveCategories ?? [];
+      _allVodCategories = vodCategories ?? [];
+      _allSeriesCategories = seriesCategories ?? [];
     }
 
     // Load config
@@ -99,11 +114,11 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
   List<Category> _getCategoriesForType(CategoryType type) {
     switch (type) {
       case CategoryType.live:
-        return _liveCategories;
+        return _allLiveCategories;
       case CategoryType.vod:
-        return _vodCategories;
+        return _allVodCategories;
       case CategoryType.series:
-        return _seriesCategories;
+        return _allSeriesCategories;
     }
   }
 
@@ -124,58 +139,84 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
     final categories = _getCategoriesForType(type);
     final typeConfig = _config?.getConfigForType(type);
 
+    List<CategoryListItem> allItems = [];
+
     if (typeConfig == null) {
-      return categories.map((c) => CategoryListItem(
+      allItems = categories.map((c) => CategoryListItem(
         id: c.categoryId,
         displayName: c.categoryName.applyRenamingRules(isCategory: true, itemId: c.categoryId, playlistId: widget.playlistId),
+        originalName: c.categoryName,
+        isHidden: _hiddenCategoryIds.contains(c.categoryId),
       )).toList();
-    }
+    } else {
+      final categoryMap = <String, Category>{};
+      for (final cat in categories) {
+        categoryMap[cat.categoryId] = cat;
+      }
 
-    final categoryMap = <String, Category>{};
-    for (final cat in categories) {
-      categoryMap[cat.categoryId] = cat;
-    }
+      final processedIds = <String>{};
 
-    final result = <CategoryListItem>[];
-    final processedIds = <String>{};
+      // Process ordered items first
+      for (final itemId in typeConfig.order) {
+        final mergeGroup = typeConfig.getMergeGroup(itemId);
+        if (mergeGroup != null) {
+          final mergedNames = mergeGroup.categoryIds
+              .map((id) => categoryMap[id]?.categoryName ?? id)
+              .toList();
+          allItems.add(CategoryListItem(
+            id: mergeGroup.id,
+            displayName: mergeGroup.displayName,
+            originalName: mergeGroup.displayName,
+            isMerged: true,
+            isHidden: false, // Merged groups can't be hidden individually
+            mergedCategoryIds: mergeGroup.categoryIds,
+            mergedCategoryNames: mergedNames,
+          ));
+          processedIds.addAll(mergeGroup.categoryIds);
+          processedIds.add(mergeGroup.id);
+        } else if (categoryMap.containsKey(itemId) && !typeConfig.isCategoryMerged(itemId)) {
+          final cat = categoryMap[itemId]!;
+          allItems.add(CategoryListItem(
+            id: cat.categoryId,
+            displayName: cat.categoryName.applyRenamingRules(isCategory: true, itemId: cat.categoryId, playlistId: widget.playlistId),
+            originalName: cat.categoryName,
+            isHidden: _hiddenCategoryIds.contains(cat.categoryId),
+          ));
+          processedIds.add(itemId);
+        }
+      }
 
-    // Process ordered items first
-    for (final itemId in typeConfig.order) {
-      final mergeGroup = typeConfig.getMergeGroup(itemId);
-      if (mergeGroup != null) {
-        final mergedNames = mergeGroup.categoryIds
-            .map((id) => categoryMap[id]?.categoryName ?? id)
-            .toList();
-        result.add(CategoryListItem(
-          id: mergeGroup.id,
-          displayName: mergeGroup.displayName,
-          isMerged: true,
-          mergedCategoryIds: mergeGroup.categoryIds,
-          mergedCategoryNames: mergedNames,
-        ));
-        processedIds.addAll(mergeGroup.categoryIds);
-        processedIds.add(mergeGroup.id);
-      } else if (categoryMap.containsKey(itemId) && !typeConfig.isCategoryMerged(itemId)) {
-        final cat = categoryMap[itemId]!;
-        result.add(CategoryListItem(
-          id: cat.categoryId,
-          displayName: cat.categoryName.applyRenamingRules(isCategory: true, itemId: cat.categoryId, playlistId: widget.playlistId),
-        ));
-        processedIds.add(itemId);
+      // Add unordered categories at the end
+      for (final cat in categories) {
+        if (!processedIds.contains(cat.categoryId) && !typeConfig.isCategoryMerged(cat.categoryId)) {
+          allItems.add(CategoryListItem(
+            id: cat.categoryId,
+            displayName: cat.categoryName.applyRenamingRules(isCategory: true, itemId: cat.categoryId, playlistId: widget.playlistId),
+            originalName: cat.categoryName,
+            isHidden: _hiddenCategoryIds.contains(cat.categoryId),
+          ));
+        }
       }
     }
 
-    // Add unordered categories at the end
-    for (final cat in categories) {
-      if (!processedIds.contains(cat.categoryId) && !typeConfig.isCategoryMerged(cat.categoryId)) {
-        result.add(CategoryListItem(
-          id: cat.categoryId,
-          displayName: cat.categoryName.applyRenamingRules(isCategory: true, itemId: cat.categoryId, playlistId: widget.playlistId),
-        ));
-      }
-    }
+    // Apply filters
+    return allItems.where((item) {
+      // Filter by hidden/visible
+      if (_showHiddenOnly && !item.isHidden) return false;
+      if (_showVisibleOnly && item.isHidden) return false;
 
-    return result;
+      // Filter by search
+      if (_searchQuery.isNotEmpty) {
+        final matchesDisplay = item.displayName.toLowerCase().contains(_searchQuery);
+        final matchesOriginal = item.originalName.toLowerCase().contains(_searchQuery);
+        final matchesMerged = item.mergedCategoryNames?.any(
+          (name) => name.toLowerCase().contains(_searchQuery)
+        ) ?? false;
+        return matchesDisplay || matchesOriginal || matchesMerged;
+      }
+
+      return true;
+    }).toList();
   }
 
   void _toggleSelection(String id) {
@@ -194,6 +235,77 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
       _selectedIds.clear();
       _isSelectionMode = false;
     });
+  }
+
+  void _selectAllVisible() {
+    final type = _getCurrentType();
+    final items = _buildOrderedList(type);
+    setState(() {
+      for (final item in items) {
+        if (!item.isMerged) {
+          _selectedIds.add(item.id);
+        }
+      }
+      _isSelectionMode = _selectedIds.isNotEmpty;
+    });
+  }
+
+  void _selectBySearch() {
+    if (_searchQuery.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a search term first')),
+      );
+      return;
+    }
+
+    final type = _getCurrentType();
+    final items = _buildOrderedList(type);
+    setState(() {
+      for (final item in items) {
+        if (!item.isMerged) {
+          _selectedIds.add(item.id);
+        }
+      }
+      _isSelectionMode = _selectedIds.isNotEmpty;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Selected ${_selectedIds.length} categories matching "$_searchQuery"')),
+    );
+  }
+
+  Future<void> _bulkHide() async {
+    if (_selectedIds.isEmpty) return;
+
+    for (final id in _selectedIds) {
+      if (!_hiddenCategoryIds.contains(id)) {
+        await UserPreferences.hideCategory(id);
+      }
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Hidden ${_selectedIds.length} categories')),
+    );
+
+    _clearSelection();
+    await _loadData();
+  }
+
+  Future<void> _bulkShow() async {
+    if (_selectedIds.isEmpty) return;
+
+    for (final id in _selectedIds) {
+      if (_hiddenCategoryIds.contains(id)) {
+        await UserPreferences.unhideCategory(id);
+      }
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Unhidden ${_selectedIds.length} categories')),
+    );
+
+    _clearSelection();
+    await _loadData();
   }
 
   Future<void> _mergeSelected() async {
@@ -286,6 +398,15 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
     }
   }
 
+  Future<void> _toggleHideCategory(String categoryId, bool isCurrentlyHidden) async {
+    if (isCurrentlyHidden) {
+      await UserPreferences.unhideCategory(categoryId);
+    } else {
+      await UserPreferences.hideCategory(categoryId);
+    }
+    await _loadData();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -303,6 +424,16 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
         actions: [
           if (_isSelectionMode) ...[
             IconButton(
+              icon: const Icon(Icons.visibility_off),
+              onPressed: _bulkHide,
+              tooltip: 'Hide selected',
+            ),
+            IconButton(
+              icon: const Icon(Icons.visibility),
+              onPressed: _bulkShow,
+              tooltip: 'Show selected',
+            ),
+            IconButton(
               icon: const Icon(Icons.merge),
               onPressed: _selectedIds.length >= 2 ? _mergeSelected : null,
               tooltip: 'Merge selected',
@@ -317,21 +448,126 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
+          : Column(
               children: [
-                _buildCategoryList(CategoryType.live),
-                _buildCategoryList(CategoryType.vod),
-                _buildCategoryList(CategoryType.series),
+                _buildSearchAndFilterBar(),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildCategoryList(CategoryType.live),
+                      _buildCategoryList(CategoryType.vod),
+                      _buildCategoryList(CategoryType.series),
+                    ],
+                  ),
+                ),
               ],
             ),
-      floatingActionButton: _isSelectionMode && _selectedIds.length >= 2
+      floatingActionButton: _isSelectionMode && _selectedIds.isNotEmpty
           ? FloatingActionButton.extended(
-              onPressed: _mergeSelected,
-              icon: const Icon(Icons.merge),
-              label: Text('Merge ${_selectedIds.length}'),
+              onPressed: _selectedIds.length >= 2 ? _mergeSelected : _bulkHide,
+              icon: Icon(_selectedIds.length >= 2 ? Icons.merge : Icons.visibility_off),
+              label: Text(_selectedIds.length >= 2
+                  ? 'Merge ${_selectedIds.length}'
+                  : 'Hide ${_selectedIds.length}'),
             )
           : null,
+    );
+  }
+
+  Widget _buildSearchAndFilterBar() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).dividerColor),
+        ),
+      ),
+      child: Column(
+        children: [
+          // Search bar with select button
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search categories...',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                            },
+                          )
+                        : null,
+                    border: const OutlineInputBorder(),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: _searchQuery.isNotEmpty ? _selectBySearch : _selectAllVisible,
+                icon: const Icon(Icons.select_all, size: 18),
+                label: Text(_searchQuery.isNotEmpty ? 'Select Matches' : 'Select All'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Filter chips
+          Row(
+            children: [
+              FilterChip(
+                label: const Text('Visible'),
+                selected: _showVisibleOnly,
+                onSelected: (selected) {
+                  setState(() {
+                    _showVisibleOnly = selected;
+                    if (selected) _showHiddenOnly = false;
+                  });
+                },
+              ),
+              const SizedBox(width: 8),
+              FilterChip(
+                label: const Text('Hidden'),
+                selected: _showHiddenOnly,
+                onSelected: (selected) {
+                  setState(() {
+                    _showHiddenOnly = selected;
+                    if (selected) _showVisibleOnly = false;
+                  });
+                },
+              ),
+              const SizedBox(width: 8),
+              FilterChip(
+                label: const Text('All'),
+                selected: !_showVisibleOnly && !_showHiddenOnly,
+                onSelected: (selected) {
+                  if (selected) {
+                    setState(() {
+                      _showVisibleOnly = false;
+                      _showHiddenOnly = false;
+                    });
+                  }
+                },
+              ),
+              const Spacer(),
+              if (_selectedIds.isNotEmpty)
+                Text(
+                  '${_selectedIds.length} selected',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -339,8 +575,24 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
     final items = _buildOrderedList(type);
 
     if (items.isEmpty) {
-      return const Center(
-        child: Text('No categories available'),
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.folder_off,
+              size: 64,
+              color: Theme.of(context).colorScheme.outline,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _searchQuery.isNotEmpty
+                  ? 'No categories match "$_searchQuery"'
+                  : 'No categories available',
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+          ],
+        ),
       );
     }
 
@@ -365,7 +617,11 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
         return Card(
           key: ValueKey(item.id),
           margin: const EdgeInsets.only(bottom: 8),
-          color: isSelected ? Theme.of(context).colorScheme.primaryContainer : null,
+          color: isSelected
+              ? Theme.of(context).colorScheme.primaryContainer
+              : item.isHidden
+                  ? Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5)
+                  : null,
           child: ListTile(
             leading: Row(
               mainAxisSize: MainAxisSize.min,
@@ -374,9 +630,10 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
                   width: 32,
                   child: Text(
                     '${index + 1}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
+                      color: item.isHidden ? Colors.grey : null,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -393,11 +650,31 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
                   ),
               ],
             ),
-            title: Text(
-              item.displayName,
-              style: TextStyle(
-                fontWeight: item.isMerged ? FontWeight.bold : FontWeight.normal,
-              ),
+            title: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    item.displayName,
+                    style: TextStyle(
+                      fontWeight: item.isMerged ? FontWeight.bold : FontWeight.normal,
+                      color: item.isHidden ? Colors.grey : null,
+                      decoration: item.isHidden ? TextDecoration.lineThrough : null,
+                    ),
+                  ),
+                ),
+                if (item.isHidden)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'Hidden',
+                      style: TextStyle(fontSize: 10, color: Colors.orange),
+                    ),
+                  ),
+              ],
             ),
             subtitle: item.isMerged && item.mergedCategoryNames != null
                 ? Text(
@@ -410,6 +687,15 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (!item.isMerged)
+                  IconButton(
+                    icon: Icon(
+                      item.isHidden ? Icons.visibility : Icons.visibility_off,
+                      size: 20,
+                    ),
+                    onPressed: () => _toggleHideCategory(item.id, item.isHidden),
+                    tooltip: item.isHidden ? 'Show' : 'Hide',
+                  ),
                 IconButton(
                   icon: const Icon(Icons.swap_vert, size: 20),
                   onPressed: () => _moveToPosition(item.id, index),

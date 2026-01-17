@@ -6,7 +6,7 @@ import '../services/app_state.dart';
 import '../services/service_locator.dart';
 
 class HiddenItemsRepository {
-  final AppDatabase _db = AppDatabase();
+  final AppDatabase _db = getIt<AppDatabase>();
 
   Future<void> hideItem(HiddenItem item) async {
     await _db.insertHiddenItem(item.toCompanion());
@@ -46,8 +46,25 @@ class HiddenItemsRepository {
     return await _db.isHidden(playlistId, streamId, contentType);
   }
 
+  /// Get playlist ID - uses source from content item in combined mode, or current playlist
+  String _getPlaylistId([ContentItem? contentItem]) {
+    // In combined mode, use source playlist from content item if available
+    if (contentItem?.sourcePlaylistId != null) {
+      return contentItem!.sourcePlaylistId!;
+    }
+    // Fall back to current playlist
+    if (AppState.currentPlaylist != null) {
+      return AppState.currentPlaylist!.id;
+    }
+    // In combined mode without content item, return 'unified'
+    if (AppState.isCombinedMode) {
+      return 'unified';
+    }
+    throw StateError('No playlist available');
+  }
+
   Future<HiddenItem> hideContentItem(ContentItem item) async {
-    final playlistId = AppState.currentPlaylist!.id;
+    final playlistId = _getPlaylistId(item);
     final hiddenItem = HiddenItem(
       playlistId: playlistId,
       contentType: item.contentType,
@@ -60,7 +77,7 @@ class HiddenItemsRepository {
   }
 
   Future<void> unhideContentItem(ContentItem item) async {
-    final playlistId = AppState.currentPlaylist!.id;
+    final playlistId = _getPlaylistId(item);
     await unhideByStreamId(playlistId, item.id, item.contentType);
   }
 }

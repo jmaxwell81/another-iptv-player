@@ -6,10 +6,11 @@ import 'package:another_iptv_player/repositories/favorites_repository.dart';
 
 class FavoritesController extends ChangeNotifier {
   final FavoritesRepository _repository = FavoritesRepository();
-  
+
   List<Favorite> _favorites = [];
   bool _isLoading = false;
   String? _error;
+  bool _isDisposed = false;
 
   List<Favorite> get favorites => _favorites;
   bool get isLoading => _isLoading;
@@ -201,12 +202,20 @@ class FavoritesController extends ChangeNotifier {
   }
 
   void _setLoading(bool loading) {
+    if (_isDisposed) return;
     _isLoading = loading;
     notifyListeners();
   }
 
   void _setError(String? error) {
+    if (_isDisposed) return;
     _error = error;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
   }
 } 

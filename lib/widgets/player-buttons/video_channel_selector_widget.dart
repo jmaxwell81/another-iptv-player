@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
+import 'package:another_iptv_player/models/playlist_model.dart';
+import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/services/event_bus.dart';
 import 'package:another_iptv_player/services/player_state.dart';
 import 'package:another_iptv_player/services/playlist_content_state.dart';
 import 'package:another_iptv_player/l10n/localization_extension.dart';
 import 'package:flutter/material.dart';
 import '../../models/content_type.dart';
-import '../../utils/get_playlist_type.dart';
 
 class VideoChannelSelectorWidget extends StatefulWidget {
   final List<ContentItem>? queue;
@@ -79,7 +80,14 @@ class _VideoChannelSelectorWidgetState
 
   @override
   Widget build(BuildContext context) {
-    if (isM3u) {
+    // Check if current content is M3U based on sourceType or m3uItem
+    final currentContent = PlayerState.currentContent;
+    final contentIsM3u = currentContent?.sourceType == PlaylistType.m3u ||
+        currentContent?.m3uItem != null ||
+        (currentContent?.sourceType == null &&
+            AppState.currentPlaylist?.type == PlaylistType.m3u);
+
+    if (contentIsM3u) {
       return const SizedBox.shrink();
     }
 
@@ -89,7 +97,6 @@ class _VideoChannelSelectorWidgetState
 
     _globalContext = context;
 
-    final currentContent = PlayerState.currentContent;
     String tooltip = context.loc.select_channel;
     if (currentContent?.contentType == ContentType.vod) {
       tooltip = context.loc.movies;

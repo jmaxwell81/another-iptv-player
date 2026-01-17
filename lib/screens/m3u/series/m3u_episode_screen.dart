@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:another_iptv_player/models/m3u_series.dart';
+import 'package:another_iptv_player/models/playlist_model.dart';
+import 'package:another_iptv_player/services/app_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
@@ -70,6 +72,10 @@ class _M3uEpisodeScreenState extends State<M3uEpisodeScreen> {
   }
 
   Future<void> _initializeQueue() async {
+    // Get source info from parent content item or current playlist
+    final sourcePlaylistId = widget.contentItem.sourcePlaylistId ?? AppState.currentPlaylist?.id;
+    final sourceType = widget.contentItem.sourceType ?? PlaylistType.m3u;
+
     // Tüm sezonların tüm bölümlerini ekle (sadece mevcut sezonu değil)
     allContents = widget.episodes
         .map((x) {
@@ -79,6 +85,8 @@ class _M3uEpisodeScreenState extends State<M3uEpisodeScreen> {
             x.cover ?? "",
             ContentType.series,
             season: x.seasonNumber,
+            sourcePlaylistId: sourcePlaylistId,
+            sourceType: sourceType,
           );
         })
         .toList();

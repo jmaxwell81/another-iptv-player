@@ -1,4 +1,5 @@
 import 'package:another_iptv_player/models/m3u_series.dart';
+import 'package:another_iptv_player/models/playlist_model.dart';
 import 'package:another_iptv_player/repositories/m3u_repository.dart';
 import 'package:another_iptv_player/screens/m3u/series/m3u_episode_screen.dart';
 import 'package:flutter/material.dart';
@@ -477,6 +478,9 @@ class _M3uSeriesScreenState extends State<M3uSeriesScreen> {
 
           var m3uItem = await _repository.getM3uItemByUrl(url: episode.url);
 
+          // Get source info from parent content item or current playlist
+          final sourcePlaylistId = widget.contentItem.sourcePlaylistId ?? AppState.currentPlaylist?.id;
+
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -489,7 +493,9 @@ class _M3uSeriesScreenState extends State<M3uSeriesScreen> {
                   episode.cover ?? "",
                   ContentType.series,
                   season: episode.seasonNumber,
-                  m3uItem: m3uItem
+                  m3uItem: m3uItem,
+                  sourcePlaylistId: sourcePlaylistId,
+                  sourceType: PlaylistType.m3u,
                 ),
               ),
             ),

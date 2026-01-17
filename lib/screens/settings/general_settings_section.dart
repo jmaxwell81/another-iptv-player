@@ -26,6 +26,8 @@ import '../xtream-codes/xtream_code_data_loader_screen.dart';
 import 'category_settings_section.dart';
 import 'renaming_rules_screen.dart';
 import 'category_config_screen.dart';
+import 'active_sources_screen.dart';
+import 'unified_category_settings_screen.dart';
 
 final controller = XtreamCodeHomeController(true);
 
@@ -119,6 +121,22 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
     }
   }
 
+  // Check if we have any Xtream playlists available (either current or in combined mode)
+  bool get _hasXtreamPlaylists {
+    if (AppState.isCombinedMode) {
+      return AppState.xtreamRepositories.isNotEmpty;
+    }
+    return isXtreamCode;
+  }
+
+  // Check if we have any M3U playlists available
+  bool get _hasM3uPlaylists {
+    if (AppState.isCombinedMode) {
+      return AppState.m3uRepositories.isNotEmpty;
+    }
+    return isM3u;
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -149,35 +167,60 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
         Card(
           child: Column(
             children: [
-              ListTile(
-                leading: const Icon(Icons.refresh),
-                title: Text(context.loc.refresh_contents),
-                trailing: const Icon(Icons.cloud_download),
-                onTap: () {
-                  if (isXtreamCode) {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => XtreamCodeDataLoaderScreen(
-                          playlist: AppState.currentPlaylist!,
-                          refreshAll: true,
+              // Show refresh option - in single mode uses current playlist, in combined mode shows all
+              if (AppState.currentPlaylist != null || AppState.isCombinedMode)
+                ListTile(
+                  leading: const Icon(Icons.refresh),
+                  title: Text(context.loc.refresh_contents),
+                  subtitle: AppState.isCombinedMode
+                      ? Text('Refresh all ${AppState.activePlaylists.length} sources')
+                      : null,
+                  trailing: const Icon(Icons.cloud_download),
+                  onTap: () {
+                    if (AppState.isCombinedMode) {
+                      // In combined mode, go back to playlist selection
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (context) => PlaylistScreen()),
+                      );
+                    } else if (isXtreamCode) {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => XtreamCodeDataLoaderScreen(
+                            playlist: AppState.currentPlaylist!,
+                            refreshAll: true,
+                          ),
                         ),
-                      ),
-                    );
-                  }
-
-                  if (isM3u) {
-                    refreshM3uPlaylist();
-                  }
-                },
-              ),
-              if (isXtreamCode) const Divider(height: 1),
-              if (isXtreamCode)
+                      );
+                    } else if (isM3u) {
+                      refreshM3uPlaylist();
+                    }
+                  },
+                ),
+              // Show hide category option for Xtream playlists
+              if ((AppState.currentPlaylist != null || AppState.isCombinedMode) && _hasXtreamPlaylists)
+                const Divider(height: 1),
+              if (_hasXtreamPlaylists && (AppState.currentPlaylist != null || AppState.isCombinedMode))
                 ListTile(
                   leading: const Icon(Icons.subtitles_outlined),
                   title: Text(context.loc.hide_category),
+                  subtitle: AppState.isCombinedMode
+                      ? const Text('Hide categories across all sources')
+                      : null,
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () async {
+                    // Use different settings screen for combined mode
+                    if (AppState.isCombinedMode) {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const UnifiedCategorySettingsScreen(),
+                        ),
+                      );
+                      return;
+                    }
+
                     final result = await Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -222,24 +265,50 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
                   );
                 },
               ),
-              if (isXtreamCode) const Divider(height: 1),
-              if (isXtreamCode)
+              // Show category configuration for Xtream playlists
+              if (_hasXtreamPlaylists && (AppState.currentPlaylist != null || AppState.isCombinedMode))
+                const Divider(height: 1),
+              if (_hasXtreamPlaylists && (AppState.currentPlaylist != null || AppState.isCombinedMode))
                 ListTile(
                   leading: const Icon(Icons.merge),
                   title: const Text('Category Configuration'),
-                  subtitle: const Text('Merge and reorder categories'),
+                  subtitle: AppState.isCombinedMode
+                      ? const Text('Select a playlist to configure')
+                      : const Text('Merge and reorder categories'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => CategoryConfigScreen(
-                          playlistId: AppState.currentPlaylist!.id,
+                    if (AppState.isCombinedMode) {
+                      // In combined mode, show playlist selection dialog
+                      _showPlaylistSelectionForCategoryConfig(context);
+                    } else {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CategoryConfigScreen(
+                            playlistId: AppState.currentPlaylist!.id,
+                          ),
                         ),
-                      ),
-                    );
+                      );
+                    }
                   },
                 ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.merge_type),
+                title: const Text('Combined Sources'),
+                subtitle: Text(AppState.isCombinedMode
+                    ? 'Currently active (${AppState.activePlaylists.length} sources)'
+                    : 'Merge multiple playlists together'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ActiveSourcesScreen(),
+                    ),
+                  );
+                },
+              ),
               const Divider(height: 1),
               DropdownTileWidget<Locale>(
                 icon: Icons.language,
@@ -423,6 +492,58 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
           ),
         ),
       ],
+    );
+  }
+
+  void _showPlaylistSelectionForCategoryConfig(BuildContext context) {
+    // Get Xtream playlists from combined mode
+    final xtreamPlaylists = AppState.activePlaylists.entries
+        .where((e) => AppState.xtreamRepositories.containsKey(e.key))
+        .toList();
+
+    if (xtreamPlaylists.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No Xtream playlists available')),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Playlist'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: xtreamPlaylists.length,
+            itemBuilder: (context, index) {
+              final entry = xtreamPlaylists[index];
+              return ListTile(
+                title: Text(entry.value.name),
+                subtitle: Text(entry.value.url ?? ''),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => CategoryConfigScreen(
+                        playlistId: entry.key,
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
     );
   }
 

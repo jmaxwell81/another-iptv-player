@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:another_iptv_player/models/renaming_rule.dart';
 import 'package:another_iptv_player/models/custom_rename.dart';
 import 'package:another_iptv_player/models/category_configuration.dart';
+import 'package:another_iptv_player/models/active_playlists_config.dart';
 
 class UserPreferences {
   static const String _keyLastPlaylist = 'last_playlist';
@@ -33,6 +34,7 @@ class UserPreferences {
   static const String _renamingRulesKey = 'renaming_rules';
   static const String _customRenamesKey = 'custom_renames';
   static const String _categoryConfigKey = 'category_configs';
+  static const String _activePlaylistsConfigKey = 'active_playlists_config';
 
   static Future<void> setLastPlaylist(String playlistId) async {
     final prefs = await SharedPreferences.getInstance();
@@ -452,5 +454,55 @@ class UserPreferences {
     final configs = await getCategoryConfigs();
     configs.remove(playlistId);
     await setCategoryConfigs(configs);
+  }
+
+  // Active Playlists Configuration (combined mode)
+  static Future<ActivePlaylistsConfig> getActivePlaylistsConfig() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_activePlaylistsConfigKey);
+    if (jsonString == null || jsonString.isEmpty) {
+      return ActivePlaylistsConfig();
+    }
+    try {
+      return ActivePlaylistsConfig.fromJsonString(jsonString);
+    } catch (e) {
+      return ActivePlaylistsConfig();
+    }
+  }
+
+  static Future<void> setActivePlaylistsConfig(ActivePlaylistsConfig config) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_activePlaylistsConfigKey, config.toJsonString());
+  }
+
+  static Future<Set<String>> getActivePlaylistIds() async {
+    final config = await getActivePlaylistsConfig();
+    return config.activePlaylistIds;
+  }
+
+  static Future<void> setActivePlaylistIds(Set<String> ids) async {
+    final config = await getActivePlaylistsConfig();
+    await setActivePlaylistsConfig(config.copyWith(activePlaylistIds: ids));
+  }
+
+  static Future<bool> isCombinedModeEnabled() async {
+    final config = await getActivePlaylistsConfig();
+    return config.isCombinedMode;
+  }
+
+  static Future<void> setCombinedModeEnabled(bool enabled) async {
+    final config = await getActivePlaylistsConfig();
+    await setActivePlaylistsConfig(config.copyWith(isCombinedMode: enabled));
+  }
+
+  static Future<void> togglePlaylistActive(String playlistId) async {
+    final config = await getActivePlaylistsConfig();
+    final newIds = Set<String>.from(config.activePlaylistIds);
+    if (newIds.contains(playlistId)) {
+      newIds.remove(playlistId);
+    } else {
+      newIds.add(playlistId);
+    }
+    await setActivePlaylistsConfig(config.copyWith(activePlaylistIds: newIds));
   }
 }

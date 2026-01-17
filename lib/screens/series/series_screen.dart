@@ -21,7 +21,7 @@ class SeriesScreen extends StatefulWidget {
 }
 
 class _SeriesScreenState extends State<SeriesScreen> {
-  late IptvRepository _repository;
+  IptvRepository? _repository;
   late FavoritesController _favoritesController;
   late WatchHistoryService _watchHistoryService;
 
@@ -35,6 +35,12 @@ class _SeriesScreenState extends State<SeriesScreen> {
   // Last opened episode for this series (for Continue Watching button)
   EpisodesData? _lastOpenedEpisode;
 
+  // Helper to get playlist ID
+  String get _playlistId =>
+      widget.contentItem.sourcePlaylistId ??
+      AppState.currentPlaylist?.id ??
+      'unknown';
+
   @override
   void initState() {
     super.initState();
@@ -46,17 +52,34 @@ class _SeriesScreenState extends State<SeriesScreen> {
   }
 
   void _initializeRepository() {
-    _repository = IptvRepository(
-      ApiConfig(
-        baseUrl: AppState.currentPlaylist!.url!,
-        username: AppState.currentPlaylist!.username!,
-        password: AppState.currentPlaylist!.password!,
-      ),
-      AppState.currentPlaylist!.id,
-    );
+    final sourcePlaylistId = widget.contentItem.sourcePlaylistId;
+
+    // Try to get repository from xtreamRepositories (combined mode) or create new one
+    if (sourcePlaylistId != null && AppState.xtreamRepositories.containsKey(sourcePlaylistId)) {
+      _repository = AppState.xtreamRepositories[sourcePlaylistId];
+    } else if (AppState.currentPlaylist != null) {
+      _repository = IptvRepository(
+        ApiConfig(
+          baseUrl: AppState.currentPlaylist!.url!,
+          username: AppState.currentPlaylist!.username!,
+          password: AppState.currentPlaylist!.password!,
+        ),
+        AppState.currentPlaylist!.id,
+      );
+    } else {
+      _repository = null;
+    }
   }
 
   Future<void> _loadSeriesDetails() async {
+    if (_repository == null) {
+      setState(() {
+        error = 'No repository available';
+        isLoading = false;
+      });
+      return;
+    }
+
     setState(() {
       isLoading = true;
       error = null;
@@ -65,7 +88,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
     try {
       final seriesId = widget.contentItem.id;
 
-      final seriesResponse = await _repository.getSeriesInfo(seriesId);
+      final seriesResponse = await _repository!.getSeriesInfo(seriesId);
 
       if (seriesResponse != null) {
         setState(() {
@@ -94,7 +117,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
   Future<void> _loadLastOpenedEpisodeFromHistory() async {
     if (episodes.isEmpty) return;
 
-    final playlistId = AppState.currentPlaylist!.id;
+    final playlistId = _playlistId;
 
     // Get all series-type history entries for this playlist
     final allSeriesHistory = await _watchHistoryService
@@ -757,7 +780,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
                 ),
                 Expanded(
                   child: FutureBuilder<List<EpisodesData>>(
-                    future: _repository.getSeriesEpisodesBySeason(
+                    future: _repository?.getSeriesEpisodesBySeason(
                       seriesInfo?.seriesId ?? widget.contentItem.id.toString(),
                       season.seasonNumber,
                     ),

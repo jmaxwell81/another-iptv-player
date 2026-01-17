@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
+import 'package:another_iptv_player/models/playlist_model.dart' show PlaylistType;
 import 'package:another_iptv_player/models/watch_history.dart';
 import 'package:another_iptv_player/repositories/user_preferences.dart';
 import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/services/event_bus.dart';
 import 'package:another_iptv_player/services/watch_history_service.dart';
-import 'package:another_iptv_player/utils/get_playlist_type.dart';
 import 'package:another_iptv_player/utils/subtitle_configuration.dart';
 import 'package:another_iptv_player/widgets/video_widget.dart';
 import 'package:audio_service/audio_service.dart';
@@ -137,11 +137,20 @@ class _PlayerWidgetState extends State<PlayerWidget>
     if (_pendingWatchDuration == null || !mounted) return;
 
     try {
+      // Get playlist ID from content or fallback to current playlist
+      final playlistId = contentItem.sourcePlaylistId ??
+          AppState.currentPlaylist?.id ??
+          'unknown';
+
+      // Determine if this is Xtream content
+      final contentIsXtream = contentItem.sourceType == PlaylistType.xtream ||
+          (contentItem.sourceType == null && contentItem.m3uItem == null);
+
       await watchHistoryService.saveWatchHistory(
         WatchHistory(
-          playlistId: AppState.currentPlaylist!.id,
+          playlistId: playlistId,
           contentType: contentItem.contentType,
-          streamId: isXtreamCode
+          streamId: contentIsXtream
               ? contentItem.id
               : contentItem.m3uItem?.id ?? contentItem.id,
           lastWatched: DateTime.now(),
@@ -173,9 +182,18 @@ class _PlayerWidgetState extends State<PlayerWidget>
     _audioHandler.setPlayer(_player);
     _videoController = VideoController(_player);
 
+    // Get playlist ID from content's sourcePlaylistId or fallback to current playlist
+    final playlistId = contentItem.sourcePlaylistId ??
+        AppState.currentPlaylist?.id ??
+        'unknown';
+
+    // Determine if this is Xtream content based on sourceType or m3uItem presence
+    final contentIsXtream = contentItem.sourceType == PlaylistType.xtream ||
+        (contentItem.sourceType == null && contentItem.m3uItem == null);
+
     var watchHistory = await watchHistoryService.getWatchHistory(
-      AppState.currentPlaylist!.id,
-      isXtreamCode ? contentItem.id : contentItem.m3uItem?.id ?? contentItem.id,
+      playlistId,
+      contentIsXtream ? contentItem.id : contentItem.m3uItem?.id ?? contentItem.id,
     );
 
     List<MediaItem> mediaItems = [];
@@ -184,9 +202,12 @@ class _PlayerWidgetState extends State<PlayerWidget>
     if (_queue != null) {
       for (int i = 0; i < _queue!.length; i++) {
         final item = _queue![i];
+        final itemPlaylistId = item.sourcePlaylistId ?? playlistId;
+        final itemIsXtream = item.sourceType == PlaylistType.xtream ||
+            (item.sourceType == null && item.m3uItem == null);
         final itemWatchHistory = await watchHistoryService.getWatchHistory(
-          AppState.currentPlaylist!.id,
-          isXtreamCode ? item.id : item.m3uItem?.id ?? item.id,
+          itemPlaylistId,
+          itemIsXtream ? item.id : item.m3uItem?.id ?? item.id,
         );
 
         mediaItems.add(
@@ -195,7 +216,7 @@ class _PlayerWidgetState extends State<PlayerWidget>
             title: item.name,
             artist: _getContentTypeDisplayName(),
             album: AppState.currentPlaylist?.name ?? '',
-            artUri: item.imagePath != null ? Uri.parse(item.imagePath!) : null,
+            artUri: _parseArtUri(item.imagePath),
             playable: true,
             extras: {
               'url': item.url,
@@ -220,9 +241,7 @@ class _PlayerWidgetState extends State<PlayerWidget>
                 title: item.name,
                 artist: _getContentTypeDisplayName(),
                 album: AppState.currentPlaylist?.name ?? '',
-                artUri: item.imagePath != null
-                    ? Uri.parse(item.imagePath!)
-                    : null,
+                artUri: _parseArtUri(item.imagePath),
                 playable: true,
                 extras: {'url': item.url, 'startPosition': 0},
               ),
@@ -255,9 +274,7 @@ class _PlayerWidgetState extends State<PlayerWidget>
         id: contentItem.id.toString(),
         title: contentItem.name,
         artist: _getContentTypeDisplayName(),
-        artUri: contentItem.imagePath != null
-            ? Uri.parse(contentItem.imagePath!)
-            : null,
+        artUri: _parseArtUri(contentItem.imagePath),
         extras: {
           'url': contentItem.url,
           'startPosition': watchHistory?.watchDuration?.inMilliseconds ?? 0,
@@ -833,6 +850,22 @@ class _PlayerWidgetState extends State<PlayerWidget>
         return 'Film';
       case ContentType.series:
         return 'Dizi';
+    }
+  }
+
+  /// Parse artUri safely, returning null for empty or invalid URLs
+  Uri? _parseArtUri(String? imagePath) {
+    if (imagePath == null || imagePath.isEmpty) {
+      return null;
+    }
+    // Check if it looks like a valid URL (has a scheme/host)
+    if (!imagePath.startsWith('http://') && !imagePath.startsWith('https://')) {
+      return null;
+    }
+    try {
+      return Uri.parse(imagePath);
+    } catch (e) {
+      return null;
     }
   }
 
