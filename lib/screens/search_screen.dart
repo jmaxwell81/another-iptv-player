@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:another_iptv_player/models/content_type.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
+import 'package:another_iptv_player/models/playlist_model.dart';
 import 'package:another_iptv_player/models/favorite.dart';
 import 'package:another_iptv_player/repositories/iptv_repository.dart';
 import 'package:another_iptv_player/services/app_state.dart';
@@ -47,7 +48,18 @@ class _SearchScreenContentState extends State<_SearchScreenContent> {
   TextEditingController searchController = TextEditingController();
   FocusNode searchFocusNode = FocusNode();
   List<ContentItem> contentItems = [];
-  IptvRepository repository = AppState.xtreamCodeRepository!;
+  IptvRepository? repository;
+  String? _playlistId;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Initialize repository - use current playlist's repository
+    if (repository == null) {
+      repository = AppState.xtreamCodeRepository;
+      _playlistId = AppState.currentPlaylist?.id;
+    }
+  }
 
   @override
   void initState() {
@@ -113,6 +125,14 @@ class _SearchScreenContentState extends State<_SearchScreenContent> {
       return;
     }
 
+    if (repository == null) {
+      setState(() {
+        errorMessage = 'No Xtream repository available';
+        isLoading = false;
+      });
+      return;
+    }
+
     setState(() {
       isLoading = true;
       errorMessage = null;
@@ -121,10 +141,11 @@ class _SearchScreenContentState extends State<_SearchScreenContent> {
 
     try {
       List<ContentItem> searchResults = [];
+      final playlistId = _playlistId;
 
       switch (widget.contentType) {
         case ContentType.liveStream:
-          var liveStreams = await repository.searchLiveStreams(value);
+          var liveStreams = await repository!.searchLiveStreams(value);
           searchResults = liveStreams
               .map(
                 (x) => ContentItem(
@@ -133,13 +154,15 @@ class _SearchScreenContentState extends State<_SearchScreenContent> {
                   x.streamIcon,
                   ContentType.liveStream,
                   liveStream: x,
+                  sourcePlaylistId: playlistId,
+                  sourceType: PlaylistType.xtream,
                 ),
               )
               .toList();
           break;
 
         case ContentType.vod:
-          var vodStreams = await repository.searchMovies(value);
+          var vodStreams = await repository!.searchMovies(value);
           searchResults = vodStreams
               .map(
                 (x) => ContentItem(
@@ -149,13 +172,15 @@ class _SearchScreenContentState extends State<_SearchScreenContent> {
                   ContentType.vod,
                   containerExtension: x.containerExtension,
                   vodStream: x,
+                  sourcePlaylistId: playlistId,
+                  sourceType: PlaylistType.xtream,
                 ),
               )
               .toList();
           break;
 
         case ContentType.series:
-          var series = await repository.searchSeries(value);
+          var series = await repository!.searchSeries(value);
           searchResults = series
               .map(
                 (x) => ContentItem(
@@ -164,6 +189,8 @@ class _SearchScreenContentState extends State<_SearchScreenContent> {
                   x.cover ?? '',
                   ContentType.series,
                   seriesStream: x,
+                  sourcePlaylistId: playlistId,
+                  sourceType: PlaylistType.xtream,
                 ),
               )
               .toList();
@@ -292,10 +319,21 @@ class _SearchScreenContentState extends State<_SearchScreenContent> {
         );
       }
     } else {
+      // Get playlist ID from item's source or fall back to current playlist
+      final playlistId = item.sourcePlaylistId ?? AppState.currentPlaylist?.id;
+      if (playlistId == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Cannot add favorite: no playlist available')),
+          );
+        }
+        return;
+      }
+
       final now = DateTime.now();
       final favorite = Favorite(
         id: const Uuid().v4(),
-        playlistId: AppState.currentPlaylist!.id,
+        playlistId: playlistId,
         contentType: item.contentType,
         streamId: item.id,
         name: item.name,

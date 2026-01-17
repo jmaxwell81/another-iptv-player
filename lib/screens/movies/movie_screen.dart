@@ -10,7 +10,7 @@ import 'package:another_iptv_player/repositories/iptv_repository.dart';
 import 'package:another_iptv_player/repositories/favorites_repository.dart';
 import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/services/watch_history_service.dart';
-import 'package:another_iptv_player/utils/get_playlist_type.dart';
+import 'package:another_iptv_player/models/playlist_model.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -41,21 +41,53 @@ class _MovieScreenState extends State<MovieScreen> {
   List<ContentItem> _categoryMovies = [];
   bool _isFavorite = false;
 
+  // Helper to determine if this is Xtream content
+  bool get _contentIsXtream =>
+      widget.contentItem.sourceType == PlaylistType.xtream ||
+      (widget.contentItem.sourceType == null &&
+          AppState.currentPlaylist?.type == PlaylistType.xtream);
+
+  // Helper to determine if this is M3U content
+  bool get _contentIsM3u =>
+      widget.contentItem.sourceType == PlaylistType.m3u ||
+      (widget.contentItem.sourceType == null &&
+          AppState.currentPlaylist?.type == PlaylistType.m3u);
+
+  // Helper to get playlist ID
+  String get _playlistId =>
+      widget.contentItem.sourcePlaylistId ??
+      AppState.currentPlaylist?.id ??
+      'unknown';
+
   @override
   void initState() {
     super.initState();
     _watchHistoryService = WatchHistoryService();
     _favoritesRepository = FavoritesRepository();
 
-    if (isXtreamCode && AppState.currentPlaylist != null) {
-      _repository = IptvRepository(
-        ApiConfig(
-          baseUrl: AppState.currentPlaylist!.url!,
-          username: AppState.currentPlaylist!.username!,
-          password: AppState.currentPlaylist!.password!,
-        ),
-        AppState.currentPlaylist!.id,
-      );
+    // Determine if this is Xtream content and get the right repository
+    final sourcePlaylistId = widget.contentItem.sourcePlaylistId;
+    final contentIsXtream = widget.contentItem.sourceType == PlaylistType.xtream ||
+        (widget.contentItem.sourceType == null &&
+            AppState.currentPlaylist?.type == PlaylistType.xtream);
+
+    if (contentIsXtream) {
+      // Try to get repository from xtreamRepositories (combined mode) or create new one
+      if (sourcePlaylistId != null && AppState.xtreamRepositories.containsKey(sourcePlaylistId)) {
+        _repository = AppState.xtreamRepositories[sourcePlaylistId];
+      } else if (AppState.currentPlaylist != null &&
+          AppState.currentPlaylist!.type == PlaylistType.xtream) {
+        _repository = IptvRepository(
+          ApiConfig(
+            baseUrl: AppState.currentPlaylist!.url!,
+            username: AppState.currentPlaylist!.username!,
+            password: AppState.currentPlaylist!.password!,
+          ),
+          AppState.currentPlaylist!.id,
+        );
+      } else {
+        _repository = null;
+      }
     } else {
       _repository = null;
     }
@@ -99,9 +131,13 @@ class _MovieScreenState extends State<MovieScreen> {
         }
       } else {
         final now = DateTime.now();
+        // Use sourcePlaylistId from content item or fallback to currentPlaylist
+        final playlistId = widget.contentItem.sourcePlaylistId ??
+            AppState.currentPlaylist?.id ??
+            'unknown';
         final favorite = Favorite(
           id: const Uuid().v4(),
-          playlistId: AppState.currentPlaylist!.id,
+          playlistId: playlistId,
           contentType: widget.contentItem.contentType,
           streamId: widget.contentItem.id,
           name: widget.contentItem.name,
@@ -131,7 +167,7 @@ class _MovieScreenState extends State<MovieScreen> {
 
   Future<void> _loadCategoryMovies() async {
     try {
-      if (isXtreamCode && _repository != null) {
+      if (_contentIsXtream && _repository != null) {
         final vod = widget.contentItem.vodStream;
         final categoryId = vod?.categoryId;
 
@@ -152,7 +188,7 @@ class _MovieScreenState extends State<MovieScreen> {
             });
           }
         }
-      } else if (isM3u) {
+      } else if (_contentIsM3u) {
         final m3uItem = widget.contentItem.m3uItem;
         final categoryId = m3uItem?.categoryId;
 
@@ -182,16 +218,6 @@ class _MovieScreenState extends State<MovieScreen> {
   }
 
   Future<void> _loadWatchHistory() async {
-    final playlist = AppState.currentPlaylist;
-    if (playlist == null) {
-      if (!mounted) return;
-      setState(() {
-        _watchHistory = null;
-        _isLoadingHistory = false;
-      });
-      return;
-    }
-
     if (mounted) {
       setState(() {
         _isLoadingHistory = true;
@@ -199,12 +225,12 @@ class _MovieScreenState extends State<MovieScreen> {
     }
 
     try {
-      final streamId = isXtreamCode
+      final streamId = _contentIsXtream
           ? widget.contentItem.id
           : widget.contentItem.m3uItem?.id ?? widget.contentItem.id;
 
       final history =
-          await _watchHistoryService.getWatchHistory(playlist.id, streamId);
+          await _watchHistoryService.getWatchHistory(_playlistId, streamId);
 
       if (!mounted) return;
       setState(() {
@@ -221,7 +247,7 @@ class _MovieScreenState extends State<MovieScreen> {
   }
 
   Future<void> _loadVodInfo() async {
-    if (!isXtreamCode || _repository == null) {
+    if (!_contentIsXtream || _repository == null) {
       if (!mounted) return;
       setState(() {
         _vodInfo = null;

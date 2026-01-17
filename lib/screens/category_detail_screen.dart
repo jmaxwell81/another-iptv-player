@@ -129,9 +129,11 @@ class _CategoryDetailViewState extends State<_CategoryDetailView> {
       }
     } else {
       final now = DateTime.now();
+      // Use item's sourcePlaylistId in combined mode, fall back to currentPlaylist
+      final playlistId = item.sourcePlaylistId ?? AppState.currentPlaylist?.id ?? 'unified';
       final favorite = Favorite(
         id: const Uuid().v4(),
-        playlistId: AppState.currentPlaylist!.id,
+        playlistId: playlistId,
         contentType: item.contentType,
         streamId: item.id,
         name: item.name,

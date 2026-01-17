@@ -2,9 +2,9 @@ import 'package:another_iptv_player/database/database.dart';
 import 'package:another_iptv_player/models/content_type.dart';
 import 'package:another_iptv_player/models/favorite.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
+import 'package:another_iptv_player/models/playlist_model.dart';
 import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/services/service_locator.dart';
-import 'package:another_iptv_player/utils/get_playlist_type.dart';
 import 'package:another_iptv_player/repositories/m3u_repository.dart';
 import 'package:uuid/uuid.dart';
 
@@ -14,8 +14,25 @@ class FavoritesRepository {
 
   FavoritesRepository();
 
+  /// Get playlist ID - uses source from content item in combined mode, or current playlist
+  String _getPlaylistId([ContentItem? contentItem]) {
+    // In combined mode, use source playlist from content item if available
+    if (contentItem?.sourcePlaylistId != null) {
+      return contentItem!.sourcePlaylistId!;
+    }
+    // Fall back to current playlist
+    if (AppState.currentPlaylist != null) {
+      return AppState.currentPlaylist!.id;
+    }
+    // In combined mode without content item, return 'unified'
+    if (AppState.isCombinedMode) {
+      return 'unified';
+    }
+    throw StateError('No playlist available');
+  }
+
   Future<void> addFavorite(ContentItem contentItem) async {
-    final playlistId = AppState.currentPlaylist!.id;
+    final playlistId = _getPlaylistId(contentItem);
 
     final isAlreadyFavorite = await _database.isFavorite(
       playlistId,
@@ -48,7 +65,7 @@ class FavoritesRepository {
     ContentType contentType, {
     String? episodeId,
   }) async {
-    final playlistId = AppState.currentPlaylist!.id;
+    final playlistId = _getPlaylistId();
 
     final favorites = await _database.getFavoritesByPlaylist(playlistId);
     final favorite = favorites.firstWhere(
@@ -67,7 +84,7 @@ class FavoritesRepository {
     ContentType contentType, {
     String? episodeId,
   }) async {
-    final playlistId = AppState.currentPlaylist!.id;
+    final playlistId = _getPlaylistId();
     return await _database.isFavorite(
       playlistId,
       streamId,
@@ -77,14 +94,32 @@ class FavoritesRepository {
   }
 
   Future<List<Favorite>> getAllFavorites() async {
-    final playlistId = AppState.currentPlaylist!.id;
+    // In combined mode, get favorites from all active playlists
+    if (AppState.isCombinedMode) {
+      final allFavorites = <Favorite>[];
+      for (final playlistId in AppState.activePlaylists.keys) {
+        final favorites = await _database.getFavoritesByPlaylist(playlistId);
+        allFavorites.addAll(favorites);
+      }
+      return allFavorites;
+    }
+    final playlistId = _getPlaylistId();
     return await _database.getFavoritesByPlaylist(playlistId);
   }
 
   Future<List<Favorite>> getFavoritesByContentType(
     ContentType contentType,
   ) async {
-    final playlistId = AppState.currentPlaylist!.id;
+    // In combined mode, get favorites from all active playlists
+    if (AppState.isCombinedMode) {
+      final allFavorites = <Favorite>[];
+      for (final playlistId in AppState.activePlaylists.keys) {
+        final favorites = await _database.getFavoritesByContentType(playlistId, contentType);
+        allFavorites.addAll(favorites);
+      }
+      return allFavorites;
+    }
+    final playlistId = _getPlaylistId();
     return await _database.getFavoritesByContentType(playlistId, contentType);
   }
 
@@ -101,12 +136,28 @@ class FavoritesRepository {
   }
 
   Future<int> getFavoriteCount() async {
-    final playlistId = AppState.currentPlaylist!.id;
+    // In combined mode, count favorites from all active playlists
+    if (AppState.isCombinedMode) {
+      int total = 0;
+      for (final playlistId in AppState.activePlaylists.keys) {
+        total += await _database.getFavoriteCount(playlistId);
+      }
+      return total;
+    }
+    final playlistId = _getPlaylistId();
     return await _database.getFavoriteCount(playlistId);
   }
 
   Future<int> getFavoriteCountByContentType(ContentType contentType) async {
-    final playlistId = AppState.currentPlaylist!.id;
+    // In combined mode, count favorites from all active playlists
+    if (AppState.isCombinedMode) {
+      int total = 0;
+      for (final playlistId in AppState.activePlaylists.keys) {
+        total += await _database.getFavoriteCountByContentType(playlistId, contentType);
+      }
+      return total;
+    }
+    final playlistId = _getPlaylistId();
     return await _database.getFavoriteCountByContentType(
       playlistId,
       contentType,
@@ -114,7 +165,7 @@ class FavoritesRepository {
   }
 
   Future<bool> toggleFavorite(ContentItem contentItem) async {
-    final playlistId = AppState.currentPlaylist!.id;
+    final playlistId = _getPlaylistId(contentItem);
     final isCurrentlyFavorite = await _database.isFavorite(
       playlistId,
       contentItem.id,
@@ -154,7 +205,17 @@ class FavoritesRepository {
   }
 
   Future<void> clearAllFavorites() async {
-    final playlistId = AppState.currentPlaylist!.id;
+    // In combined mode, clear favorites from all active playlists
+    if (AppState.isCombinedMode) {
+      for (final playlistId in AppState.activePlaylists.keys) {
+        final favorites = await _database.getFavoritesByPlaylist(playlistId);
+        for (final favorite in favorites) {
+          await _database.deleteFavorite(favorite.id);
+        }
+      }
+      return;
+    }
+    final playlistId = _getPlaylistId();
     final favorites = await _database.getFavoritesByPlaylist(playlistId);
 
     for (final favorite in favorites) {
@@ -164,8 +225,25 @@ class FavoritesRepository {
 
   Future<ContentItem?> getContentItemFromFavorite(Favorite favorite) async {
     try {
-      if (isXtreamCode) {
-        final repository = AppState.xtreamCodeRepository!;
+      // Determine source type based on favorite's playlist
+      final isXtream = AppState.xtreamRepositories.containsKey(favorite.playlistId) ||
+          (AppState.currentPlaylist != null && AppState.currentPlaylist!.type == PlaylistType.xtream);
+      final isM3u = AppState.m3uRepositories.containsKey(favorite.playlistId) ||
+          (AppState.currentPlaylist != null && AppState.currentPlaylist!.type == PlaylistType.m3u);
+
+      if (isXtream) {
+        // Get repository for this favorite's playlist
+        final repository = AppState.xtreamRepositories[favorite.playlistId] ?? AppState.xtreamCodeRepository;
+        if (repository == null) {
+          return ContentItem(
+            favorite.streamId,
+            favorite.name,
+            favorite.imagePath ?? '',
+            favorite.contentType,
+            sourcePlaylistId: favorite.playlistId,
+            sourceType: PlaylistType.xtream,
+          );
+        }
 
         switch (favorite.contentType) {
           case ContentType.liveStream:
@@ -180,6 +258,8 @@ class FavoritesRepository {
                 liveStream.streamIcon,
                 ContentType.liveStream,
                 liveStream: liveStream,
+                sourcePlaylistId: favorite.playlistId,
+                sourceType: PlaylistType.xtream,
               );
             }
             break;
@@ -187,7 +267,7 @@ class FavoritesRepository {
           case ContentType.vod:
             final movie = await _database.findMovieById(
               favorite.streamId,
-              AppState.currentPlaylist!.id,
+              favorite.playlistId,
             );
 
             if (movie != null) {
@@ -198,6 +278,8 @@ class FavoritesRepository {
                 ContentType.vod,
                 containerExtension: movie.containerExtension,
                 vodStream: movie,
+                sourcePlaylistId: favorite.playlistId,
+                sourceType: PlaylistType.xtream,
               );
             }
             break;
@@ -213,12 +295,14 @@ class FavoritesRepository {
                 seriesStream.cover ?? '',
                 ContentType.series,
                 seriesStream: seriesStream,
+                sourcePlaylistId: favorite.playlistId,
+                sourceType: PlaylistType.xtream,
               );
             }
             break;
         }
       } else if (isM3u) {
-        final repository = M3uRepository();
+        final repository = M3uRepository(playlistId: favorite.playlistId);
 
         switch (favorite.contentType) {
           case ContentType.liveStream:
@@ -232,6 +316,8 @@ class FavoritesRepository {
                 m3uItem.tvgLogo ?? '',
                 ContentType.liveStream,
                 m3uItem: m3uItem,
+                sourcePlaylistId: favorite.playlistId,
+                sourceType: PlaylistType.m3u,
               );
             }
             break;
@@ -248,6 +334,8 @@ class FavoritesRepository {
                 m3uItem.tvgLogo ?? '',
                 ContentType.vod,
                 m3uItem: m3uItem,
+                sourcePlaylistId: favorite.playlistId,
+                sourceType: PlaylistType.m3u,
               );
             }
             break;
@@ -264,17 +352,23 @@ class FavoritesRepository {
                 m3uItem.tvgLogo ?? '',
                 ContentType.series,
                 m3uItem: m3uItem,
+                sourcePlaylistId: favorite.playlistId,
+                sourceType: PlaylistType.m3u,
               );
             }
             break;
         }
       }
 
+      // Determine source type for fallback
+      final fallbackSourceType = isXtream ? PlaylistType.xtream : (isM3u ? PlaylistType.m3u : null);
       return ContentItem(
         favorite.streamId,
         favorite.name,
         favorite.imagePath ?? '',
         favorite.contentType,
+        sourcePlaylistId: favorite.playlistId,
+        sourceType: fallbackSourceType,
       );
     } catch (e) {
       return ContentItem(
@@ -282,6 +376,7 @@ class FavoritesRepository {
         favorite.name,
         favorite.imagePath ?? '',
         favorite.contentType,
+        sourcePlaylistId: favorite.playlistId,
       );
     }
   }

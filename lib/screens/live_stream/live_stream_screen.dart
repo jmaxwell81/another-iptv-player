@@ -2,10 +2,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
+import 'package:another_iptv_player/models/playlist_model.dart';
 import 'package:another_iptv_player/services/app_state.dart';
 import '../../../models/content_type.dart';
 import '../../../services/event_bus.dart';
-import '../../../utils/get_playlist_type.dart';
 import '../../../widgets/loading_widget.dart';
 import '../../../widgets/player_widget.dart';
 
@@ -34,30 +34,73 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
   }
 
   Future<void> _initializeQueue() async {
-    allContents = isXtreamCode
-        ? (await AppState.xtreamCodeRepository!.getLiveChannelsByCategoryId(
-            categoryId: widget.content.liveStream!.categoryId,
-          ))!.map((x) {
+    // Determine content type from sourceType or fallback to current playlist
+    final bool contentIsXtream;
+    final bool contentIsM3u;
+    final String? sourcePlaylistId = widget.content.sourcePlaylistId;
+
+    if (widget.content.sourceType != null) {
+      contentIsXtream = widget.content.sourceType == PlaylistType.xtream;
+      contentIsM3u = widget.content.sourceType == PlaylistType.m3u;
+    } else if (AppState.currentPlaylist != null) {
+      contentIsXtream = AppState.currentPlaylist!.type == PlaylistType.xtream;
+      contentIsM3u = AppState.currentPlaylist!.type == PlaylistType.m3u;
+    } else {
+      contentIsXtream = widget.content.liveStream != null;
+      contentIsM3u = widget.content.m3uItem != null;
+    }
+
+    if (contentIsXtream) {
+      // Get the correct repository for this playlist
+      final repository = sourcePlaylistId != null
+          ? AppState.xtreamRepositories[sourcePlaylistId] ?? AppState.xtreamCodeRepository
+          : AppState.xtreamCodeRepository;
+
+      if (repository != null && widget.content.liveStream != null) {
+        final channels = await repository.getLiveChannelsByCategoryId(
+          categoryId: widget.content.liveStream!.categoryId,
+        );
+        if (channels != null) {
+          allContents = channels.map((x) {
             return ContentItem(
               x.streamId,
               x.name,
               x.streamIcon,
               ContentType.liveStream,
               liveStream: x,
+              sourcePlaylistId: sourcePlaylistId,
+              sourceType: PlaylistType.xtream,
             );
-          }).toList()
-        : (await AppState.m3uRepository!.getM3uItemsByCategoryId(
-            categoryId: widget.content.m3uItem!.categoryId!,
-          ))!.map((x) {
+          }).toList();
+        }
+      }
+    } else if (contentIsM3u) {
+      // Get the correct repository for this playlist
+      final repository = sourcePlaylistId != null
+          ? AppState.m3uRepositories[sourcePlaylistId] ?? AppState.m3uRepository
+          : AppState.m3uRepository;
+
+      if (repository != null && widget.content.m3uItem != null) {
+        final items = await repository.getM3uItemsByCategoryId(
+          categoryId: widget.content.m3uItem!.categoryId!,
+        );
+        if (items != null) {
+          allContents = items.map((x) {
             return ContentItem(
               x.url,
               x.name ?? 'NO NAME',
               x.tvgLogo ?? '',
               ContentType.liveStream,
               m3uItem: x,
+              sourcePlaylistId: sourcePlaylistId,
+              sourceType: PlaylistType.m3u,
             );
           }).toList();
+        }
+      }
+    }
 
+    if (!mounted) return;
     setState(() {
       selectedContentItemIndex = allContents.indexWhere(
         (element) => element.id == widget.content.id,

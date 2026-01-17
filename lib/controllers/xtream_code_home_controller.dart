@@ -4,6 +4,7 @@ import 'package:another_iptv_player/models/category_type.dart';
 import 'package:another_iptv_player/models/category_view_model.dart';
 import 'package:another_iptv_player/models/content_type.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
+import 'package:another_iptv_player/models/playlist_model.dart';
 import 'package:another_iptv_player/models/view_state.dart';
 import 'package:another_iptv_player/repositories/iptv_repository.dart';
 import 'package:another_iptv_player/services/app_state.dart';
@@ -177,6 +178,7 @@ class XtreamCodeHomeController extends ChangeNotifier {
 
           if (liveStreams == null || liveStreams.isEmpty) continue;
 
+          final playlistId = AppState.currentPlaylist?.id;
           var categoryViewModel = CategoryViewModel(
             category: liveCategory,
             contentItems: liveStreams
@@ -187,6 +189,8 @@ class XtreamCodeHomeController extends ChangeNotifier {
                 x.streamIcon,
                 ContentType.liveStream,
                 liveStream: x,
+                sourcePlaylistId: playlistId,
+                sourceType: PlaylistType.xtream,
               ),
             )
                 .toList(),
@@ -215,6 +219,7 @@ class XtreamCodeHomeController extends ChangeNotifier {
             continue;
           }
 
+          final playlistId = AppState.currentPlaylist?.id;
           var categoryViewModel = CategoryViewModel(
             category: movieCategory,
             contentItems: movies
@@ -226,6 +231,8 @@ class XtreamCodeHomeController extends ChangeNotifier {
                 ContentType.vod,
                 containerExtension: x.containerExtension,
                 vodStream: x,
+                sourcePlaylistId: playlistId,
+                sourceType: PlaylistType.xtream,
               ),
             )
                 .toList(),
@@ -254,6 +261,7 @@ class XtreamCodeHomeController extends ChangeNotifier {
             continue;
           }
 
+          final playlistId = AppState.currentPlaylist?.id;
           var categoryViewModel = CategoryViewModel(
             category: seriesCategory,
             contentItems: series
@@ -264,6 +272,8 @@ class XtreamCodeHomeController extends ChangeNotifier {
                 x.cover ?? '',
                 ContentType.series,
                 seriesStream: x,
+                sourcePlaylistId: playlistId,
+                sourceType: PlaylistType.xtream,
               ),
             )
                 .toList(),

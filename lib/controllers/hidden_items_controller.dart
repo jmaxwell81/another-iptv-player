@@ -24,8 +24,19 @@ class HiddenItemsController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final playlistId = AppState.currentPlaylist!.id;
-      _hiddenItems = await _repository.getHiddenItemsByPlaylist(playlistId);
+      // In combined mode, load hidden items from all active playlists
+      if (AppState.isCombinedMode) {
+        _hiddenItems = [];
+        for (final playlistId in AppState.activePlaylists.keys) {
+          final items = await _repository.getHiddenItemsByPlaylist(playlistId);
+          _hiddenItems.addAll(items);
+        }
+      } else if (AppState.currentPlaylist != null) {
+        final playlistId = AppState.currentPlaylist!.id;
+        _hiddenItems = await _repository.getHiddenItemsByPlaylist(playlistId);
+      } else {
+        _hiddenItems = [];
+      }
       _hiddenStreamIds = _hiddenItems.map((item) => item.streamId).toSet();
     } catch (e) {
       _error = e.toString();

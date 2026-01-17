@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:another_iptv_player/database/database.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
+import 'package:another_iptv_player/models/playlist_model.dart';
 import 'package:another_iptv_player/models/watch_history.dart';
+import 'package:another_iptv_player/services/app_state.dart';
 import '../../../models/content_type.dart';
 import '../../../services/event_bus.dart';
 import '../../../widgets/loading_widget.dart';
@@ -78,6 +80,11 @@ class _EpisodeScreenState extends State<EpisodeScreen> {
       episodesPerSeason[ep.season] = (episodesPerSeason[ep.season] ?? 0) + 1;
     }
 
+    // Get source info from parent content item or current playlist
+    final sourcePlaylistId = widget.contentItem.sourcePlaylistId ?? AppState.currentPlaylist?.id;
+    final sourceType = widget.contentItem.sourceType ??
+        (AppState.currentPlaylist?.type == PlaylistType.xtream ? PlaylistType.xtream : null);
+
     // Tüm sezonların tüm bölümlerini ekle (sadece mevcut sezonu değil)
     allContents = widget.episodes
         .map((x) {
@@ -90,6 +97,8 @@ class _EpisodeScreenState extends State<EpisodeScreen> {
         season: x.season,
         episodeNumber: x.episodeNum,
         totalEpisodes: episodesPerSeason[x.season],
+        sourcePlaylistId: sourcePlaylistId,
+        sourceType: sourceType,
       );
     })
         .toList();

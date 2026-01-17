@@ -4,6 +4,7 @@ import '../../controllers/favorites_controller.dart';
 import '../../models/favorite.dart';
 import '../../models/content_type.dart';
 import '../../models/playlist_content_model.dart';
+import '../../models/playlist_model.dart';
 import '../../models/live_stream.dart';
 import '../../models/vod_streams.dart';
 import '../../models/series.dart';
@@ -11,9 +12,9 @@ import '../../models/m3u_item.dart';
 import '../../widgets/content_card.dart';
 import '../../utils/navigate_by_content_type.dart';
 import '../../utils/responsive_helper.dart';
-import '../../utils/get_playlist_type.dart';
 import '../../l10n/localization_extension.dart';
 import '../../repositories/favorites_repository.dart';
+import '../../services/app_state.dart';
 
 class FavoritesScreen extends StatelessWidget {
   final String playlistId;
@@ -206,7 +207,24 @@ class FavoritesScreen extends StatelessWidget {
   }
 
   ContentItem _convertFavoriteToContentItem(Favorite favorite) {
-    if (isXtreamCode) {
+    // Determine if this favorite is from Xtream or M3U source
+    final bool favoriteIsXtream;
+    final bool favoriteIsM3u;
+
+    if (AppState.isCombinedMode) {
+      // In combined mode, check if the favorite's playlist is in xtream or m3u repositories
+      favoriteIsXtream = AppState.xtreamRepositories.containsKey(favorite.playlistId);
+      favoriteIsM3u = AppState.m3uRepositories.containsKey(favorite.playlistId);
+    } else if (AppState.currentPlaylist != null) {
+      favoriteIsXtream = AppState.currentPlaylist!.type == PlaylistType.xtream;
+      favoriteIsM3u = AppState.currentPlaylist!.type == PlaylistType.m3u;
+    } else {
+      // Fallback - check if m3uItemId is present
+      favoriteIsM3u = favorite.m3uItemId != null;
+      favoriteIsXtream = !favoriteIsM3u;
+    }
+
+    if (favoriteIsXtream) {
       switch (favorite.contentType) {
         case ContentType.liveStream:
           final liveStream = LiveStream(
@@ -222,6 +240,8 @@ class FavoritesScreen extends StatelessWidget {
             favorite.imagePath ?? '',
             favorite.contentType,
             liveStream: liveStream,
+            sourcePlaylistId: favorite.playlistId,
+            sourceType: PlaylistType.xtream,
           );
 
         case ContentType.vod:
@@ -241,6 +261,8 @@ class FavoritesScreen extends StatelessWidget {
             favorite.imagePath ?? '',
             favorite.contentType,
             vodStream: vodStream,
+            sourcePlaylistId: favorite.playlistId,
+            sourceType: PlaylistType.xtream,
           );
 
         case ContentType.series:
@@ -257,9 +279,11 @@ class FavoritesScreen extends StatelessWidget {
             favorite.imagePath ?? '',
             favorite.contentType,
             seriesStream: seriesStream,
+            sourcePlaylistId: favorite.playlistId,
+            sourceType: PlaylistType.xtream,
           );
       }
-    } else if (isM3u) {
+    } else if (favoriteIsM3u) {
       final m3uItem = M3uItem(
         id: favorite.m3uItemId ?? favorite.streamId,
         playlistId: favorite.playlistId,
@@ -274,6 +298,8 @@ class FavoritesScreen extends StatelessWidget {
         favorite.imagePath ?? '',
         favorite.contentType,
         m3uItem: m3uItem,
+        sourcePlaylistId: favorite.playlistId,
+        sourceType: PlaylistType.m3u,
       );
     }
 
@@ -282,6 +308,7 @@ class FavoritesScreen extends StatelessWidget {
       favorite.name,
       favorite.imagePath ?? '',
       favorite.contentType,
+      sourcePlaylistId: favorite.playlistId,
     );
   }
 

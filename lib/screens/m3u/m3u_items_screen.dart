@@ -1,6 +1,8 @@
 import 'package:another_iptv_player/l10n/localization_extension.dart';
 import 'package:another_iptv_player/models/m3u_item.dart';
+import 'package:another_iptv_player/models/playlist_model.dart';
 import 'package:another_iptv_player/screens/m3u/m3u_player_screen.dart';
+import 'package:another_iptv_player/services/app_state.dart';
 import 'package:flutter/material.dart';
 import '../../models/content_type.dart';
 import '../../models/playlist_content_model.dart';
@@ -328,6 +330,8 @@ class _M3uItemsScreenState extends State<M3uItemsScreen> {
   }
 
   void _onChannelTap(BuildContext context, M3uItem m3uItem) {
+    final playlistId = m3uItem.playlistId ?? AppState.currentPlaylist?.id;
+
     if (m3uItem.groupTitle != null &&
         m3uItem.groupTitle!.isNotEmpty &&
         m3uItem.contentType != ContentType.series) {
@@ -339,6 +343,8 @@ class _M3uItemsScreenState extends State<M3uItemsScreen> {
           m3uItem.tvgLogo ?? '',
           m3uItem.contentType,
           m3uItem: m3uItem,
+          sourcePlaylistId: playlistId,
+          sourceType: PlaylistType.m3u,
         ),
       );
     } else {
@@ -352,6 +358,8 @@ class _M3uItemsScreenState extends State<M3uItemsScreen> {
               m3uItem.tvgLogo ?? '',
               m3uItem.contentType,
               m3uItem: m3uItem,
+              sourcePlaylistId: playlistId,
+              sourceType: PlaylistType.m3u,
             ),
           ),
         ),

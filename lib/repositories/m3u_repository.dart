@@ -11,10 +11,13 @@ import '../models/vod_streams.dart';
 import '../services/service_locator.dart';
 
 class M3uRepository {
-  final String _playlistId = AppState.currentPlaylist!.id;
+  final String _playlistId;
   final _database = getIt<AppDatabase>();
 
-  M3uRepository();
+  /// Creates an M3uRepository for a specific playlist.
+  /// If [playlistId] is not provided, falls back to AppState.currentPlaylist
+  M3uRepository({String? playlistId})
+      : _playlistId = playlistId ?? AppState.currentPlaylist!.id;
 
   Future<List<Category>?> getCategories() async {
     return await _database.getCategoriesByPlaylist(_playlistId);
