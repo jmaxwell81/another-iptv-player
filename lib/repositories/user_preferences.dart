@@ -505,4 +505,145 @@ class UserPreferences {
     }
     await setActivePlaylistsConfig(config.copyWith(activePlaylistIds: newIds));
   }
+
+  // Background refresh settings
+  static const String _keyAutoRefreshEnabled = 'auto_refresh_enabled';
+  static const String _keyAutoRefreshInterval = 'auto_refresh_interval_hours';
+  static const String _keyLastRefreshTime = 'last_refresh_time';
+
+  static Future<void> setAutoRefreshEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyAutoRefreshEnabled, enabled);
+  }
+
+  static Future<bool> getAutoRefreshEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyAutoRefreshEnabled) ?? false;
+  }
+
+  static Future<void> setAutoRefreshInterval(int hours) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_keyAutoRefreshInterval, hours);
+  }
+
+  static Future<int> getAutoRefreshInterval() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_keyAutoRefreshInterval) ?? 24; // Default 24 hours
+  }
+
+  static Future<void> setLastRefreshTime(String playlistId, DateTime time) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('${_keyLastRefreshTime}_$playlistId', time.toIso8601String());
+  }
+
+  static Future<DateTime?> getLastRefreshTime(String playlistId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final timeStr = prefs.getString('${_keyLastRefreshTime}_$playlistId');
+    if (timeStr == null) return null;
+    return DateTime.tryParse(timeStr);
+  }
+
+  // Source health monitoring settings
+  static const String _keySourceErrorThreshold = 'source_error_threshold';
+  static const String _keySourceErrorWindowMinutes = 'source_error_window_minutes';
+  static const String _keyShowStreamErrors = 'show_stream_errors';
+
+  static Future<void> setSourceErrorThreshold(int threshold) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_keySourceErrorThreshold, threshold);
+  }
+
+  static Future<int> getSourceErrorThreshold() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_keySourceErrorThreshold) ?? 3; // Default 3 errors
+  }
+
+  static Future<void> setSourceErrorWindowMinutes(int minutes) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_keySourceErrorWindowMinutes, minutes);
+  }
+
+  static Future<int> getSourceErrorWindowMinutes() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_keySourceErrorWindowMinutes) ?? 2; // Default 2 minutes
+  }
+
+  static Future<void> setShowStreamErrors(bool show) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyShowStreamErrors, show);
+  }
+
+  static Future<bool> getShowStreamErrors() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyShowStreamErrors) ?? true; // Default true
+  }
+
+  // VPN Detection settings
+  static const String _keyVpnCheckEnabled = 'vpn_check_enabled';
+  static const String _keyVpnKillSwitchEnabled = 'vpn_kill_switch_enabled';
+  static const String _keyVpnCheckIntervalMinutes = 'vpn_check_interval_minutes';
+  static const String _keyVpnStatusPosition = 'vpn_status_position';
+  static const String _keyVpnStatusOpacity = 'vpn_status_opacity';
+  static const String _keyVpnShowOnlyWhenDisconnected = 'vpn_show_only_when_disconnected';
+
+  static Future<void> setVpnCheckEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyVpnCheckEnabled, enabled);
+  }
+
+  static Future<bool> getVpnCheckEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyVpnCheckEnabled) ?? false; // Default disabled
+  }
+
+  static Future<void> setVpnKillSwitchEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyVpnKillSwitchEnabled, enabled);
+  }
+
+  static Future<bool> getVpnKillSwitchEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyVpnKillSwitchEnabled) ?? false; // Default disabled
+  }
+
+  static Future<void> setVpnCheckIntervalMinutes(int minutes) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_keyVpnCheckIntervalMinutes, minutes);
+  }
+
+  static Future<int> getVpnCheckIntervalMinutes() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_keyVpnCheckIntervalMinutes) ?? 5; // Default 5 minutes
+  }
+
+  /// Position: 0 = bottom-left, 1 = bottom-right, 2 = top-left, 3 = top-right
+  static Future<void> setVpnStatusPosition(int position) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_keyVpnStatusPosition, position);
+  }
+
+  static Future<int> getVpnStatusPosition() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_keyVpnStatusPosition) ?? 0; // Default bottom-left
+  }
+
+  static Future<void> setVpnStatusOpacity(double opacity) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_keyVpnStatusOpacity, opacity);
+  }
+
+  static Future<double> getVpnStatusOpacity() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getDouble(_keyVpnStatusOpacity) ?? 0.5; // Default 50%
+  }
+
+  static Future<void> setVpnShowOnlyWhenDisconnected(bool showOnly) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyVpnShowOnlyWhenDisconnected, showOnly);
+  }
+
+  static Future<bool> getVpnShowOnlyWhenDisconnected() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyVpnShowOnlyWhenDisconnected) ?? false; // Default false
+  }
 }

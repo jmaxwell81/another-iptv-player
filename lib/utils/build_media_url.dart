@@ -6,6 +6,11 @@ import '../models/playlist_content_model.dart';
 
 /// Build media URL using the current playlist (legacy behavior)
 String buildMediaUrl(ContentItem contentItem) {
+  // For M3U items, the URL is already set
+  if (contentItem.m3uItem != null && contentItem.m3uItem!.url.isNotEmpty) {
+    return contentItem.m3uItem!.url;
+  }
+
   // Try to get playlist from source ID first (for combined mode)
   Playlist? playlist;
   if (contentItem.sourcePlaylistId != null) {
@@ -13,6 +18,20 @@ String buildMediaUrl(ContentItem contentItem) {
   }
   // Fall back to current playlist
   playlist ??= AppState.currentPlaylist;
+
+  if (playlist == null) {
+    // Check if we have active playlists in combined mode
+    if (AppState.activePlaylists.isNotEmpty) {
+      // Try to find a matching Xtream playlist
+      for (final entry in AppState.xtreamRepositories.entries) {
+        final p = AppState.activePlaylists[entry.key];
+        if (p != null && p.url != null && p.username != null && p.password != null) {
+          playlist = p;
+          break;
+        }
+      }
+    }
+  }
 
   if (playlist == null) {
     // Return an error URL that will fail gracefully

@@ -42,6 +42,8 @@ void navigateByContentType(BuildContext context, ContentItem content) {
             content.m3uItem!.tvgLogo ?? '',
             content.m3uItem!.contentType,
             m3uItem: content.m3uItem!,
+            sourcePlaylistId: content.sourcePlaylistId ?? content.m3uItem!.playlistId,
+            sourceType: PlaylistType.m3u,
           ),
         ),
       ),

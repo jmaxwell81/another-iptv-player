@@ -18,6 +18,9 @@ abstract class PlayerState {
   static ContentItem? currentContent;
   // ---------------------------------------------
 
+  // Store original stream URL for network streaming (before any URL mutations)
+  static String? originalStreamUrl;
+
   static List<ContentItem>? queue;
   static int currentIndex = 0;
   static bool showChannelList = false;

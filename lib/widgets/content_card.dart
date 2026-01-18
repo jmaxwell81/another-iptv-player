@@ -1,5 +1,6 @@
 import 'package:another_iptv_player/l10n/localization_extension.dart';
 import 'package:another_iptv_player/models/custom_rename.dart';
+import 'package:another_iptv_player/services/source_health_service.dart';
 import 'package:another_iptv_player/utils/renaming_extension.dart';
 import 'package:another_iptv_player/widgets/rename_dialog.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -21,6 +22,7 @@ class ContentCard extends StatefulWidget {
   final String? categoryId;
   final String? categoryName;
   final String? playlistId;
+  final String? sourceId;
   final Function(String categoryId, String categoryName)? onHideCategory;
 
   const ContentCard({
@@ -38,6 +40,7 @@ class ContentCard extends StatefulWidget {
     this.categoryId,
     this.categoryName,
     this.playlistId,
+    this.sourceId,
     this.onHideCategory,
   });
 
@@ -78,6 +81,14 @@ class _ContentCardState extends State<ContentCard> {
     // Show context menu only when hovered or selected
     final bool shouldShowContextMenu = widget.showContextMenu && (_isHovered || widget.isSelected);
 
+    // Check if source is available
+    final sourceId = widget.sourceId ?? widget.content.sourcePlaylistId;
+    final bool isSourceDown = sourceId != null &&
+        !SourceHealthService().isSourceAvailable(sourceId);
+
+    // Combined opacity for hidden items and source down state
+    final double cardOpacity = widget.isHidden ? 0.4 : (isSourceDown ? 0.5 : 1.0);
+
     Widget cardWidget = MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
@@ -85,10 +96,19 @@ class _ContentCardState extends State<ContentCard> {
         clipBehavior: Clip.antiAlias,
         margin: const EdgeInsets.fromLTRB(0, 0, 0, 1),
         color: widget.isSelected ? Theme.of(context).colorScheme.primaryContainer : null,
-        child: Opacity(
-          opacity: widget.isHidden ? 0.4 : 1.0,
-          child: InkWell(
-            onTap: widget.onTap,
+        child: ColorFiltered(
+          colorFilter: isSourceDown
+              ? const ColorFilter.matrix(<double>[
+                  0.2126, 0.7152, 0.0722, 0, 0,
+                  0.2126, 0.7152, 0.0722, 0, 0,
+                  0.2126, 0.7152, 0.0722, 0, 0,
+                  0, 0, 0, 1, 0,
+                ])
+              : const ColorFilter.mode(Colors.transparent, BlendMode.multiply),
+          child: Opacity(
+            opacity: cardOpacity,
+            child: InkWell(
+              onTap: widget.onTap,
           child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
@@ -189,10 +209,40 @@ class _ContentCardState extends State<ContentCard> {
                       right: 0,
                       child: _buildContextMenu(context),
                     ),
+                  // Source down indicator
+                  if (isSourceDown)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: Tooltip(
+                        message: 'Source unavailable',
+                        child: Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade700,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.3),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.block,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
           ],
+        ),
         ),
         ),
       ),

@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:another_iptv_player/models/playlist_content_model.dart';
 import 'package:another_iptv_player/models/playlist_model.dart' show PlaylistType;
 import 'package:another_iptv_player/models/watch_history.dart';
 import 'package:another_iptv_player/repositories/user_preferences.dart';
 import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/services/event_bus.dart';
+import 'package:another_iptv_player/services/source_health_service.dart';
+import 'package:another_iptv_player/services/vpn_detection_service.dart';
 import 'package:another_iptv_player/services/watch_history_service.dart';
 import 'package:another_iptv_player/utils/subtitle_configuration.dart';
 import 'package:another_iptv_player/widgets/video_widget.dart';
@@ -69,6 +72,16 @@ class _PlayerWidgetState extends State<PlayerWidget>
   Duration? _pendingWatchDuration;
   Duration? _pendingTotalDuration;
 
+  // Source health tracking
+  final SourceHealthService _healthService = SourceHealthService();
+  String? _currentStreamError;
+  Timer? _errorDisplayTimer;
+
+  // VPN kill switch
+  final VpnDetectionService _vpnService = VpnDetectionService();
+  StreamSubscription? _vpnStatusSubscription;
+  bool _isVpnBlocked = false;
+
   @override
   void initState() {
     WidgetsBinding.instance.addObserver(this);
@@ -79,10 +92,24 @@ class _PlayerWidgetState extends State<PlayerWidget>
     PlayerState.currentContent = widget.contentItem;
     PlayerState.queue = _queue;
     PlayerState.currentIndex = 0;
+    // Store original URL for network streaming before any mutations
+    if (!widget.contentItem.url.startsWith('error://')) {
+      PlayerState.originalStreamUrl = widget.contentItem.url;
+    }
     // ----------------------------------------
 
     PlayerState.title = widget.contentItem.name;
-    _player = Player(configuration: PlayerConfiguration());
+    _player = Player(
+      configuration: const PlayerConfiguration(
+        // Allow loading URLs from HLS/M3U playlists (required for IPTV streams)
+        libassAndroidFont: 'sans-serif',
+        title: 'IPTV Player',
+      ),
+    );
+
+    // Try to set MPV option to allow loading URLs from HLS playlists
+    _setMpvUnsafePlaylistOption();
+
     watchHistoryService = WatchHistoryService();
 
     super.initState();
@@ -107,6 +134,24 @@ class _PlayerWidgetState extends State<PlayerWidget>
           await UserPreferences.setSubtitleTrack(data.language ?? 'null');
         });
 
+    // VPN kill switch subscription
+    _vpnStatusSubscription = _vpnService.statusStream.listen((status) {
+      if (mounted) {
+        final shouldBlock = _vpnService.shouldBlockNetwork;
+        if (shouldBlock != _isVpnBlocked) {
+          setState(() {
+            _isVpnBlocked = shouldBlock;
+          });
+          if (shouldBlock && _player.state.playing) {
+            _player.pause();
+          }
+        }
+      }
+    });
+
+    // Check initial VPN state
+    _isVpnBlocked = _vpnService.shouldBlockNetwork;
+
     _initializePlayer();
   }
 
@@ -130,6 +175,8 @@ class _PlayerWidgetState extends State<PlayerWidget>
     contentItemIndexChangedSubscription.cancel();
     _connectivitySubscription.cancel();
     _errorHandler.reset();
+    _errorDisplayTimer?.cancel();
+    _vpnStatusSubscription?.cancel();
     super.dispose();
   }
 
@@ -170,6 +217,26 @@ class _PlayerWidgetState extends State<PlayerWidget>
       // Silently handle database errors to prevent crashes
       // The next save attempt will retry
       print('Error saving watch history: $e');
+    }
+  }
+
+  /// Sets the MPV option to allow loading URLs from HLS/M3U playlists.
+  /// This is required for IPTV streams that use playlist-based URLs.
+  Future<void> _setMpvUnsafePlaylistOption() async {
+    // Only available on desktop platforms (macOS, Windows, Linux)
+    if (!Platform.isMacOS && !Platform.isWindows && !Platform.isLinux) {
+      return;
+    }
+
+    try {
+      // Access the native player platform and set the MPV option
+      final platform = _player.platform;
+      if (platform is NativePlayer) {
+        await platform.setProperty('load-unsafe-playlists', 'yes');
+      }
+    } catch (e) {
+      // Silently ignore errors - this is a best-effort optimization
+      print('Could not set load-unsafe-playlists option: $e');
     }
   }
 
@@ -401,6 +468,24 @@ class _PlayerWidgetState extends State<PlayerWidget>
       await UserPreferences.setVolume(event);
     });
 
+    // Report successful playback to health service
+    _player.stream.playing.listen((playing) {
+      if (playing && mounted) {
+        final sourceId = contentItem.sourcePlaylistId ??
+            AppState.currentPlaylist?.id ??
+            'unknown';
+        _healthService.reportSuccess(sourceId);
+
+        // Clear any error message when playback starts
+        if (_currentStreamError != null) {
+          setState(() {
+            _currentStreamError = null;
+          });
+          _errorDisplayTimer?.cancel();
+        }
+      }
+    });
+
     _player.stream.position.listen((position) {
       _player.state.playlist.medias[currentItemIndex] = Media(
         contentItem.url,
@@ -419,6 +504,38 @@ class _PlayerWidgetState extends State<PlayerWidget>
 
     _player.stream.error.listen((error) async {
       print('PLAYER ERROR -> $error');
+
+      // Report error to health service
+      final sourceId = contentItem.sourcePlaylistId ??
+          AppState.currentPlaylist?.id ??
+          'unknown';
+      final errorType = SourceHealthService.categorizeError(error);
+      final friendlyMessage = SourceHealthService.getFriendlyErrorMessage(errorType, error);
+
+      _healthService.reportError(StreamError(
+        sourceId: sourceId,
+        streamId: contentItem.id.toString(),
+        type: errorType,
+        message: error,
+      ));
+
+      // Show error message at bottom of player
+      if (mounted) {
+        setState(() {
+          _currentStreamError = friendlyMessage;
+        });
+
+        // Auto-hide error after 8 seconds
+        _errorDisplayTimer?.cancel();
+        _errorDisplayTimer = Timer(const Duration(seconds: 8), () {
+          if (mounted) {
+            setState(() {
+              _currentStreamError = null;
+            });
+          }
+        });
+      }
+
       if (error.contains('Failed to open')) {
         _errorHandler.handleError(
           error,
@@ -428,12 +545,7 @@ class _PlayerWidgetState extends State<PlayerWidget>
             }
           },
           (errorMessage) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(errorMessage),
-                duration: Duration(seconds: 3),
-              ),
-            );
+            // Error is now shown at bottom of player, no snackbar needed
           },
         );
       }
@@ -453,6 +565,9 @@ class _PlayerWidgetState extends State<PlayerWidget>
       // --- INSERTION 2: QUEUE CHANGE SETTER ---
       PlayerState.currentContent = contentItem;
       PlayerState.currentIndex = _currentItemIndex;
+      if (!contentItem.url.startsWith('error://')) {
+        PlayerState.originalStreamUrl = contentItem.url;
+      }
       // ----------------------------------------
 
       PlayerState.title = contentItem.name;
@@ -488,6 +603,9 @@ class _PlayerWidgetState extends State<PlayerWidget>
             PlayerState.currentIndex = index;
             PlayerState.title = item.name;
             _currentItemIndex = index;
+            if (!item.url.startsWith('error://')) {
+              PlayerState.originalStreamUrl = item.url;
+            }
             // -------------------------------------------
 
             await _player.open(Playlist([Media(item.url)]), play: true);
@@ -950,6 +1068,51 @@ class _PlayerWidgetState extends State<PlayerWidget>
   }
 
   Widget _buildPlayerContent() {
+    // VPN kill switch - block playback if VPN not connected
+    if (_isVpnBlocked) {
+      return Container(
+        color: Colors.black,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.vpn_lock, color: Colors.red, size: 48),
+              const SizedBox(height: 16),
+              const Text(
+                'VPN Not Connected',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  'Please connect to a VPN before playing content.\nKill switch is enabled for your protection.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  await _vpnService.forceCheck();
+                },
+                icon: const Icon(Icons.refresh),
+                label: const Text('Check Again'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (hasError) {
       return Center(
         child: Column(
@@ -1015,6 +1178,64 @@ class _PlayerWidgetState extends State<PlayerWidget>
           // Kanal listesi overlay - normal mod için
           if (_showChannelList && _queue != null && _queue!.length > 1)
             _buildChannelListOverlay(context),
+
+          // Stream error message overlay at bottom
+          if (_currentStreamError != null)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 60, // Above the video controls
+              child: _buildErrorOverlay(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorOverlay() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.error_outline,
+            color: Colors.white,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              _currentStreamError ?? '',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.white, size: 18),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: () {
+              setState(() {
+                _currentStreamError = null;
+              });
+              _errorDisplayTimer?.cancel();
+            },
+          ),
         ],
       ),
     );
