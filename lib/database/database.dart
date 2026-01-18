@@ -1222,6 +1222,53 @@ class AppDatabase extends _$AppDatabase {
         .go();
   }
 
+  // Content count methods for playlist stats
+  Future<int> getLiveStreamCount(String playlistId) async {
+    final result = await (select(liveStreams)
+          ..where((tbl) => tbl.playlistId.equals(playlistId)))
+        .get();
+    return result.length;
+  }
+
+  Future<int> getVodStreamCount(String playlistId) async {
+    final result = await (select(vodStreams)
+          ..where((tbl) => tbl.playlistId.equals(playlistId)))
+        .get();
+    return result.length;
+  }
+
+  Future<int> getSeriesCount(String playlistId) async {
+    final result = await (select(seriesStreams)
+          ..where((tbl) => tbl.playlistId.equals(playlistId)))
+        .get();
+    return result.length;
+  }
+
+  Future<int> getM3uLiveCount(String playlistId) async {
+    final result = await (select(m3uItems)
+          ..where((tbl) =>
+              tbl.playlistId.equals(playlistId) &
+              tbl.contentType.equals(ContentType.liveStream.index)))
+        .get();
+    return result.length;
+  }
+
+  Future<int> getM3uMoviesCount(String playlistId) async {
+    final result = await (select(m3uItems)
+          ..where((tbl) =>
+              tbl.playlistId.equals(playlistId) &
+              tbl.contentType.equals(ContentType.vod.index)))
+        .get();
+    return result.length;
+  }
+
+  Future<int> getM3uSeriesCount(String playlistId) async {
+    final result = await (select(m3uSeries)
+          ..where((tbl) => tbl.playlistId.equals(playlistId)))
+        .get();
+    return result.length;
+  }
+
   // Series Info CRUD Operations
   Future<int> insertSeriesInfo(SeriesInfosCompanion seriesInfo) {
     return into(seriesInfos).insert(seriesInfo);

@@ -198,6 +198,8 @@ class _SeriesScreenState extends State<SeriesScreen> {
             ContentType.series,
             containerExtension: episode.containerExtension,
             season: episode.season,
+            sourcePlaylistId: widget.contentItem.sourcePlaylistId ?? AppState.currentPlaylist?.id,
+            sourceType: widget.contentItem.sourceType ?? AppState.currentPlaylist?.type,
           ),
         ),
       ),

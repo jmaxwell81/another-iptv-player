@@ -1,8 +1,10 @@
 import 'package:another_iptv_player/database/database.dart';
 import 'package:another_iptv_player/screens/settings/subtitle_settings_section.dart';
 import 'package:another_iptv_player/services/service_locator.dart';
+import 'package:another_iptv_player/services/vpn_detection_service.dart';
 import 'package:another_iptv_player/utils/get_playlist_type.dart';
 import 'package:another_iptv_player/utils/show_loading_dialog.dart';
+import 'package:another_iptv_player/widgets/vpn_status_widget.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -52,6 +54,20 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
   bool _seekOnDoubleTap = true;
   String _appVersion = '';
 
+  // Source health settings
+  int _sourceErrorThreshold = 3;
+  int _sourceErrorWindowMinutes = 2;
+  bool _showStreamErrors = true;
+
+  // VPN settings
+  final VpnDetectionService _vpnService = VpnDetectionService();
+  bool _vpnCheckEnabled = false;
+  bool _vpnKillSwitchEnabled = false;
+  int _vpnCheckIntervalMinutes = 5;
+  VpnStatusPosition _vpnStatusPosition = VpnStatusPosition.bottomLeft;
+  double _vpnStatusOpacity = 0.5;
+  bool _vpnShowOnlyWhenDisconnected = false;
+
   @override
   void initState() {
     super.initState();
@@ -68,6 +84,16 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
       final speedUpOnLongPress = await UserPreferences.getSpeedUpOnLongPress();
       final seekOnDoubleTap = await UserPreferences.getSeekOnDoubleTap();
       final packageInfo = await PackageInfo.fromPlatform();
+      final sourceErrorThreshold = await UserPreferences.getSourceErrorThreshold();
+      final sourceErrorWindowMinutes = await UserPreferences.getSourceErrorWindowMinutes();
+      final showStreamErrors = await UserPreferences.getShowStreamErrors();
+      // VPN settings
+      final vpnCheckEnabled = await UserPreferences.getVpnCheckEnabled();
+      final vpnKillSwitchEnabled = await UserPreferences.getVpnKillSwitchEnabled();
+      final vpnCheckIntervalMinutes = await UserPreferences.getVpnCheckIntervalMinutes();
+      final vpnStatusPosition = await UserPreferences.getVpnStatusPosition();
+      final vpnStatusOpacity = await UserPreferences.getVpnStatusOpacity();
+      final vpnShowOnlyWhenDisconnected = await UserPreferences.getVpnShowOnlyWhenDisconnected();
       setState(() {
         _backgroundPlayEnabled = backgroundPlay;
         _selectedTheme = _themeModeToString(themeMode);
@@ -77,6 +103,15 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
         _speedUpOnLongPress = speedUpOnLongPress;
         _seekOnDoubleTap = seekOnDoubleTap;
         _appVersion = packageInfo.version;
+        _sourceErrorThreshold = sourceErrorThreshold;
+        _sourceErrorWindowMinutes = sourceErrorWindowMinutes;
+        _showStreamErrors = showStreamErrors;
+        _vpnCheckEnabled = vpnCheckEnabled;
+        _vpnKillSwitchEnabled = vpnKillSwitchEnabled;
+        _vpnCheckIntervalMinutes = vpnCheckIntervalMinutes;
+        _vpnStatusPosition = VpnStatusPosition.fromInt(vpnStatusPosition);
+        _vpnStatusOpacity = vpnStatusOpacity;
+        _vpnShowOnlyWhenDisconnected = vpnShowOnlyWhenDisconnected;
         _isLoading = false;
       });
     } catch (e) {
@@ -458,6 +493,218 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
                       _seekOnDoubleTap = value;
                     });
                   },
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        const SectionTitleWidget(title: 'Source Health Monitoring'),
+        Card(
+          child: Column(
+            children: [
+              SwitchListTile(
+                secondary: const Icon(Icons.error_outline),
+                title: const Text('Show Stream Errors'),
+                subtitle: const Text('Display error messages when streams fail'),
+                value: _showStreamErrors,
+                onChanged: (value) async {
+                  await UserPreferences.setShowStreamErrors(value);
+                  setState(() {
+                    _showStreamErrors = value;
+                  });
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.warning_amber),
+                title: const Text('Error Threshold'),
+                subtitle: Text('Mark source as down after $_sourceErrorThreshold errors'),
+                trailing: DropdownButton<int>(
+                  value: _sourceErrorThreshold,
+                  underline: const SizedBox(),
+                  items: [2, 3, 5, 10].map((value) {
+                    return DropdownMenuItem<int>(
+                      value: value,
+                      child: Text('$value'),
+                    );
+                  }).toList(),
+                  onChanged: (value) async {
+                    if (value != null) {
+                      await UserPreferences.setSourceErrorThreshold(value);
+                      setState(() {
+                        _sourceErrorThreshold = value;
+                      });
+                    }
+                  },
+                ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.timer),
+                title: const Text('Error Window'),
+                subtitle: Text('Count errors within $_sourceErrorWindowMinutes minutes'),
+                trailing: DropdownButton<int>(
+                  value: _sourceErrorWindowMinutes,
+                  underline: const SizedBox(),
+                  items: [1, 2, 5, 10].map((value) {
+                    return DropdownMenuItem<int>(
+                      value: value,
+                      child: Text('$value min'),
+                    );
+                  }).toList(),
+                  onChanged: (value) async {
+                    if (value != null) {
+                      await UserPreferences.setSourceErrorWindowMinutes(value);
+                      setState(() {
+                        _sourceErrorWindowMinutes = value;
+                      });
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        const SectionTitleWidget(title: 'VPN Protection'),
+        Card(
+          child: Column(
+            children: [
+              SwitchListTile(
+                secondary: const Icon(Icons.vpn_lock),
+                title: const Text('Enable VPN Check'),
+                subtitle: const Text('Monitor VPN connection status'),
+                value: _vpnCheckEnabled,
+                onChanged: (value) async {
+                  await _vpnService.setVpnCheckEnabled(value);
+                  setState(() {
+                    _vpnCheckEnabled = value;
+                  });
+                  if (value) {
+                    _vpnService.forceCheck();
+                  }
+                },
+              ),
+              if (_vpnCheckEnabled) ...[
+                const Divider(height: 1),
+                SwitchListTile(
+                  secondary: Icon(
+                    Icons.security,
+                    color: _vpnKillSwitchEnabled ? Colors.red : null,
+                  ),
+                  title: const Text('Kill Switch'),
+                  subtitle: const Text('Block playback if VPN disconnects'),
+                  value: _vpnKillSwitchEnabled,
+                  onChanged: (value) async {
+                    await _vpnService.setKillSwitchEnabled(value);
+                    setState(() {
+                      _vpnKillSwitchEnabled = value;
+                    });
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.timer),
+                  title: const Text('Check Interval'),
+                  subtitle: Text('Check every $_vpnCheckIntervalMinutes minutes'),
+                  trailing: DropdownButton<int>(
+                    value: _vpnCheckIntervalMinutes,
+                    underline: const SizedBox(),
+                    items: [1, 2, 5, 10, 15, 30].map((value) {
+                      return DropdownMenuItem<int>(
+                        value: value,
+                        child: Text('$value min'),
+                      );
+                    }).toList(),
+                    onChanged: (value) async {
+                      if (value != null) {
+                        await _vpnService.setCheckInterval(value);
+                        setState(() {
+                          _vpnCheckIntervalMinutes = value;
+                        });
+                      }
+                    },
+                  ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.place),
+                  title: const Text('Status Position'),
+                  subtitle: Text(_vpnStatusPosition.displayName),
+                  trailing: DropdownButton<VpnStatusPosition>(
+                    value: _vpnStatusPosition,
+                    underline: const SizedBox(),
+                    items: VpnStatusPosition.values.map((pos) {
+                      return DropdownMenuItem<VpnStatusPosition>(
+                        value: pos,
+                        child: Text(pos.displayName),
+                      );
+                    }).toList(),
+                    onChanged: (value) async {
+                      if (value != null) {
+                        await UserPreferences.setVpnStatusPosition(value.value);
+                        setState(() {
+                          _vpnStatusPosition = value;
+                        });
+                      }
+                    },
+                  ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.opacity),
+                  title: const Text('Status Opacity'),
+                  subtitle: Text('${(_vpnStatusOpacity * 100).round()}%'),
+                  trailing: SizedBox(
+                    width: 150,
+                    child: Slider(
+                      value: _vpnStatusOpacity,
+                      min: 0.1,
+                      max: 1.0,
+                      divisions: 9,
+                      label: '${(_vpnStatusOpacity * 100).round()}%',
+                      onChanged: (value) async {
+                        await UserPreferences.setVpnStatusOpacity(value);
+                        setState(() {
+                          _vpnStatusOpacity = value;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                const Divider(height: 1),
+                SwitchListTile(
+                  secondary: const Icon(Icons.visibility_off),
+                  title: const Text('Hide When Connected'),
+                  subtitle: const Text('Only show indicator if VPN disconnected'),
+                  value: _vpnShowOnlyWhenDisconnected,
+                  onChanged: (value) async {
+                    await UserPreferences.setVpnShowOnlyWhenDisconnected(value);
+                    setState(() {
+                      _vpnShowOnlyWhenDisconnected = value;
+                    });
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: Icon(
+                    _vpnService.isVpnConnected ? Icons.lock : Icons.lock_open,
+                    color: _vpnService.isVpnConnected ? Colors.green : Colors.red,
+                  ),
+                  title: Text(
+                    _vpnService.isVpnConnected ? 'VPN Connected' : 'VPN Not Connected',
+                  ),
+                  subtitle: Text(
+                    '${_vpnService.currentStatus.countryName} (${_vpnService.currentStatus.countryCode})',
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.refresh),
+                    onPressed: () async {
+                      await _vpnService.forceCheck();
+                      setState(() {});
+                    },
+                  ),
                 ),
               ],
             ],

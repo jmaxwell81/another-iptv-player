@@ -5,6 +5,7 @@ import 'package:another_iptv_player/widgets/player-buttons/video_channel_selecto
 import 'package:another_iptv_player/widgets/player-buttons/video_favorite_widget.dart';
 import 'package:another_iptv_player/widgets/player-buttons/video_info_widget.dart';
 import 'package:another_iptv_player/widgets/player-buttons/video_settings_widget.dart';
+import 'package:another_iptv_player/widgets/player-buttons/video_stream_to_network_widget.dart';
 import 'package:another_iptv_player/widgets/player-buttons/video_title_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -128,6 +129,7 @@ class _VideoWidgetState extends State<VideoWidget> {
                 currentIndex: PlayerState.currentIndex,
               ),
               VideoFavoriteWidget(),
+              VideoStreamToNetworkWidget(),
               VideoSettingsWidget(),
             ],
           ),
@@ -143,6 +145,7 @@ class _VideoWidgetState extends State<VideoWidget> {
                 currentIndex: PlayerState.currentIndex,
               ),
               VideoFavoriteWidget(),
+              VideoStreamToNetworkWidget(),
               VideoSettingsWidget(),
             ],
           ),

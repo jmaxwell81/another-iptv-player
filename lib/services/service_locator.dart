@@ -1,4 +1,6 @@
 import 'package:another_iptv_player/l10n/app_localizations.dart';
+import 'package:another_iptv_player/services/network_discovery_service.dart';
+import 'package:another_iptv_player/services/stream_server.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:another_iptv_player/database/database.dart';
@@ -12,6 +14,10 @@ Future<void> setupServiceLocator() async {
 
   getIt.registerSingleton<MyAudioHandler>(await initAudioService());
   getIt.registerSingleton<AppDatabase>(AppDatabase());
+  getIt.registerLazySingleton<StreamServer>(() => StreamServer());
+  getIt.registerLazySingleton<NetworkDiscoveryService>(
+    () => NetworkDiscoveryService(),
+  );
 
   MediaKit.ensureInitialized();
 }

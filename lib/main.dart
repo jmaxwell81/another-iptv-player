@@ -1,8 +1,11 @@
 import 'package:another_iptv_player/controllers/playlist_controller.dart';
 import 'package:another_iptv_player/screens/app_initializer_screen.dart';
+import 'package:another_iptv_player/screens/stream_server_screen.dart';
 import 'package:another_iptv_player/services/category_config_service.dart';
 import 'package:another_iptv_player/services/custom_rename_service.dart';
 import 'package:another_iptv_player/services/renaming_service.dart';
+import 'package:another_iptv_player/services/vpn_detection_service.dart';
+import 'package:another_iptv_player/widgets/vpn_status_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:another_iptv_player/services/service_locator.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -18,6 +21,7 @@ Future<void> main() async {
   await RenamingService().loadRules();
   await CustomRenameService().loadRenames();
   await CategoryConfigService().loadConfigs();
+  await VpnDetectionService().initialize();
   runApp(
     MultiProvider(
       providers: [
@@ -52,8 +56,19 @@ class MyApp extends StatelessWidget {
       theme: AppThemes.lightTheme,
       darkTheme: AppThemes.darkTheme,
       themeMode: themeProvider.themeMode,
-      home: AppInitializerScreen(),
       debugShowCheckedModeBanner: false,
+      routes: {
+        '/stream-server': (context) => const StreamServerScreen(),
+      },
+      builder: (context, child) {
+        return Stack(
+          children: [
+            child ?? const SizedBox.shrink(),
+            const VpnStatusWidget(),
+          ],
+        );
+      },
+      home: AppInitializerScreen(),
     );
   }
 }

@@ -4,10 +4,12 @@ import 'package:another_iptv_player/models/playlist_model.dart';
 import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/l10n/localization_extension.dart';
 import '../../widgets/playlist_info_widget.dart';
+import '../../widgets/playlist_refresh_widget.dart';
 import '../../widgets/server_info_widget.dart';
 import '../../widgets/status_card_widget.dart';
 import '../../widgets/subscription_info_widget.dart';
 import '../settings/general_settings_section.dart';
+import 'xtream_code_data_loader_screen.dart';
 
 class XtreamCodePlaylistSettingsScreen extends StatefulWidget {
   final Playlist playlist;
@@ -40,6 +42,18 @@ class _XtreamCodePlaylistSettingsScreenState
     }
   }
 
+  void _onRefreshPressed() {
+    // Navigate to data loader screen with refresh flag
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => XtreamCodeDataLoaderScreen(
+          playlist: widget.playlist,
+          refreshAll: true,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -54,6 +68,11 @@ class _XtreamCodePlaylistSettingsScreenState
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
         children: [
           StatusCardWidget(serverInfo: _serverInfo),
+          const SizedBox(height: 12),
+          PlaylistRefreshWidget(
+            playlist: widget.playlist,
+            onRefreshPressed: _onRefreshPressed,
+          ),
           const SizedBox(height: 12),
           const GeneralSettingsWidget(),
           const SizedBox(height: 16),
