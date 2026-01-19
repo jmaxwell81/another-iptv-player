@@ -1,5 +1,6 @@
 import 'package:another_iptv_player/l10n/localization_extension.dart';
 import 'package:another_iptv_player/models/custom_rename.dart';
+import 'package:another_iptv_player/models/epg_program.dart';
 import 'package:another_iptv_player/services/source_health_service.dart';
 import 'package:another_iptv_player/utils/renaming_extension.dart';
 import 'package:another_iptv_player/widgets/rename_dialog.dart';
@@ -24,6 +25,7 @@ class ContentCard extends StatefulWidget {
   final String? playlistId;
   final String? sourceId;
   final Function(String categoryId, String categoryName)? onHideCategory;
+  final EpgProgram? currentProgram;
 
   const ContentCard({
     super.key,
@@ -42,6 +44,7 @@ class ContentCard extends StatefulWidget {
     this.playlistId,
     this.sourceId,
     this.onHideCategory,
+    this.currentProgram,
   });
 
   @override
@@ -175,6 +178,14 @@ class _ContentCardState extends State<ContentCard> {
                         size: 20,
                         shadows: [Shadow(color: Colors.black54, blurRadius: 2)],
                       ),
+                    ),
+                  // EPG overlay for live streams
+                  if (isLiveStream && widget.currentProgram != null)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 32, // Position above the name overlay
+                      child: _buildEpgOverlay(context),
                     ),
                   Positioned(
                     left: 0,
@@ -517,5 +528,70 @@ class _ContentCardState extends State<ContentCard> {
       return double.tryParse(normalized);
     }
     return null;
+  }
+
+  Widget _buildEpgOverlay(BuildContext context) {
+    final program = widget.currentProgram!;
+    final progress = program.progress;
+    final remainingMinutes = program.remainingTime.inMinutes;
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.transparent,
+            Colors.black.withOpacity(0.8),
+          ],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Program title
+          Text(
+            program.title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 9,
+              fontWeight: FontWeight.w500,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          // Progress bar with remaining time
+          Row(
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: LinearProgressIndicator(
+                    value: progress.clamp(0.0, 1.0),
+                    backgroundColor: Colors.white.withOpacity(0.3),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      theme.colorScheme.primary,
+                    ),
+                    minHeight: 3,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                remainingMinutes > 0 ? '${remainingMinutes}m' : '<1m',
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 8,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }

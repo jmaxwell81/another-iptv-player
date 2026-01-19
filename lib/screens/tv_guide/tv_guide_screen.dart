@@ -29,6 +29,12 @@ class _TvGuideScreenState extends State<TvGuideScreen> {
 
   static const double _channelColumnWidth = 150.0;
   static const double _channelRowHeight = 60.0;
+  static const double _previewPanelHeight = 200.0;
+
+  // Preview state
+  bool _autoPreview = true;
+  TvGuideChannel? _selectedChannel;
+  EpgProgram? _selectedProgram;
 
   @override
   void initState() {
@@ -182,6 +188,23 @@ class _TvGuideScreenState extends State<TvGuideScreen> {
           tooltip: 'Jump to now',
           onPressed: controller.jumpToNow,
         ),
+        // Auto-preview toggle
+        IconButton(
+          icon: Icon(
+            _autoPreview ? Icons.visibility : Icons.visibility_off,
+            color: _autoPreview ? Theme.of(context).colorScheme.primary : null,
+          ),
+          tooltip: _autoPreview ? 'Auto-preview ON' : 'Auto-preview OFF',
+          onPressed: () {
+            setState(() {
+              _autoPreview = !_autoPreview;
+              if (!_autoPreview) {
+                _selectedChannel = null;
+                _selectedProgram = null;
+              }
+            });
+          },
+        ),
       ],
     );
   }
@@ -241,6 +264,9 @@ class _TvGuideScreenState extends State<TvGuideScreen> {
 
     return Column(
       children: [
+        // Preview panel (when auto-preview is on and a channel is selected)
+        if (_autoPreview && _selectedChannel != null)
+          _buildPreviewPanel(context),
         // Time navigation bar
         _buildTimeNavBar(context, controller),
         // Pagination bar
@@ -251,6 +277,191 @@ class _TvGuideScreenState extends State<TvGuideScreen> {
         ),
       ],
     );
+  }
+
+  Widget _buildPreviewPanel(BuildContext context) {
+    final theme = Theme.of(context);
+    final channel = _selectedChannel!;
+    final program = _selectedProgram ?? channel.currentProgram;
+
+    return Container(
+      height: _previewPanelHeight,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        border: Border(bottom: BorderSide(color: theme.dividerColor)),
+      ),
+      child: Row(
+        children: [
+          // Preview video placeholder/player
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Container(
+              color: Colors.black,
+              child: Stack(
+                children: [
+                  // Channel logo as placeholder
+                  Center(
+                    child: channel.icon != null && channel.icon!.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: channel.icon!,
+                            width: 80,
+                            height: 80,
+                            fit: BoxFit.contain,
+                            errorWidget: (context, url, error) => Icon(
+                              Icons.tv,
+                              size: 48,
+                              color: theme.colorScheme.onSurface.withOpacity(0.5),
+                            ),
+                          )
+                        : Icon(
+                            Icons.tv,
+                            size: 48,
+                            color: theme.colorScheme.onSurface.withOpacity(0.5),
+                          ),
+                  ),
+                  // Live indicator
+                  if (program?.isLive == true)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'LIVE',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          // Channel and program info
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Channel name
+                  Text(
+                    channel.name,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  // Program info
+                  if (program != null) ...[
+                    Text(
+                      program.title,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    // Time and progress
+                    Row(
+                      children: [
+                        Text(
+                          '${DateFormat.Hm().format(program.startTime)} - ${DateFormat.Hm().format(program.endTime)}',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                        if (program.isLive) ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(2),
+                              child: LinearProgressIndicator(
+                                value: program.progress.clamp(0.0, 1.0),
+                                backgroundColor: theme.colorScheme.surfaceContainerLow,
+                                minHeight: 4,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${program.remainingTime.inMinutes}m left',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (program.description != null && program.description!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: Text(
+                          program.description!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.7),
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ] else
+                    Text(
+                      'No program information',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontStyle: FontStyle.italic,
+                        color: theme.colorScheme.onSurface.withOpacity(0.5),
+                      ),
+                    ),
+                  const Spacer(),
+                  // Watch button
+                  Row(
+                    children: [
+                      FilledButton.icon(
+                        onPressed: () => _watchChannel(context, channel),
+                        icon: const Icon(Icons.play_arrow, size: 18),
+                        label: const Text('Watch'),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton(
+                        onPressed: () {
+                          setState(() {
+                            _selectedChannel = null;
+                            _selectedProgram = null;
+                          });
+                        },
+                        child: const Text('Close'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _watchChannel(BuildContext context, TvGuideChannel channel) {
+    final contentItem = ContentItem(
+      channel.streamId,
+      channel.name,
+      channel.icon ?? '',
+      ContentType.liveStream,
+      liveStream: channel.liveStream,
+      m3uItem: channel.m3uItem,
+      sourcePlaylistId: channel.playlistId,
+      sourceType: channel.sourceType,
+    );
+    navigateByContentType(context, contentItem);
   }
 
   Widget _buildPaginationBar(BuildContext context, TvGuideController controller) {
@@ -436,6 +647,7 @@ class _TvGuideScreenState extends State<TvGuideScreen> {
 
   Widget _buildChannelRow(BuildContext context, TvGuideChannel channel) {
     final theme = Theme.of(context);
+    final isSelected = _selectedChannel?.streamId == channel.streamId;
 
     return InkWell(
       onTap: () => _onChannelTap(context, channel),
@@ -443,6 +655,7 @@ class _TvGuideScreenState extends State<TvGuideScreen> {
         height: _channelRowHeight,
         padding: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
+          color: isSelected ? theme.colorScheme.primaryContainer.withOpacity(0.3) : null,
           border: Border(bottom: BorderSide(color: theme.dividerColor, width: 0.5)),
         ),
         child: Row(
@@ -669,22 +882,29 @@ class _TvGuideScreenState extends State<TvGuideScreen> {
   }
 
   void _onChannelTap(BuildContext context, TvGuideChannel channel) {
-    // Navigate to the channel
-    final contentItem = ContentItem(
-      channel.streamId,
-      channel.name,
-      channel.icon ?? '',
-      ContentType.liveStream,
-      liveStream: channel.liveStream,
-      m3uItem: channel.m3uItem,
-      sourcePlaylistId: channel.playlistId,
-      sourceType: channel.sourceType,
-    );
-    navigateByContentType(context, contentItem);
+    if (_autoPreview) {
+      // Update preview
+      setState(() {
+        _selectedChannel = channel;
+        _selectedProgram = channel.currentProgram;
+      });
+    } else {
+      // Navigate directly to the channel
+      _watchChannel(context, channel);
+    }
   }
 
   void _onProgramTap(BuildContext context, TvGuideChannel channel, EpgProgram program) {
-    // Show program details - the cell already handles this
+    if (_autoPreview) {
+      // Update preview with specific program
+      setState(() {
+        _selectedChannel = channel;
+        _selectedProgram = program;
+      });
+    } else {
+      // Navigate directly to the channel
+      _watchChannel(context, channel);
+    }
   }
 
   void _showSearchDialog(BuildContext context, TvGuideController controller) {

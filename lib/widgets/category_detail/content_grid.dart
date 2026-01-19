@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:another_iptv_player/models/epg_program.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
 import 'package:another_iptv_player/utils/responsive_helper.dart';
 
@@ -12,6 +13,7 @@ class ContentGrid extends StatelessWidget {
   final Function(ContentItem)? onToggleFavorite;
   final Function(ContentItem)? onToggleHidden;
   final bool showContextMenu;
+  final Map<String, EpgProgram>? currentPrograms;
 
   const ContentGrid({
     super.key,
@@ -22,7 +24,16 @@ class ContentGrid extends StatelessWidget {
     this.onToggleFavorite,
     this.onToggleHidden,
     this.showContextMenu = true,
+    this.currentPrograms,
   });
+
+  EpgProgram? _getCurrentProgram(ContentItem item) {
+    if (currentPrograms == null) return null;
+    return currentPrograms![item.id] ??
+        (item.liveStream?.epgChannelId != null
+            ? currentPrograms![item.liveStream!.epgChannelId]
+            : null);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,6 +57,7 @@ class ContentGrid extends StatelessWidget {
           showContextMenu: showContextMenu,
           onToggleFavorite: onToggleFavorite,
           onToggleHidden: onToggleHidden,
+          currentProgram: _getCurrentProgram(item),
         );
       },
     );

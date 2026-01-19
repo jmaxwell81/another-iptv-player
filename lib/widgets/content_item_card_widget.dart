@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:another_iptv_player/models/epg_program.dart';
 import '../../models/playlist_content_model.dart';
 import '../../services/event_bus.dart';
 import '../../utils/helpers.dart';
@@ -22,6 +23,7 @@ class ContentItemCardWidget extends StatefulWidget {
   final String? categoryName;
   final String? playlistId;
   final Function(String categoryId, String categoryName)? onHideCategory;
+  final Map<String, EpgProgram>? currentPrograms;
 
   ContentItemCardWidget({
     super.key,
@@ -41,6 +43,7 @@ class ContentItemCardWidget extends StatefulWidget {
     this.categoryName,
     this.playlistId,
     this.onHideCategory,
+    this.currentPrograms,
   });
 
   @override
@@ -134,6 +137,15 @@ class _ContentItemCardWidgetState extends State<ContentItemCardWidget> {
     return widget.hiddenStreamIds!.contains(item.id);
   }
 
+  EpgProgram? _getCurrentProgram(ContentItem item) {
+    if (widget.currentPrograms == null) return null;
+    // Try item ID first, then epgChannelId from liveStream
+    return widget.currentPrograms![item.id] ??
+        (item.liveStream?.epgChannelId != null
+            ? widget.currentPrograms![item.liveStream!.epgChannelId]
+            : null);
+  }
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -171,6 +183,7 @@ class _ContentItemCardWidgetState extends State<ContentItemCardWidget> {
                       categoryName: widget.categoryName,
                       playlistId: widget.playlistId,
                       onHideCategory: widget.onHideCategory,
+                      currentProgram: _getCurrentProgram(item),
                       key: widget.key,
                     ),
                   );
@@ -205,6 +218,7 @@ class _ContentItemCardWidgetState extends State<ContentItemCardWidget> {
                     categoryName: widget.categoryName,
                     playlistId: widget.playlistId,
                     onHideCategory: widget.onHideCategory,
+                    currentProgram: _getCurrentProgram(item),
                     key: widget.key,
                   ),
                 );
