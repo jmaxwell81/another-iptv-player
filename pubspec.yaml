@@ -60,6 +60,7 @@ dependencies:
   qr_flutter: ^4.1.0
   network_info_plus: ^4.1.0
   nsd: ^4.1.0
+  xml: ^6.3.0  # XMLTV parsing
 
 dependency_overrides:
   media_kit:

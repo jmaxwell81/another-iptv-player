@@ -38,13 +38,9 @@ class _WatchHistoryScreenState extends State<WatchHistoryScreen> {
   }
 
   void _refreshData() {
-    print('WatchHistoryScreen: _refreshData çağrıldı - Key: ${widget.screenKey}');
     if (mounted) {
-      print('WatchHistoryScreen: Veriler yenileniyor...');
       _historyController.loadWatchHistory();
       _favoritesController.loadFavorites();
-    } else {
-      print('WatchHistoryScreen: Widget mounted değil');
     }
   }
 

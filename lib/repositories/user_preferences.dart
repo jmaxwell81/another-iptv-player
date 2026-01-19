@@ -35,6 +35,18 @@ class UserPreferences {
   static const String _customRenamesKey = 'custom_renames';
   static const String _categoryConfigKey = 'category_configs';
   static const String _activePlaylistsConfigKey = 'active_playlists_config';
+  static const String _tvGuideChannelLimitKey = 'tv_guide_channel_limit';
+
+  // TV Guide channel limit (default 100)
+  static Future<void> setTvGuideChannelLimit(int limit) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_tvGuideChannelLimitKey, limit);
+  }
+
+  static Future<int> getTvGuideChannelLimit() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_tvGuideChannelLimitKey) ?? 100;
+  }
 
   static Future<void> setLastPlaylist(String playlistId) async {
     final prefs = await SharedPreferences.getInstance();
@@ -252,7 +264,56 @@ class UserPreferences {
       await setHiddenCategories(hidden);
     }
   }
-  
+
+  // Hidden category names (for cross-source matching in unified mode)
+  static const String _hiddenCategoryNamesKey = 'hidden_category_names';
+
+  /// Get hidden category names (normalized: lowercase, trimmed)
+  static Future<List<String>> getHiddenCategoryNames() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_hiddenCategoryNamesKey) ?? [];
+  }
+
+  /// Set hidden category names
+  static Future<void> setHiddenCategoryNames(List<String> names) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_hiddenCategoryNamesKey, names);
+  }
+
+  /// Hide a category by ID and name (for cross-source matching)
+  static Future<void> hideCategoryWithName(String categoryId, String categoryName) async {
+    // Save ID
+    final hiddenIds = await getHiddenCategories();
+    if (!hiddenIds.contains(categoryId)) {
+      hiddenIds.add(categoryId);
+      await setHiddenCategories(hiddenIds);
+    }
+    // Save normalized name
+    final normalizedName = categoryName.toLowerCase().trim();
+    final hiddenNames = await getHiddenCategoryNames();
+    if (!hiddenNames.contains(normalizedName)) {
+      hiddenNames.add(normalizedName);
+      await setHiddenCategoryNames(hiddenNames);
+    }
+  }
+
+  /// Unhide a category by ID and name
+  static Future<void> unhideCategoryWithName(String categoryId, String categoryName) async {
+    // Remove ID
+    final hiddenIds = await getHiddenCategories();
+    if (hiddenIds.contains(categoryId)) {
+      hiddenIds.remove(categoryId);
+      await setHiddenCategories(hiddenIds);
+    }
+    // Remove normalized name
+    final normalizedName = categoryName.toLowerCase().trim();
+    final hiddenNames = await getHiddenCategoryNames();
+    if (hiddenNames.contains(normalizedName)) {
+      hiddenNames.remove(normalizedName);
+      await setHiddenCategoryNames(hiddenNames);
+    }
+  }
+
   static Future<void> setThemeMode(ThemeMode mode) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyThemeMode, mode.toString().split('.').last);
@@ -477,12 +538,12 @@ class UserPreferences {
 
   static Future<Set<String>> getActivePlaylistIds() async {
     final config = await getActivePlaylistsConfig();
-    return config.activePlaylistIds;
+    return config.activePlaylistIdsSet;
   }
 
   static Future<void> setActivePlaylistIds(Set<String> ids) async {
     final config = await getActivePlaylistsConfig();
-    await setActivePlaylistsConfig(config.copyWith(activePlaylistIds: ids));
+    await setActivePlaylistsConfig(config.copyWith(activePlaylistIds: ids.toList()));
   }
 
   static Future<bool> isCombinedModeEnabled() async {
@@ -497,7 +558,7 @@ class UserPreferences {
 
   static Future<void> togglePlaylistActive(String playlistId) async {
     final config = await getActivePlaylistsConfig();
-    final newIds = Set<String>.from(config.activePlaylistIds);
+    final newIds = List<String>.from(config.activePlaylistIds);
     if (newIds.contains(playlistId)) {
       newIds.remove(playlistId);
     } else {

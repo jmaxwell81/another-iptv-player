@@ -1,6 +1,7 @@
 import 'package:another_iptv_player/l10n/localization_extension.dart';
 import 'package:another_iptv_player/screens/m3u/m3u_items_screen.dart';
 import 'package:another_iptv_player/screens/m3u/m3u_playlist_settings_screen.dart';
+import 'package:another_iptv_player/screens/tv_guide/tv_guide_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:another_iptv_player/controllers/m3u_home_controller.dart';
@@ -57,6 +58,9 @@ class _M3UHomeScreenState extends State<M3UHomeScreen> {
   }
 
   void _initializeController() {
+    // Ensure currentPlaylist is always set when viewing this screen
+    AppState.currentPlaylist = widget.playlist;
+
     AppState.m3uRepository = M3uRepository();
     _controller = M3UHomeController();
   }
@@ -149,9 +153,7 @@ class _M3UHomeScreenState extends State<M3UHomeScreen> {
         playlistId: widget.playlist.id,
       ),
       M3uItemsScreen(m3uItems: controller.m3uItems!),
-      // _buildContentPage(controller.liveCategories!, controller),
-      // _buildContentPage(controller.vodCategories!, controller),
-      // _buildContentPage(controller.seriesCategories!, controller),
+      const TvGuideScreen(),
       M3uPlaylistSettingsScreen(playlist: widget.playlist),
     ];
   }
@@ -379,21 +381,11 @@ class _M3UHomeScreenState extends State<M3UHomeScreen> {
       NavigationItem(icon: Icons.history, label: context.loc.history, index: 0),
       NavigationItem(icon: Icons.favorite, label: context.loc.favorites, index: 1),
       NavigationItem(icon: Icons.all_inbox, label: context.loc.all, index: 2),
-      // NavigationItem(icon: Icons.live_tv, label: context.loc.live, index: 3),
-      // NavigationItem(
-      //   icon: Icons.movie_outlined,
-      //   label: context.loc.movie,
-      //   index: 4,
-      // ),
-      // NavigationItem(
-      //   icon: Icons.tv,
-      //   label: context.loc.series_plural,
-      //   index: 5,
-      // ),
+      NavigationItem(icon: Icons.calendar_view_day, label: 'Guide', index: 3),
       NavigationItem(
         icon: Icons.settings,
         label: context.loc.settings,
-        index: 3,
+        index: 4,
       ),
     ];
   }

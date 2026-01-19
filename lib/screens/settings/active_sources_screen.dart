@@ -73,8 +73,8 @@ class _ActiveSourcesScreenState extends State<ActiveSourcesScreen> {
       // Clear existing state
       AppState.clearActivePlaylists();
 
-      // Register all active playlists
-      for (final playlistId in _service.activePlaylistIds) {
+      // Register all active playlists in order (first = highest priority)
+      for (final playlistId in _service.orderedActivePlaylistIds) {
         final playlist = _playlists.firstWhere(
           (p) => p.id == playlistId,
           orElse: () => throw Exception('Playlist not found: $playlistId'),
@@ -207,7 +207,103 @@ class _ActiveSourcesScreenState extends State<ActiveSourcesScreen> {
             ),
           ),
 
-          // Playlist list header
+          // Active sources (reorderable) section
+          if (_service.activeCount > 0) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Text(
+                    'Active Sources (drag to reorder)',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const Spacer(),
+                  Text(
+                    'First = highest priority',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: (_service.activeCount * 72.0).clamp(72.0, 216.0),
+              child: ReorderableListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _service.orderedActivePlaylistIds.length,
+                onReorder: _onReorder,
+                itemBuilder: (context, index) {
+                  final playlistId = _service.orderedActivePlaylistIds[index];
+                  final playlist = _playlists.firstWhere(
+                    (p) => p.id == playlistId,
+                    orElse: () => Playlist(id: playlistId, name: 'Unknown', type: PlaylistType.xtream, createdAt: DateTime.now()),
+                  );
+
+                  return Card(
+                    key: ValueKey(playlistId),
+                    margin: const EdgeInsets.only(bottom: 8),
+                    color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+                    child: ListTile(
+                      leading: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${index + 1}',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.onPrimary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            playlist.type == PlaylistType.xtream
+                                ? Icons.cloud
+                                : Icons.file_present,
+                            color: playlist.type == PlaylistType.xtream
+                                ? Colors.blue
+                                : Colors.green,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                      title: Text(playlist.name),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (!AppState.isCombinedMode)
+                            IconButton(
+                              icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                              onPressed: () => _togglePlaylist(playlist),
+                              tooltip: 'Remove from combined',
+                            ),
+                          ReorderableDragStartListener(
+                            index: index,
+                            child: const Icon(Icons.drag_handle),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const Divider(height: 32),
+          ],
+
+          // Available playlists header
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -226,7 +322,7 @@ class _ActiveSourcesScreenState extends State<ActiveSourcesScreen> {
           ),
           const SizedBox(height: 8),
 
-          // Playlist list
+          // Playlist list (all playlists)
           Expanded(
             child: _playlists.isEmpty
                 ? Center(
@@ -318,5 +414,10 @@ class _ActiveSourcesScreenState extends State<ActiveSourcesScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _onReorder(int oldIndex, int newIndex) async {
+    await _service.reorderPlaylist(oldIndex, newIndex);
+    if (mounted) setState(() {});
   }
 }

@@ -11,6 +11,7 @@ import 'package:another_iptv_player/screens/category_detail_screen.dart';
 import 'package:another_iptv_player/screens/xtream-codes/xtream_code_playlist_settings_screen.dart';
 import 'package:another_iptv_player/screens/watch_history_screen.dart';
 import 'package:another_iptv_player/screens/favorites/favorites_screen.dart';
+import 'package:another_iptv_player/screens/tv_guide/tv_guide_screen.dart';
 import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/utils/navigate_by_content_type.dart';
 import 'package:another_iptv_player/utils/responsive_helper.dart';
@@ -66,6 +67,9 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
   }
 
   void _initializeController() {
+    // Ensure currentPlaylist is always set when viewing this screen
+    AppState.currentPlaylist = widget.playlist;
+
     final repository = IptvRepository(
       ApiConfig(
         baseUrl: widget.playlist.url!,
@@ -192,6 +196,7 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
         favoritesController,
         hiddenItemsController,
       ),
+      const TvGuideScreen(),
       _buildContentPage(
         controller.visibleMovieCategories,
         ContentType.vod,
@@ -596,20 +601,21 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
       NavigationItem(icon: Icons.history, label: context.loc.history, index: 0),
       NavigationItem(icon: Icons.favorite, label: context.loc.favorites, index: 1),
       NavigationItem(icon: Icons.live_tv, label: context.loc.live, index: 2),
+      NavigationItem(icon: Icons.calendar_view_day, label: 'Guide', index: 3),
       NavigationItem(
         icon: Icons.movie_outlined,
         label: context.loc.movie,
-        index: 3,
+        index: 4,
       ),
       NavigationItem(
         icon: Icons.tv,
         label: context.loc.series_plural,
-        index: 4,
+        index: 5,
       ),
       NavigationItem(
         icon: Icons.settings,
         label: context.loc.settings,
-        index: 5,
+        index: 6,
       ),
     ];
   }

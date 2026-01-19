@@ -8,6 +8,7 @@ import 'package:another_iptv_player/repositories/iptv_repository.dart';
 import 'package:another_iptv_player/l10n/localization_extension.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:another_iptv_player/services/watch_history_service.dart';
+import 'package:another_iptv_player/utils/renaming_extension.dart';
 import '../../../controllers/favorites_controller.dart';
 import 'episode_screen.dart';
 
@@ -40,6 +41,13 @@ class _SeriesScreenState extends State<SeriesScreen> {
       widget.contentItem.sourcePlaylistId ??
       AppState.currentPlaylist?.id ??
       'unknown';
+
+  // Helper to get display name with renaming rules applied
+  String get _displayName => widget.contentItem.name.applyRenamingRules(
+        contentType: widget.contentItem.contentType,
+        itemId: widget.contentItem.id,
+        playlistId: _playlistId,
+      );
 
   @override
   void initState() {
@@ -257,7 +265,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    seriesInfo?.name ?? widget.contentItem.name,
+                                    seriesInfo?.name ?? _displayName,
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 24,
@@ -1127,7 +1135,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              seriesInfo?.name ?? widget.contentItem.name,
+              seriesInfo?.name ?? _displayName,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.grey.shade700,
@@ -1204,7 +1212,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
         } else {
           final trailerText = context.loc.trailer;
           final languageCode = Localizations.localeOf(context).languageCode;
-          final query = Uri.encodeQueryComponent("${widget.contentItem.name} $trailerText $languageCode");
+          final query = Uri.encodeQueryComponent("$_displayName $trailerText $languageCode");
           urlString = "https://www.youtube.com/results?search_query=$query";
         }
 

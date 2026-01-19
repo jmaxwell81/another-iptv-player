@@ -21,6 +21,9 @@ class IptvRepository {
 
   IptvRepository(this._config, this._playlistId);
 
+  /// Expose playlist ID for cache time tracking
+  String get playlistId => _playlistId;
+
   Future<http.Response> _makeRequest(
     String endpoint, {
     Map<String, String>? additionalParams,

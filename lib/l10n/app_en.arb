@@ -303,5 +303,19 @@
   "hidden_items": "Hidden Items",
   "no_hidden_items": "No Hidden Items",
   "hidden_items_hint": "Items you mark as watched will appear here",
-  "continue_watching": "Continue Watching"
+  "tv_guide": "TV Guide",
+  "epg": "EPG",
+  "epg_settings": "EPG Settings",
+  "epg_url": "EPG URL",
+  "epg_url_default": "Use Default URL",
+  "epg_url_custom": "Custom EPG URL",
+  "refresh_epg": "Refresh EPG",
+  "clear_epg_data": "Clear EPG Data",
+  "epg_last_updated": "Last Updated",
+  "epg_program_count": "Programs",
+  "epg_channel_count": "Channels",
+  "no_epg_data": "No EPG data available",
+  "fetching_epg": "Fetching EPG data...",
+  "epg_fetch_success": "EPG data updated successfully",
+  "epg_fetch_error": "Failed to fetch EPG data"
 }

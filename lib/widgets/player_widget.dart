@@ -243,6 +243,17 @@ class _PlayerWidgetState extends State<PlayerWidget>
   Future<void> _initializePlayer() async {
     if (!mounted) return;
 
+    // Check for invalid error:// URLs before trying to play
+    if (contentItem.url.startsWith('error://')) {
+      final errorType = contentItem.url.replaceFirst('error://', '').split('/').first;
+      setState(() {
+        hasError = true;
+        errorMessage = _getErrorMessage(errorType);
+        isLoading = false;
+      });
+      return;
+    }
+
     PlayerState.subtitleConfiguration = await getSubtitleConfiguration();
 
     PlayerState.backgroundPlay = await UserPreferences.getBackgroundPlay();
@@ -984,6 +995,18 @@ class _PlayerWidgetState extends State<PlayerWidget>
       return Uri.parse(imagePath);
     } catch (e) {
       return null;
+    }
+  }
+
+  /// Get user-friendly error message for error:// URL types
+  String _getErrorMessage(String errorType) {
+    switch (errorType) {
+      case 'no-playlist-found':
+        return 'Unable to play: No playlist configuration found. Please select a playlist and try again.';
+      case 'missing-credentials':
+        return 'Unable to play: Playlist credentials are missing. Please check your playlist settings.';
+      default:
+        return 'Unable to play this content. Please try again.';
     }
   }
 

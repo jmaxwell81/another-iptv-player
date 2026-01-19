@@ -52,22 +52,22 @@ class WatchHistoryController extends ChangeNotifier {
       _seriesHistory.isEmpty;
 
   Future<void> loadWatchHistory() async {
-    debugPrint('WatchHistoryController: loadWatchHistory başladı');
-    _setLoading(true);
-    _clearError();
+    // Guard against calling while already loading
+    if (_isLoading) return;
 
-    // Mevcut verileri temizle
+    _isLoading = true;
+    _errorMessage = null;
+
+    // Mevcut verileri temizle (don't notify yet - wait until end)
     _continueWatching.clear();
     _recentlyWatched.clear();
     _liveHistory.clear();
     _movieHistory.clear();
     _seriesHistory.clear();
-    if (!_isDisposed) notifyListeners();
 
     try {
       // In combined mode, load history from all active playlists
       if (AppState.isCombinedMode) {
-        debugPrint('WatchHistoryController: Combined mode - loading from all playlists');
         for (final playlistId in AppState.activePlaylists.keys) {
           final futures = await Future.wait([
             _historyService.getContinueWatching(playlistId),
@@ -90,48 +90,29 @@ class WatchHistoryController extends ChangeNotifier {
         _liveHistory.sort((a, b) => b.lastWatched.compareTo(a.lastWatched));
         _movieHistory.sort((a, b) => b.lastWatched.compareTo(a.lastWatched));
         _seriesHistory.sort((a, b) => b.lastWatched.compareTo(a.lastWatched));
+      } else if (AppState.currentPlaylist != null) {
+        // Single playlist mode
+        final playlistId = AppState.currentPlaylist!.id;
 
-        _setLoading(false);
-        return;
+        final futures = await Future.wait([
+          _historyService.getContinueWatching(playlistId),
+          _historyService.getRecentlyWatched(limit: 20, playlistId),
+          _historyService.getWatchHistoryByContentType(ContentType.liveStream, playlistId),
+          _historyService.getWatchHistoryByContentType(ContentType.vod, playlistId),
+          _historyService.getWatchHistoryByContentType(ContentType.series, playlistId),
+        ]);
+
+        _continueWatching = futures[0];
+        _recentlyWatched = futures[1];
+        _liveHistory = futures[2];
+        _movieHistory = futures[3];
+        _seriesHistory = futures[4];
       }
-
-      // Single playlist mode
-      if (AppState.currentPlaylist == null) {
-        debugPrint('WatchHistoryController: Aktif playlist bulunamadı');
-        _setLoading(false);
-        return;
-      }
-
-      final playlistId = AppState.currentPlaylist!.id;
-      debugPrint('WatchHistoryController: Playlist ID: $playlistId');
-
-      final futures = await Future.wait([
-        _historyService.getContinueWatching(playlistId),
-        _historyService.getRecentlyWatched(limit: 20, playlistId),
-        _historyService.getWatchHistoryByContentType(
-          ContentType.liveStream,
-          playlistId,
-        ),
-        _historyService.getWatchHistoryByContentType(
-          ContentType.vod,
-          playlistId,
-        ),
-        _historyService.getWatchHistoryByContentType(
-          ContentType.series,
-          playlistId,
-        ),
-      ]);
-
-      _continueWatching = futures[0];
-      _recentlyWatched = futures[1];
-      _liveHistory = futures[2];
-      _movieHistory = futures[3];
-      _seriesHistory = futures[4];
-
-      _setLoading(false);
     } catch (e) {
-      _setError('İzleme geçmişi yüklenirken hata oluştu: $e');
-      _setLoading(false);
+      _errorMessage = 'Error loading watch history: $e';
+    } finally {
+      _isLoading = false;
+      if (!_isDisposed) notifyListeners();
     }
   }
 
@@ -187,6 +168,11 @@ class WatchHistoryController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _setErrorSilent(String error) {
+    if (_isDisposed) return;
+    _errorMessage = error;
+  }
+
   void _setError(String error) {
     if (_isDisposed) return;
     _errorMessage = error;
@@ -196,7 +182,6 @@ class WatchHistoryController extends ChangeNotifier {
   void _clearError() {
     if (_isDisposed) return;
     _errorMessage = null;
-    notifyListeners();
   }
 
   Future<void> _playLiveStream(

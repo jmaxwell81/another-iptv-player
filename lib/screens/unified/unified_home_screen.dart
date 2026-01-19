@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:another_iptv_player/controllers/unified_home_controller.dart';
 import 'package:another_iptv_player/controllers/favorites_controller.dart';
 import 'package:another_iptv_player/controllers/hidden_items_controller.dart';
+import 'package:another_iptv_player/models/category_type.dart';
 import 'package:another_iptv_player/models/category_view_model.dart';
 import 'package:another_iptv_player/models/content_type.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
@@ -10,6 +11,7 @@ import 'package:another_iptv_player/screens/category_detail_screen.dart';
 import 'package:another_iptv_player/screens/watch_history_screen.dart';
 import 'package:another_iptv_player/screens/favorites/favorites_screen.dart';
 import 'package:another_iptv_player/screens/settings/general_settings_section.dart';
+import 'package:another_iptv_player/screens/tv_guide/tv_guide_screen.dart';
 import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/repositories/user_preferences.dart';
 import 'package:another_iptv_player/utils/navigate_by_content_type.dart';
@@ -38,8 +40,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
     _favoritesController = FavoritesController();
     _favoritesController.loadFavorites();
     _hiddenItemsController = HiddenItemsController();
-    // Note: loadHiddenItems requires currentPlaylist, but in unified mode we might not have one
-    // We'll handle hidden items differently in unified mode
+    _hiddenItemsController.loadHiddenItems(); // Loads from all active playlists in combined mode
   }
 
   @override
@@ -186,6 +187,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
       {'icon': Icons.history, 'label': 'History'},
       {'icon': Icons.favorite, 'label': 'Favorites'},
       {'icon': Icons.live_tv, 'label': 'Live'},
+      {'icon': Icons.calendar_view_day, 'label': 'TV Guide'},
       {'icon': Icons.movie, 'label': 'Movies'},
       {'icon': Icons.tv, 'label': 'Series'},
       {'icon': Icons.settings, 'label': 'Settings'},
@@ -201,6 +203,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
         BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
         BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'Favorites'),
         BottomNavigationBarItem(icon: Icon(Icons.live_tv), label: 'Live'),
+        BottomNavigationBarItem(icon: Icon(Icons.calendar_view_day), label: 'TV Guide'),
         BottomNavigationBarItem(icon: Icon(Icons.movie), label: 'Movies'),
         BottomNavigationBarItem(icon: Icon(Icons.tv), label: 'Series'),
         BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
@@ -253,6 +256,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
         hiddenItemsController,
         'Live Streams',
       ),
+      const TvGuideScreen(),
       _buildContentPage(
         controller.visibleMovieCategories,
         ContentType.vod,
@@ -287,11 +291,26 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
     HiddenItemsController hiddenItemsController,
     String title,
   ) {
+    final categoryType = _contentTypeToCategoryType(contentType);
+    final currentFilter = controller.getSourceFilter(categoryType);
+    final availableSources = controller.availableSources;
+    final hasFilter = currentFilter != null && currentFilter.isNotEmpty;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
         elevation: 0,
         actions: [
+          // Source filter button
+          IconButton(
+            icon: Badge(
+              isLabelVisible: hasFilter,
+              label: hasFilter ? Text('${currentFilter!.length}') : null,
+              child: const Icon(Icons.filter_list),
+            ),
+            onPressed: () => _showSourceFilterSheet(context, controller, categoryType, availableSources),
+            tooltip: 'Filter by source',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => controller.refreshAllContent(),
@@ -442,12 +461,11 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
     );
 
     if (confirmed == true && mounted) {
-      // Save the hidden category preference
-      await UserPreferences.hideCategory(categoryId);
+      // Save the hidden category preference (with name for cross-source matching)
+      await UserPreferences.hideCategoryWithName(categoryId, categoryName);
 
-      // Refresh the view
-      final controller = context.read<UnifiedHomeController>();
-      await controller.loadAllContent();
+      // Refresh the view - use the controller from the state, not from context
+      await _controller.loadHiddenCategories();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -467,6 +485,103 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
         padding: EdgeInsets.all(16),
         child: GeneralSettingsWidget(),
       ),
+    );
+  }
+
+  /// Convert ContentType to CategoryType for source filtering
+  CategoryType _contentTypeToCategoryType(ContentType contentType) {
+    return ContentType.toCategoryType(contentType);
+  }
+
+  /// Show bottom sheet for source filtering
+  void _showSourceFilterSheet(
+    BuildContext context,
+    UnifiedHomeController controller,
+    CategoryType categoryType,
+    Map<String, String> availableSources,
+  ) {
+    final currentFilter = controller.getSourceFilter(categoryType);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (builderContext, setSheetState) {
+            final filter = controller.getSourceFilter(categoryType);
+            final isAllSelected = filter == null || filter.isEmpty;
+
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Filter by Source',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            controller.resetSourceFilter(categoryType);
+                            Navigator.pop(sheetContext);
+                          },
+                          child: const Text('Clear'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // All Sources option
+                    CheckboxListTile(
+                      title: const Text('All Sources'),
+                      subtitle: Text('${availableSources.length} sources'),
+                      value: isAllSelected,
+                      onChanged: (value) {
+                        if (value == true) {
+                          controller.resetSourceFilter(categoryType);
+                        }
+                        setSheetState(() {});
+                      },
+                    ),
+                    const Divider(),
+                    // Individual sources
+                    ...availableSources.entries.map((entry) {
+                      final isSelected = filter?.contains(entry.key) ?? false;
+                      final isXtream = AppState.xtreamRepositories.containsKey(entry.key);
+
+                      return CheckboxListTile(
+                        title: Text(entry.value),
+                        subtitle: Text(isXtream ? 'Xtream Codes' : 'M3U'),
+                        secondary: Icon(
+                          isXtream ? Icons.live_tv : Icons.playlist_play,
+                          color: isXtream ? Colors.blue : Colors.green,
+                        ),
+                        value: isSelected,
+                        onChanged: (value) {
+                          controller.toggleSourceFilter(categoryType, entry.key);
+                          setSheetState(() {});
+                        },
+                      );
+                    }),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: () => Navigator.pop(sheetContext),
+                        child: const Text('Done'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

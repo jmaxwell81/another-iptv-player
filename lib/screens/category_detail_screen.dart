@@ -97,6 +97,15 @@ class _CategoryDetailViewState extends State<_CategoryDetailView> {
     final favoriteStreamIds = favoritesController.favorites.map((f) => f.streamId).toSet();
     final hiddenStreamIds = hiddenController.hiddenStreamIds;
 
+    // Sort favorites to the top while preserving relative order
+    displayItems.sort((a, b) {
+      final aIsFavorite = favoriteStreamIds.contains(a.id);
+      final bIsFavorite = favoriteStreamIds.contains(b.id);
+      if (aIsFavorite && !bIsFavorite) return -1;
+      if (!aIsFavorite && bIsFavorite) return 1;
+      return 0; // Keep original order for items with same favorite status
+    });
+
     return Column(
       children: [
         if (controller.genres.isNotEmpty)

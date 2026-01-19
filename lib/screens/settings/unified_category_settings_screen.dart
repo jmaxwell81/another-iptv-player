@@ -19,7 +19,8 @@ class _UnifiedCategorySettingsScreenState
     extends State<UnifiedCategorySettingsScreen> {
   final UnifiedContentRepository _repository = UnifiedContentRepository();
 
-  Set<String> _hiddenCategories = {};
+  Set<String> _hiddenCategoryIds = {};
+  Set<String> _hiddenCategoryNames = {};
   bool _hasChanges = false;
   bool _isLoading = true;
 
@@ -37,9 +38,11 @@ class _UnifiedCategorySettingsScreenState
     setState(() => _isLoading = true);
 
     try {
-      // Load hidden categories
-      final hidden = await UserPreferences.getHiddenCategories();
-      _hiddenCategories = hidden.toSet();
+      // Load hidden categories (both IDs and names for cross-source matching)
+      final hiddenIds = await UserPreferences.getHiddenCategories();
+      final hiddenNames = await UserPreferences.getHiddenCategoryNames();
+      _hiddenCategoryIds = hiddenIds.toSet();
+      _hiddenCategoryNames = hiddenNames.toSet();
 
       // Load categories from all active sources
       final results = await Future.wait([
@@ -60,52 +63,70 @@ class _UnifiedCategorySettingsScreenState
     }
   }
 
-  Future<void> _toggleHidden(bool isVisible, String categoryId) async {
+  Future<void> _toggleHidden(bool isVisible, String categoryId, String categoryName) async {
+    final normalizedName = categoryName.toLowerCase().trim();
     setState(() {
       _hasChanges = true;
       if (isVisible) {
-        _hiddenCategories.remove(categoryId);
+        _hiddenCategoryIds.remove(categoryId);
+        _hiddenCategoryNames.remove(normalizedName);
       } else {
-        _hiddenCategories.add(categoryId);
+        _hiddenCategoryIds.add(categoryId);
+        _hiddenCategoryNames.add(normalizedName);
       }
     });
-    await UserPreferences.setHiddenCategories(_hiddenCategories.toList());
+    // Save both ID and name for cross-source matching
+    if (isVisible) {
+      await UserPreferences.unhideCategoryWithName(categoryId, categoryName);
+    } else {
+      await UserPreferences.hideCategoryWithName(categoryId, categoryName);
+    }
   }
 
   Future<void> _setAllCategoriesVisible(
-      Iterable<String> ids, bool visible) async {
+      List<CategoryViewModel> categories, bool visible) async {
     setState(() {
       _hasChanges = true;
       if (visible) {
-        _hiddenCategories.removeAll(ids);
+        _hiddenCategoryIds.removeAll(categories.map((c) => c.category.categoryId));
+        _hiddenCategoryNames.removeAll(categories.map((c) => c.category.categoryName.toLowerCase().trim()));
       } else {
-        _hiddenCategories.addAll(ids);
+        _hiddenCategoryIds.addAll(categories.map((c) => c.category.categoryId));
+        _hiddenCategoryNames.addAll(categories.map((c) => c.category.categoryName.toLowerCase().trim()));
       }
     });
-    await UserPreferences.setHiddenCategories(_hiddenCategories.toList());
+    // Save both IDs and names for cross-source matching
+    for (final cat in categories) {
+      if (visible) {
+        await UserPreferences.unhideCategoryWithName(cat.category.categoryId, cat.category.categoryName);
+      } else {
+        await UserPreferences.hideCategoryWithName(cat.category.categoryId, cat.category.categoryName);
+      }
+    }
+  }
+
+  /// Check if a category is hidden (by ID or by normalized name)
+  bool _isCategoryHidden(CategoryViewModel category) {
+    if (_hiddenCategoryIds.contains(category.category.categoryId)) {
+      return true;
+    }
+    final normalizedName = category.category.categoryName.toLowerCase().trim();
+    return _hiddenCategoryNames.contains(normalizedName);
   }
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: true,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop && _hasChanges) {
-          Navigator.pop(context, true);
-        }
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(context.loc.hide_category),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.pop(context, _hasChanges),
-          ),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(context.loc.hide_category),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context, _hasChanges),
         ),
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _buildCategoryList(),
       ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _buildCategoryList(),
     );
   }
 
@@ -144,14 +165,14 @@ class _UnifiedCategorySettingsScreenState
             children: [
               TextButton(
                 onPressed: () => _setAllCategoriesVisible(
-                  _liveCategories.map((c) => c.category.categoryId),
+                  _liveCategories,
                   true,
                 ),
                 child: Text(context.loc.select_all),
               ),
               TextButton(
                 onPressed: () => _setAllCategoriesVisible(
-                  _liveCategories.map((c) => c.category.categoryId),
+                  _liveCategories,
                   false,
                 ),
                 child: Text(context.loc.deselect_all),
@@ -173,14 +194,14 @@ class _UnifiedCategorySettingsScreenState
             children: [
               TextButton(
                 onPressed: () => _setAllCategoriesVisible(
-                  _movieCategories.map((c) => c.category.categoryId),
+                  _movieCategories,
                   true,
                 ),
                 child: Text(context.loc.select_all),
               ),
               TextButton(
                 onPressed: () => _setAllCategoriesVisible(
-                  _movieCategories.map((c) => c.category.categoryId),
+                  _movieCategories,
                   false,
                 ),
                 child: Text(context.loc.deselect_all),
@@ -202,14 +223,14 @@ class _UnifiedCategorySettingsScreenState
             children: [
               TextButton(
                 onPressed: () => _setAllCategoriesVisible(
-                  _seriesCategories.map((c) => c.category.categoryId),
+                  _seriesCategories,
                   true,
                 ),
                 child: Text(context.loc.select_all),
               ),
               TextButton(
                 onPressed: () => _setAllCategoriesVisible(
-                  _seriesCategories.map((c) => c.category.categoryId),
+                  _seriesCategories,
                   false,
                 ),
                 child: Text(context.loc.deselect_all),
@@ -223,7 +244,7 @@ class _UnifiedCategorySettingsScreenState
   }
 
   Widget _buildCategoryTile(CategoryViewModel cat) {
-    final isHidden = _hiddenCategories.contains(cat.category.categoryId);
+    final isHidden = _isCategoryHidden(cat);
     final isMerged = cat.category.categoryId.startsWith('merged_');
     final playlistName = _getPlaylistName(cat.category.playlistId);
 
@@ -247,7 +268,7 @@ class _UnifiedCategorySettingsScreenState
                 )
               : null,
       value: !isHidden,
-      onChanged: (val) => _toggleHidden(val, cat.category.categoryId),
+      onChanged: (val) => _toggleHidden(val, cat.category.categoryId, cat.category.categoryName),
     );
   }
 

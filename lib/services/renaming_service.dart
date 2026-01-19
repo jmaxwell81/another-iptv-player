@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:another_iptv_player/models/content_type.dart';
 import 'package:another_iptv_player/models/renaming_rule.dart';
 import 'package:another_iptv_player/repositories/user_preferences.dart';
@@ -19,10 +18,6 @@ class RenamingService {
     _isLoading = true;
     try {
       _cachedRules = await UserPreferences.getRenamingRules();
-      debugPrint('RenamingService: Loaded ${_cachedRules?.length ?? 0} rules');
-      for (final rule in _cachedRules ?? []) {
-        debugPrint('  Rule: "${rule.findText}" → "${rule.replaceText}" (enabled: ${rule.isEnabled}, appliesTo: ${rule.appliesTo}, fullWords: ${rule.fullWordsOnly})');
-      }
     } finally {
       _isLoading = false;
     }
@@ -124,7 +119,7 @@ class RenamingService {
         final pattern = RegExp(regexPattern, caseSensitive: true);
         return input.replaceAll(pattern, rule.replaceText);
       } catch (e) {
-        debugPrint('RenamingService: Invalid regex pattern: $regexPattern');
+        // Invalid regex pattern, return original input
         return input;
       }
     }
@@ -172,8 +167,6 @@ class RenamingService {
   }) {
     if (_cachedRules == null) {
       // Cache not loaded yet - schedule a load for next time
-      debugPrint('RenamingService: Cache is null for "$name", scheduling load');
-      // Load rules asynchronously for next time
       loadRules();
       return name;
     }
@@ -200,11 +193,7 @@ class RenamingService {
         }
       }
 
-      final before = result;
       result = _applyRule(result, rule);
-      if (before != result) {
-        debugPrint('RenamingService: Applied rule "${rule.findText}" → "${rule.replaceText}" to "$before" = "$result"');
-      }
     }
 
     return result;

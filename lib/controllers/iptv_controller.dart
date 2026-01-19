@@ -6,14 +6,38 @@ import 'package:another_iptv_player/models/vod_streams.dart';
 import 'package:another_iptv_player/models/progress_step.dart';
 import 'package:another_iptv_player/models/series.dart';
 import 'package:another_iptv_player/repositories/iptv_repository.dart';
+import 'package:another_iptv_player/repositories/user_preferences.dart';
 
 import '../models/category_type.dart';
 
 class IptvController extends ChangeNotifier {
   final IptvRepository _repository;
   bool refreshAll = false;
+  bool _useCachedData = false;
 
   IptvController(this._repository, this.refreshAll);
+
+  /// Check if cached data is still fresh (within refresh interval, default 24h)
+  Future<bool> _shouldUseCachedData(String playlistId) async {
+    if (refreshAll) return false;
+
+    final lastRefresh = await UserPreferences.getLastRefreshTime(playlistId);
+    if (lastRefresh == null) return false;
+
+    final refreshInterval = await UserPreferences.getAutoRefreshInterval();
+    final refreshDuration = Duration(hours: refreshInterval);
+    final now = DateTime.now();
+
+    final isFresh = now.difference(lastRefresh) < refreshDuration;
+    debugPrint('IptvController: Cache check for $playlistId - lastRefresh: $lastRefresh, isFresh: $isFresh');
+    return isFresh;
+  }
+
+  /// Save refresh time after successful data load
+  Future<void> _saveRefreshTime(String playlistId) async {
+    await UserPreferences.setLastRefreshTime(playlistId, DateTime.now());
+    debugPrint('IptvController: Saved refresh time for $playlistId');
+  }
 
   // State
   ApiResponse? _userInfo;
@@ -134,6 +158,16 @@ class IptvController extends ChangeNotifier {
       _setCurrentStep(ProgressStep.liveChannels);
       _setError(null);
 
+      // Use cached data if still fresh
+      if (_useCachedData) {
+        _liveChannels = await _repository.getLiveChannels();
+        if (_liveChannels != null && _liveChannels!.isNotEmpty) {
+          debugPrint('IptvController: Loaded ${_liveChannels!.length} live channels from cache');
+          return true;
+        }
+      }
+
+      // Fetch fresh data from API
       _liveChannels = await _repository.getLiveChannelsFromApi();
 
       if (_liveChannels == null) {
@@ -156,6 +190,16 @@ class IptvController extends ChangeNotifier {
       _setCurrentStep(ProgressStep.movies);
       _setError(null);
 
+      // Use cached data if still fresh
+      if (_useCachedData) {
+        _movies = await _repository.getMovies();
+        if (_movies != null && _movies!.isNotEmpty) {
+          debugPrint('IptvController: Loaded ${_movies!.length} movies from cache');
+          return true;
+        }
+      }
+
+      // Fetch fresh data from API
       _movies = await _repository.getMoviesFromApi();
 
       if (_movies == null) {
@@ -178,6 +222,16 @@ class IptvController extends ChangeNotifier {
       _setCurrentStep(ProgressStep.series);
       _setError(null);
 
+      // Use cached data if still fresh
+      if (_useCachedData) {
+        _series = await _repository.getSeries();
+        if (_series != null && _series!.isNotEmpty) {
+          debugPrint('IptvController: Loaded ${_series!.length} series from cache');
+          return true;
+        }
+      }
+
+      // Fetch fresh data from API
       _series = await _repository.getSeriesFromApi();
 
       if (_series == null) {
@@ -199,6 +253,14 @@ class IptvController extends ChangeNotifier {
     _setLoading(true);
 
     bool success = true;
+
+    // Check if cached data is still fresh
+    _useCachedData = await _shouldUseCachedData(_repository.playlistId);
+    if (_useCachedData) {
+      debugPrint('IptvController: Using cached data (within refresh interval)');
+    } else {
+      debugPrint('IptvController: Fetching fresh data from API');
+    }
 
     success &= await loadUserInfo();
     if (!success) {
@@ -225,6 +287,11 @@ class IptvController extends ChangeNotifier {
     }
 
     success &= await loadSeries();
+
+    // Save refresh time on successful load (only if we fetched fresh data)
+    if (success && !_useCachedData) {
+      await _saveRefreshTime(_repository.playlistId);
+    }
 
     _setLoading(false);
     return success;
