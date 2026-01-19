@@ -882,4 +882,49 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get hidden_items_hint =>
       'ستظهر العناصر التي تضع عليها علامة كمشاهَدة هنا';
+
+  @override
+  String get tv_guide => 'TV Guide';
+
+  @override
+  String get epg => 'EPG';
+
+  @override
+  String get epg_settings => 'EPG Settings';
+
+  @override
+  String get epg_url => 'EPG URL';
+
+  @override
+  String get epg_url_default => 'Use Default URL';
+
+  @override
+  String get epg_url_custom => 'Custom EPG URL';
+
+  @override
+  String get refresh_epg => 'Refresh EPG';
+
+  @override
+  String get clear_epg_data => 'Clear EPG Data';
+
+  @override
+  String get epg_last_updated => 'Last Updated';
+
+  @override
+  String get epg_program_count => 'Programs';
+
+  @override
+  String get epg_channel_count => 'Channels';
+
+  @override
+  String get no_epg_data => 'No EPG data available';
+
+  @override
+  String get fetching_epg => 'Fetching EPG data...';
+
+  @override
+  String get epg_fetch_success => 'EPG data updated successfully';
+
+  @override
+  String get epg_fetch_error => 'Failed to fetch EPG data';
 }

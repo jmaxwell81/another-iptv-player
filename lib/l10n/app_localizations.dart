@@ -1739,6 +1739,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Items you mark as watched will appear here'**
   String get hidden_items_hint;
+
+  /// No description provided for @tv_guide.
+  ///
+  /// In en, this message translates to:
+  /// **'TV Guide'**
+  String get tv_guide;
+
+  /// No description provided for @epg.
+  ///
+  /// In en, this message translates to:
+  /// **'EPG'**
+  String get epg;
+
+  /// No description provided for @epg_settings.
+  ///
+  /// In en, this message translates to:
+  /// **'EPG Settings'**
+  String get epg_settings;
+
+  /// No description provided for @epg_url.
+  ///
+  /// In en, this message translates to:
+  /// **'EPG URL'**
+  String get epg_url;
+
+  /// No description provided for @epg_url_default.
+  ///
+  /// In en, this message translates to:
+  /// **'Use Default URL'**
+  String get epg_url_default;
+
+  /// No description provided for @epg_url_custom.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom EPG URL'**
+  String get epg_url_custom;
+
+  /// No description provided for @refresh_epg.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh EPG'**
+  String get refresh_epg;
+
+  /// No description provided for @clear_epg_data.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear EPG Data'**
+  String get clear_epg_data;
+
+  /// No description provided for @epg_last_updated.
+  ///
+  /// In en, this message translates to:
+  /// **'Last Updated'**
+  String get epg_last_updated;
+
+  /// No description provided for @epg_program_count.
+  ///
+  /// In en, this message translates to:
+  /// **'Programs'**
+  String get epg_program_count;
+
+  /// No description provided for @epg_channel_count.
+  ///
+  /// In en, this message translates to:
+  /// **'Channels'**
+  String get epg_channel_count;
+
+  /// No description provided for @no_epg_data.
+  ///
+  /// In en, this message translates to:
+  /// **'No EPG data available'**
+  String get no_epg_data;
+
+  /// No description provided for @fetching_epg.
+  ///
+  /// In en, this message translates to:
+  /// **'Fetching EPG data...'**
+  String get fetching_epg;
+
+  /// No description provided for @epg_fetch_success.
+  ///
+  /// In en, this message translates to:
+  /// **'EPG data updated successfully'**
+  String get epg_fetch_success;
+
+  /// No description provided for @epg_fetch_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to fetch EPG data'**
+  String get epg_fetch_error;
 }
 
 class _AppLocalizationsDelegate

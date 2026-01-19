@@ -47,6 +47,23 @@ class CategorySection extends StatefulWidget {
 }
 
 class _CategorySectionState extends State<CategorySection> {
+  /// Sort content items with favorites at the beginning
+  List<ContentItem> _sortFavoritesFirst(List<ContentItem> items) {
+    if (widget.favoriteStreamIds == null || widget.favoriteStreamIds!.isEmpty) {
+      return items;
+    }
+
+    final sorted = List<ContentItem>.from(items);
+    sorted.sort((a, b) {
+      final aIsFavorite = widget.favoriteStreamIds!.contains(a.id);
+      final bIsFavorite = widget.favoriteStreamIds!.contains(b.id);
+      if (aIsFavorite && !bIsFavorite) return -1;
+      if (!aIsFavorite && bIsFavorite) return 1;
+      return 0; // Keep original order for items with same favorite status
+    });
+    return sorted;
+  }
+
   @override
   Widget build(BuildContext context) {
     final displayName = widget.category.category.categoryName.applyRenamingRules(
@@ -151,7 +168,7 @@ class _CategorySectionState extends State<CategorySection> {
             cardHeight: widget.cardHeight,
             cardWidth: widget.cardWidth,
             onContentTap: widget.onContentTap,
-            contentItems: widget.category.contentItems,
+            contentItems: _sortFavoritesFirst(widget.category.contentItems),
             isSelectionModeEnabled: false,
             favoriteStreamIds: widget.favoriteStreamIds,
             hiddenStreamIds: widget.hiddenStreamIds,

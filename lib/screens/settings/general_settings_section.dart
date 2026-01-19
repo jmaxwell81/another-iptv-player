@@ -13,6 +13,7 @@ import 'package:another_iptv_player/l10n/localization_extension.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../controllers/locale_provider.dart';
+import '../../controllers/unified_home_controller.dart';
 import '../../controllers/xtream_code_home_controller.dart';
 import '../../controllers/theme_provider.dart';
 import '../../l10n/supported_languages.dart';
@@ -233,58 +234,6 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
                     }
                   },
                 ),
-              // Show hide category option for Xtream playlists
-              if ((AppState.currentPlaylist != null || AppState.isCombinedMode) && _hasXtreamPlaylists)
-                const Divider(height: 1),
-              if (_hasXtreamPlaylists && (AppState.currentPlaylist != null || AppState.isCombinedMode))
-                ListTile(
-                  leading: const Icon(Icons.subtitles_outlined),
-                  title: Text(context.loc.hide_category),
-                  subtitle: AppState.isCombinedMode
-                      ? const Text('Hide categories across all sources')
-                      : null,
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () async {
-                    // Use different settings screen for combined mode
-                    if (AppState.isCombinedMode) {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const UnifiedCategorySettingsScreen(),
-                        ),
-                      );
-                      return;
-                    }
-
-                    final result = await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => CategorySettingsScreen(
-                          controller: controller,
-                        ),
-                      ),
-                    );
-
-                    if (result == true) {
-                      if (isXtreamCode) {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                XtreamCodeDataLoaderScreen(
-                                  playlist: AppState.currentPlaylist!,
-                                  refreshAll: true,
-                                ),
-                          ),
-                        );
-                      }
-
-                      if (isM3u) {
-                        refreshM3uPlaylist();
-                      }
-                    }
-                  },
-                ),
               const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.find_replace),
@@ -300,10 +249,10 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
                   );
                 },
               ),
-              // Show category configuration for Xtream playlists
-              if (_hasXtreamPlaylists && (AppState.currentPlaylist != null || AppState.isCombinedMode))
+              // Show category configuration for any playlist
+              if (AppState.currentPlaylist != null || AppState.isCombinedMode)
                 const Divider(height: 1),
-              if (_hasXtreamPlaylists && (AppState.currentPlaylist != null || AppState.isCombinedMode))
+              if (AppState.currentPlaylist != null || AppState.isCombinedMode)
                 ListTile(
                   leading: const Icon(Icons.merge),
                   title: const Text('Category Configuration'),
@@ -742,43 +691,39 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
     );
   }
 
-  void _showPlaylistSelectionForCategoryConfig(BuildContext context) {
-    // Get Xtream playlists from combined mode
-    final xtreamPlaylists = AppState.activePlaylists.entries
-        .where((e) => AppState.xtreamRepositories.containsKey(e.key))
-        .toList();
+  void _showPlaylistSelectionForCategoryConfig(BuildContext parentContext) {
+    // Get all playlists from combined mode (both Xtream and M3U)
+    final allPlaylists = AppState.activePlaylists.entries.toList();
 
-    if (xtreamPlaylists.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No Xtream playlists available')),
+    if (allPlaylists.isEmpty) {
+      ScaffoldMessenger.of(parentContext).showSnackBar(
+        const SnackBar(content: Text('No playlists available')),
       );
       return;
     }
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
+    showDialog<String>(
+      context: parentContext,
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Select Playlist'),
         content: SizedBox(
           width: double.maxFinite,
           child: ListView.builder(
             shrinkWrap: true,
-            itemCount: xtreamPlaylists.length,
+            itemCount: allPlaylists.length,
             itemBuilder: (context, index) {
-              final entry = xtreamPlaylists[index];
+              final entry = allPlaylists[index];
+              final isXtream = AppState.xtreamRepositories.containsKey(entry.key);
               return ListTile(
+                leading: Icon(
+                  isXtream ? Icons.live_tv : Icons.playlist_play,
+                  color: isXtream ? Colors.blue : Colors.green,
+                ),
                 title: Text(entry.value.name),
-                subtitle: Text(entry.value.url ?? ''),
+                subtitle: Text(isXtream ? 'Xtream Codes' : 'M3U'),
                 onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => CategoryConfigScreen(
-                        playlistId: entry.key,
-                      ),
-                    ),
-                  );
+                  // Return the playlist ID to select
+                  Navigator.pop(dialogContext, entry.key);
                 },
               );
             },
@@ -786,12 +731,35 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
         ],
       ),
-    );
+    ).then((selectedPlaylistId) {
+      // Navigate after dialog is fully closed
+      if (selectedPlaylistId != null) {
+        Navigator.push<bool>(
+          parentContext,
+          MaterialPageRoute(
+            builder: (context) => CategoryConfigScreen(
+              playlistId: selectedPlaylistId,
+            ),
+          ),
+        ).then((hasHiddenCategoryChanges) {
+          // Reload hidden categories in the unified controller if changes were made
+          if (hasHiddenCategoryChanges == true && AppState.isCombinedMode) {
+            try {
+              final controller = parentContext.read<UnifiedHomeController>();
+              controller.loadHiddenCategories();
+              controller.loadAllContent(); // Reload to apply filters
+            } catch (e) {
+              debugPrint('Could not notify UnifiedHomeController: $e');
+            }
+          }
+        });
+      }
+    });
   }
 
   refreshM3uPlaylist() async {

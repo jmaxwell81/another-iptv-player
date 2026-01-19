@@ -59,7 +59,9 @@ class _VideoTitleWidgetState extends State<VideoTitleWidget> {
     
     return Text(
       videoTitle.applyRenamingRules(
-        contentType: PlayerState.currentContent?.contentType,
+        contentType: currentContent?.contentType,
+        itemId: currentContent?.id,
+        playlistId: currentContent?.sourcePlaylistId,
       ),
       style: const TextStyle(
         color: Colors.white,

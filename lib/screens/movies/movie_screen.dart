@@ -19,6 +19,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../widgets/player_widget.dart';
+import 'package:another_iptv_player/utils/renaming_extension.dart';
 
 class MovieScreen extends StatefulWidget {
   final ContentItem contentItem;
@@ -58,6 +59,13 @@ class _MovieScreenState extends State<MovieScreen> {
       widget.contentItem.sourcePlaylistId ??
       AppState.currentPlaylist?.id ??
       'unknown';
+
+  // Helper to get display name with renaming rules applied
+  String get _displayName => widget.contentItem.name.applyRenamingRules(
+        contentType: widget.contentItem.contentType,
+        itemId: widget.contentItem.id,
+        playlistId: _playlistId,
+      );
 
   @override
   void initState() {
@@ -593,7 +601,7 @@ class _MovieScreenState extends State<MovieScreen> {
 
   Widget _buildTitle(BuildContext context, {required TextAlign textAlign}) {
     return Text(
-      widget.contentItem.name,
+      _displayName,
       textAlign: textAlign,
       style: Theme.of(context).textTheme.headlineMedium?.copyWith(
             color: Colors.white,
@@ -820,7 +828,7 @@ class _MovieScreenState extends State<MovieScreen> {
 
   Widget? _buildTrailerButton(BuildContext context) {
     final vod = widget.contentItem.vodStream;
-    if (vod == null || widget.contentItem.name.isEmpty) {
+    if (vod == null || _displayName.isEmpty) {
       return null;
     }
 
@@ -940,7 +948,7 @@ class _MovieScreenState extends State<MovieScreen> {
       urlString = 'https://www.youtube.com/watch?v=$trailerKey';
     } else {
       final query = Uri.encodeQueryComponent(
-        '${widget.contentItem.name} trailer $languageCode',
+        '$_displayName trailer $languageCode',
       );
       urlString = 'https://www.youtube.com/results?search_query=$query';
     }

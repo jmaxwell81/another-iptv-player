@@ -197,6 +197,8 @@ class _VideoInfoWidgetState extends State<VideoInfoWidget> {
                             context.loc.name,
                             currentContent.name.applyRenamingRules(
                               contentType: currentContent.contentType,
+                              itemId: currentContent.id,
+                              playlistId: currentContent.sourcePlaylistId,
                             ),
                             Icons.title,
                           ),

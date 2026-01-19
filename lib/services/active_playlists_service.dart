@@ -17,8 +17,11 @@ class ActivePlaylistsService extends ChangeNotifier {
   /// Check if combined mode is enabled
   bool get isCombinedMode => _config?.isCombinedMode ?? false;
 
-  /// Get set of active playlist IDs
-  Set<String> get activePlaylistIds => _config?.activePlaylistIds ?? {};
+  /// Get set of active playlist IDs (backward compatible)
+  Set<String> get activePlaylistIds => _config?.activePlaylistIdsSet ?? {};
+
+  /// Get ordered list of active playlist IDs (first = highest priority)
+  List<String> get orderedActivePlaylistIds => _config?.activePlaylistIds ?? [];
 
   /// Check if a specific playlist is active
   bool isPlaylistActive(String playlistId) {
@@ -44,13 +47,13 @@ class ActivePlaylistsService extends ChangeNotifier {
     }
   }
 
-  /// Toggle a playlist's active state
+  /// Toggle a playlist's active state (adds to end if new)
   Future<void> togglePlaylistActive(String playlistId) async {
-    final currentIds = Set<String>.from(activePlaylistIds);
+    final currentIds = List<String>.from(orderedActivePlaylistIds);
     if (currentIds.contains(playlistId)) {
       currentIds.remove(playlistId);
     } else {
-      currentIds.add(playlistId);
+      currentIds.add(playlistId); // Add to end (lowest priority)
     }
 
     _config = (_config ?? ActivePlaylistsConfig()).copyWith(
@@ -60,11 +63,13 @@ class ActivePlaylistsService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Set a playlist as active
+  /// Set a playlist as active (adds to end if new)
   Future<void> setPlaylistActive(String playlistId, bool active) async {
-    final currentIds = Set<String>.from(activePlaylistIds);
+    final currentIds = List<String>.from(orderedActivePlaylistIds);
     if (active) {
-      currentIds.add(playlistId);
+      if (!currentIds.contains(playlistId)) {
+        currentIds.add(playlistId); // Add to end (lowest priority)
+      }
     } else {
       currentIds.remove(playlistId);
     }
@@ -85,8 +90,17 @@ class ActivePlaylistsService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Set all active playlist IDs at once
+  /// Set all active playlist IDs at once (preserves order)
   Future<void> setActivePlaylistIds(Set<String> ids) async {
+    _config = (_config ?? ActivePlaylistsConfig()).copyWith(
+      activePlaylistIds: ids.toList(),
+    );
+    await UserPreferences.setActivePlaylistsConfig(_config!);
+    notifyListeners();
+  }
+
+  /// Set ordered active playlist IDs
+  Future<void> setOrderedActivePlaylistIds(List<String> ids) async {
     _config = (_config ?? ActivePlaylistsConfig()).copyWith(
       activePlaylistIds: ids,
     );
@@ -94,10 +108,20 @@ class ActivePlaylistsService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Reorder a playlist from one position to another
+  Future<void> reorderPlaylist(int oldIndex, int newIndex) async {
+    if (_config == null) return;
+    if (newIndex > oldIndex) newIndex--;
+
+    _config = _config!.reorder(oldIndex, newIndex);
+    await UserPreferences.setActivePlaylistsConfig(_config!);
+    notifyListeners();
+  }
+
   /// Clear all active playlists
   Future<void> clearActivePlaylists() async {
     _config = (_config ?? ActivePlaylistsConfig()).copyWith(
-      activePlaylistIds: {},
+      activePlaylistIds: <String>[],
       isCombinedMode: false,
     );
     await UserPreferences.setActivePlaylistsConfig(_config!);
@@ -108,7 +132,7 @@ class ActivePlaylistsService extends ChangeNotifier {
   Future<void> removePlaylistFromActive(String playlistId) async {
     if (!isPlaylistActive(playlistId)) return;
 
-    final currentIds = Set<String>.from(activePlaylistIds);
+    final currentIds = List<String>.from(orderedActivePlaylistIds);
     currentIds.remove(playlistId);
 
     // If less than 2 playlists, disable combined mode

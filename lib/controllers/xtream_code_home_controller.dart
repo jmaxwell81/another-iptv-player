@@ -148,10 +148,12 @@ class XtreamCodeHomeController extends ChangeNotifier {
       case 2:
         return context.loc.live_streams;
       case 3:
-        return context.loc.movies;
+        return 'TV Guide';
       case 4:
-        return context.loc.series_plural;
+        return context.loc.movies;
       case 5:
+        return context.loc.series_plural;
+      case 6:
         return context.loc.settings;
       default:
         return 'Another IPTV Player';

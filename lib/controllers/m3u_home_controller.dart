@@ -87,15 +87,9 @@ class M3UHomeController extends ChangeNotifier {
       case 2:
         return context.loc.all;
       case 3:
+        return 'TV Guide';
+      case 4:
         return context.loc.settings;
-      // case 3:
-      //   return context.loc.live_streams;
-      // case 4:
-      //   return context.loc.movies;
-      // case 5:
-      //   return context.loc.series_plural;
-      // case 6:
-      //   return context.loc.settings;
       default:
         return 'Another IPTV Player';
     }

@@ -471,6 +471,47 @@ class HiddenItems extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+@DataClassName('EpgProgramData')
+class EpgPrograms extends Table {
+  TextColumn get id => text()();  // channelId_startTime_playlistId
+  TextColumn get channelId => text()();
+  TextColumn get playlistId => text()();
+  TextColumn get title => text()();
+  TextColumn get description => text().nullable()();
+  DateTimeColumn get startTime => dateTime()();
+  DateTimeColumn get endTime => dateTime()();
+  TextColumn get category => text().nullable()();
+  TextColumn get icon => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DataClassName('EpgChannelData')
+class EpgChannels extends Table {
+  TextColumn get channelId => text()();
+  TextColumn get playlistId => text()();
+  TextColumn get displayName => text()();
+  TextColumn get icon => text().nullable()();
+  DateTimeColumn get lastUpdated => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {channelId, playlistId};
+}
+
+@DataClassName('EpgSourceData')
+class EpgSources extends Table {
+  TextColumn get playlistId => text()();
+  TextColumn get epgUrl => text().nullable()();
+  BoolColumn get useDefaultUrl => boolean().withDefault(const Constant(true))();
+  DateTimeColumn get lastFetched => dateTime().nullable()();
+  IntColumn get programCount => integer().withDefault(const Constant(0))();
+
+  @override
+  Set<Column> get primaryKey => {playlistId};
+}
+
 @DriftDatabase(
   tables: [
     Playlists,
@@ -489,6 +530,9 @@ class HiddenItems extends Table {
     M3uEpisodes,
     Favorites,
     HiddenItems,
+    EpgPrograms,
+    EpgChannels,
+    EpgSources,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -516,7 +560,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   // === PLAYLIST İŞLEMLERİ ===
 
@@ -1743,6 +1787,16 @@ class AppDatabase extends _$AppDatabase {
           print('WatchHistories columns migration skipped: $e');
         }
       }
+
+      if (from < 11) {
+        try {
+          await m.createTable(epgPrograms);
+          await m.createTable(epgChannels);
+          await m.createTable(epgSources);
+        } catch (e) {
+          print('EPG tables migration skipped: $e');
+        }
+      }
     },
   );
 
@@ -1804,6 +1858,108 @@ class AppDatabase extends _$AppDatabase {
     return result != null;
   }
 
+  // === EPG CRUD OPERATIONS ===
+
+  // EPG Sources
+  Future<void> insertOrUpdateEpgSource(EpgSourcesCompanion source) async {
+    await into(epgSources).insertOnConflictUpdate(source);
+  }
+
+  Future<EpgSourceData?> getEpgSource(String playlistId) async {
+    final query = select(epgSources)
+      ..where((e) => e.playlistId.equals(playlistId));
+    return await query.getSingleOrNull();
+  }
+
+  Future<void> deleteEpgSource(String playlistId) async {
+    await (delete(epgSources)..where((e) => e.playlistId.equals(playlistId))).go();
+  }
+
+  // EPG Channels
+  Future<void> insertEpgChannels(List<EpgChannelsCompanion> channels) async {
+    await batch((batch) {
+      batch.insertAllOnConflictUpdate(epgChannels, channels);
+    });
+  }
+
+  Future<List<EpgChannelData>> getEpgChannels(String playlistId) async {
+    final query = select(epgChannels)
+      ..where((e) => e.playlistId.equals(playlistId));
+    return await query.get();
+  }
+
+  Future<EpgChannelData?> getEpgChannel(String channelId, String playlistId) async {
+    final query = select(epgChannels)
+      ..where((e) => e.channelId.equals(channelId) & e.playlistId.equals(playlistId));
+    return await query.getSingleOrNull();
+  }
+
+  Future<void> deleteEpgChannels(String playlistId) async {
+    await (delete(epgChannels)..where((e) => e.playlistId.equals(playlistId))).go();
+  }
+
+  // EPG Programs
+  Future<void> insertEpgPrograms(List<EpgProgramsCompanion> programs) async {
+    await batch((batch) {
+      batch.insertAllOnConflictUpdate(epgPrograms, programs);
+    });
+  }
+
+  Future<List<EpgProgramData>> getEpgPrograms(String playlistId) async {
+    final query = select(epgPrograms)
+      ..where((e) => e.playlistId.equals(playlistId))
+      ..orderBy([(e) => OrderingTerm.asc(e.startTime)]);
+    return await query.get();
+  }
+
+  Future<List<EpgProgramData>> getEpgProgramsForChannel(
+    String channelId,
+    String playlistId,
+    DateTime from,
+    DateTime to,
+  ) async {
+    final query = select(epgPrograms)
+      ..where((e) =>
+          e.channelId.equals(channelId) &
+          e.playlistId.equals(playlistId) &
+          e.endTime.isBiggerThanValue(from) &
+          e.startTime.isSmallerThanValue(to))
+      ..orderBy([(e) => OrderingTerm.asc(e.startTime)]);
+    return await query.get();
+  }
+
+  Future<EpgProgramData?> getCurrentEpgProgram(String channelId, String playlistId) async {
+    final now = DateTime.now();
+    final query = select(epgPrograms)
+      ..where((e) =>
+          e.channelId.equals(channelId) &
+          e.playlistId.equals(playlistId) &
+          e.startTime.isSmallerOrEqualValue(now) &
+          e.endTime.isBiggerThanValue(now))
+      ..limit(1);
+    return await query.getSingleOrNull();
+  }
+
+  Future<void> deleteEpgPrograms(String playlistId) async {
+    await (delete(epgPrograms)..where((e) => e.playlistId.equals(playlistId))).go();
+  }
+
+  Future<void> deleteExpiredEpgPrograms(DateTime before) async {
+    await (delete(epgPrograms)..where((e) => e.endTime.isSmallerThanValue(before))).go();
+  }
+
+  Future<int> getEpgProgramCount(String playlistId) async {
+    final result = await (select(epgPrograms)
+      ..where((e) => e.playlistId.equals(playlistId))).get();
+    return result.length;
+  }
+
+  // Clear all EPG data for a playlist
+  Future<void> clearEpgData(String playlistId) async {
+    await deleteEpgPrograms(playlistId);
+    await deleteEpgChannels(playlistId);
+  }
+
   Future<void> deleteDatabase() async {
     await close();
     final dbFolder = await getApplicationDocumentsDirectory();
@@ -1812,5 +1968,171 @@ class AppDatabase extends _$AppDatabase {
     if (await file.exists()) {
       await file.delete();
     }
+  }
+
+  // === TV GUIDE OPTIMIZED QUERIES ===
+
+  /// Count live streams excluding hidden categories (for pagination)
+  Future<int> countLiveStreamsFiltered(
+    String playlistId, {
+    Set<String>? excludedCategoryIds,
+    Set<String>? excludedStreamIds,
+    String? searchQuery,
+  }) async {
+    var query = select(liveStreams)..where((ls) => ls.playlistId.equals(playlistId));
+
+    final rows = await query.get();
+    var filtered = rows.where((row) {
+      if (excludedCategoryIds != null && excludedCategoryIds.contains(row.categoryId)) {
+        return false;
+      }
+      if (excludedStreamIds != null && excludedStreamIds.contains(row.streamId)) {
+        return false;
+      }
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        if (!row.name.toLowerCase().contains(searchQuery.toLowerCase())) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    return filtered.length;
+  }
+
+  /// Get paginated live streams excluding hidden categories
+  Future<List<LiveStream>> getLiveStreamsPaginated(
+    String playlistId, {
+    required int offset,
+    required int limit,
+    Set<String>? excludedCategoryIds,
+    Set<String>? excludedStreamIds,
+    String? searchQuery,
+  }) async {
+    var query = select(liveStreams)..where((ls) => ls.playlistId.equals(playlistId));
+
+    final rows = await query.get();
+    var filtered = rows.where((row) {
+      if (excludedCategoryIds != null && excludedCategoryIds.contains(row.categoryId)) {
+        return false;
+      }
+      if (excludedStreamIds != null && excludedStreamIds.contains(row.streamId)) {
+        return false;
+      }
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        if (!row.name.toLowerCase().contains(searchQuery.toLowerCase())) {
+          return false;
+        }
+      }
+      return true;
+    }).toList();
+
+    // Apply pagination
+    final start = offset.clamp(0, filtered.length);
+    final end = (offset + limit).clamp(0, filtered.length);
+
+    return filtered.sublist(start, end)
+        .map((row) => LiveStream.fromDriftLiveStream(row))
+        .toList();
+  }
+
+  /// Count M3U live items excluding hidden categories (for pagination)
+  Future<int> countM3uLiveItemsFiltered(
+    String playlistId, {
+    Set<String>? excludedCategoryIds,
+    Set<String>? excludedStreamIds,
+    String? searchQuery,
+  }) async {
+    var query = select(m3uItems)
+      ..where((item) => item.playlistId.equals(playlistId) &
+                        item.contentType.equals(ContentType.liveStream.index));
+
+    final rows = await query.get();
+    var filtered = rows.where((row) {
+      if (excludedCategoryIds != null && row.categoryId != null &&
+          excludedCategoryIds.contains(row.categoryId)) {
+        return false;
+      }
+      if (excludedStreamIds != null && excludedStreamIds.contains(row.id)) {
+        return false;
+      }
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        final name = row.name ?? row.tvgName ?? '';
+        if (!name.toLowerCase().contains(searchQuery.toLowerCase())) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    return filtered.length;
+  }
+
+  /// Get paginated M3U live items excluding hidden categories
+  Future<List<M3uItem>> getM3uLiveItemsPaginated(
+    String playlistId, {
+    required int offset,
+    required int limit,
+    Set<String>? excludedCategoryIds,
+    Set<String>? excludedStreamIds,
+    String? searchQuery,
+  }) async {
+    var query = select(m3uItems)
+      ..where((item) => item.playlistId.equals(playlistId) &
+                        item.contentType.equals(ContentType.liveStream.index));
+
+    final rows = await query.get();
+    var filtered = rows.where((row) {
+      if (excludedCategoryIds != null && row.categoryId != null &&
+          excludedCategoryIds.contains(row.categoryId)) {
+        return false;
+      }
+      if (excludedStreamIds != null && excludedStreamIds.contains(row.id)) {
+        return false;
+      }
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        final name = row.name ?? row.tvgName ?? '';
+        if (!name.toLowerCase().contains(searchQuery.toLowerCase())) {
+          return false;
+        }
+      }
+      return true;
+    }).toList();
+
+    // Apply pagination
+    final start = offset.clamp(0, filtered.length);
+    final end = (offset + limit).clamp(0, filtered.length);
+
+    return filtered.sublist(start, end)
+        .map((row) => M3uItem.fromData(row))
+        .toList();
+  }
+
+  /// Get EPG programs for multiple channels in a single query (batch)
+  Future<Map<String, List<EpgProgramData>>> getEpgProgramsForChannelsBatch(
+    List<String> channelIds,
+    String playlistId,
+    DateTime from,
+    DateTime to,
+  ) async {
+    if (channelIds.isEmpty) return {};
+
+    final query = select(epgPrograms)
+      ..where((e) =>
+          e.channelId.isIn(channelIds) &
+          e.playlistId.equals(playlistId) &
+          e.endTime.isBiggerThanValue(from) &
+          e.startTime.isSmallerThanValue(to))
+      ..orderBy([(e) => OrderingTerm.asc(e.startTime)]);
+
+    final results = await query.get();
+
+    // Group by channelId
+    final Map<String, List<EpgProgramData>> grouped = {};
+    for (final program in results) {
+      grouped.putIfAbsent(program.channelId, () => []).add(program);
+    }
+
+    return grouped;
   }
 }

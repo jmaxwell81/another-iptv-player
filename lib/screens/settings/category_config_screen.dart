@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:another_iptv_player/models/category.dart';
 import 'package:another_iptv_player/models/category_configuration.dart';
 import 'package:another_iptv_player/models/category_type.dart';
+import 'package:another_iptv_player/models/playlist_model.dart';
 import 'package:another_iptv_player/repositories/user_preferences.dart';
 import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/services/category_config_service.dart';
@@ -48,6 +49,7 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
   bool _isLoading = true;
   final Set<String> _selectedIds = {};
   bool _isSelectionMode = false;
+  bool _hasHiddenCategoryChanges = false; // Track if hidden categories changed
 
   // Search and filter
   final TextEditingController _searchController = TextEditingController();
@@ -91,16 +93,29 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
     _hiddenCategoryIds = (await UserPreferences.getHiddenCategories()).toSet();
 
     // Load ALL categories from repository
-    // In combined mode, use xtreamRepositories; otherwise use xtreamCodeRepository
-    final repository = AppState.xtreamRepositories[widget.playlistId] ?? AppState.xtreamCodeRepository;
-    if (repository != null) {
-      final liveCategories = await repository.getLiveCategories();
-      final vodCategories = await repository.getVodCategories();
-      final seriesCategories = await repository.getSeriesCategories();
+    // Try Xtream repository first, then M3U repository
+    final xtreamRepository = AppState.xtreamRepositories[widget.playlistId] ?? AppState.xtreamCodeRepository;
+    final m3uRepository = AppState.m3uRepositories[widget.playlistId] ?? AppState.m3uRepository;
+
+    if (xtreamRepository != null && (AppState.xtreamRepositories.containsKey(widget.playlistId) ||
+        (AppState.currentPlaylist?.id == widget.playlistId && AppState.currentPlaylist?.type == PlaylistType.xtream))) {
+      // Load from Xtream API
+      final liveCategories = await xtreamRepository.getLiveCategories();
+      final vodCategories = await xtreamRepository.getVodCategories();
+      final seriesCategories = await xtreamRepository.getSeriesCategories();
 
       _allLiveCategories = liveCategories ?? [];
       _allVodCategories = vodCategories ?? [];
       _allSeriesCategories = seriesCategories ?? [];
+    } else if (m3uRepository != null) {
+      // Load from M3U database (all categories are stored together)
+      final allCategories = await m3uRepository.getCategories();
+      if (allCategories != null) {
+        // M3U categories are typed, separate them
+        _allLiveCategories = allCategories.where((c) => c.type == CategoryType.live).toList();
+        _allVodCategories = allCategories.where((c) => c.type == CategoryType.vod).toList();
+        _allSeriesCategories = allCategories.where((c) => c.type == CategoryType.series).toList();
+      }
     }
 
     // Load config
@@ -274,12 +289,32 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
     );
   }
 
+  /// Get category name by ID
+  String? _getCategoryName(String categoryId) {
+    for (final cat in _allLiveCategories) {
+      if (cat.categoryId == categoryId) return cat.categoryName;
+    }
+    for (final cat in _allVodCategories) {
+      if (cat.categoryId == categoryId) return cat.categoryName;
+    }
+    for (final cat in _allSeriesCategories) {
+      if (cat.categoryId == categoryId) return cat.categoryName;
+    }
+    return null;
+  }
+
   Future<void> _bulkHide() async {
     if (_selectedIds.isEmpty) return;
 
     for (final id in _selectedIds) {
       if (!_hiddenCategoryIds.contains(id)) {
-        await UserPreferences.hideCategory(id);
+        final name = _getCategoryName(id);
+        if (name != null) {
+          await UserPreferences.hideCategoryWithName(id, name);
+        } else {
+          await UserPreferences.hideCategory(id);
+        }
+        _hasHiddenCategoryChanges = true;
       }
     }
 
@@ -296,7 +331,13 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
 
     for (final id in _selectedIds) {
       if (_hiddenCategoryIds.contains(id)) {
-        await UserPreferences.unhideCategory(id);
+        final name = _getCategoryName(id);
+        if (name != null) {
+          await UserPreferences.unhideCategoryWithName(id, name);
+        } else {
+          await UserPreferences.unhideCategory(id);
+        }
+        _hasHiddenCategoryChanges = true;
       }
     }
 
@@ -399,18 +440,38 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
   }
 
   Future<void> _toggleHideCategory(String categoryId, bool isCurrentlyHidden) async {
+    final name = _getCategoryName(categoryId);
     if (isCurrentlyHidden) {
-      await UserPreferences.unhideCategory(categoryId);
+      if (name != null) {
+        await UserPreferences.unhideCategoryWithName(categoryId, name);
+      } else {
+        await UserPreferences.unhideCategory(categoryId);
+      }
     } else {
-      await UserPreferences.hideCategory(categoryId);
+      if (name != null) {
+        await UserPreferences.hideCategoryWithName(categoryId, name);
+      } else {
+        await UserPreferences.hideCategory(categoryId);
+      }
     }
+    _hasHiddenCategoryChanges = true;
     await _loadData();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.pop(context, _hasHiddenCategoryChanges);
+      },
+      child: Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context, _hasHiddenCategoryChanges),
+        ),
         title: const Text('Category Configuration'),
         bottom: TabBar(
           controller: _tabController,
@@ -472,6 +533,7 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
                   : 'Hide ${_selectedIds.length}'),
             )
           : null,
+      ),
     );
   }
 

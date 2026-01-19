@@ -1,4 +1,5 @@
 import 'package:another_iptv_player/l10n/app_localizations.dart';
+import 'package:another_iptv_player/repositories/epg_repository.dart';
 import 'package:another_iptv_player/services/network_discovery_service.dart';
 import 'package:another_iptv_player/services/stream_server.dart';
 import 'package:flutter/material.dart';
@@ -18,6 +19,7 @@ Future<void> setupServiceLocator() async {
   getIt.registerLazySingleton<NetworkDiscoveryService>(
     () => NetworkDiscoveryService(),
   );
+  getIt.registerLazySingleton<EpgRepository>(() => EpgRepository());
 
   MediaKit.ensureInitialized();
 }

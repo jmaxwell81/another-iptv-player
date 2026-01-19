@@ -31,19 +31,20 @@ class FavoritesController extends ChangeNotifier {
   int get seriesFavoriteCount => seriesFavorites.length;
 
   Future<void> loadFavorites() async {
-    try {
-      _setLoading(true);
-      _setError(null);
+    // Guard against calling while already loading
+    if (_isLoading) return;
 
-      _favorites.clear();
-      notifyListeners();
+    try {
+      _isLoading = true;
+      _error = null;
+      // Don't notify here - wait until we have data
 
       _favorites = await _repository.getAllFavorites();
-      notifyListeners();
     } catch (e) {
-      _setError('Error loading favorites: $e');
+      _error = 'Error loading favorites: $e';
     } finally {
-      _setLoading(false);
+      _isLoading = false;
+      if (!_isDisposed) notifyListeners();
     }
   }
 
