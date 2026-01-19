@@ -1,5 +1,6 @@
 import 'package:another_iptv_player/l10n/localization_extension.dart';
 import 'package:another_iptv_player/models/custom_rename.dart';
+import 'package:another_iptv_player/models/epg_program.dart';
 import 'package:another_iptv_player/utils/renaming_extension.dart';
 import 'package:another_iptv_player/widgets/rename_dialog.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +24,7 @@ class CategorySection extends StatefulWidget {
   final bool showContextMenu;
   final Function(String categoryId, String categoryName)? onHideCategory;
   final String? playlistId;
+  final Map<String, EpgProgram>? currentPrograms;
 
   const CategorySection({
     super.key,
@@ -40,6 +42,7 @@ class CategorySection extends StatefulWidget {
     this.showContextMenu = true,
     this.onHideCategory,
     this.playlistId,
+    this.currentPrograms,
   });
 
   @override
@@ -180,6 +183,7 @@ class _CategorySectionState extends State<CategorySection> {
             categoryName: widget.category.category.categoryName,
             onHideCategory: widget.onHideCategory,
             playlistId: widget.playlistId,
+            currentPrograms: widget.currentPrograms,
             key: widget.key,
           ),
         ],

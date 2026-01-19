@@ -707,4 +707,60 @@ class UserPreferences {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_keyVpnShowOnlyWhenDisconnected) ?? false; // Default false
   }
+
+  // Download settings
+  static const String _keyMaxConcurrentDownloads = 'max_concurrent_downloads';
+  static const String _keyDownloads = 'downloads';
+  static const String _keyRecordings = 'recordings';
+
+  static Future<void> setMaxConcurrentDownloads(int max) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_keyMaxConcurrentDownloads, max);
+  }
+
+  static Future<int> getMaxConcurrentDownloads() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_keyMaxConcurrentDownloads) ?? 1; // Default 1
+  }
+
+  static Future<void> saveDownloads(List<dynamic> downloads) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = downloads.map((d) => d.toJson()).toList();
+    await prefs.setString(_keyDownloads, jsonEncode(jsonList));
+  }
+
+  static Future<List<dynamic>> getDownloads() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_keyDownloads);
+    if (jsonString == null || jsonString.isEmpty) {
+      return [];
+    }
+    try {
+      final List<dynamic> jsonList = jsonDecode(jsonString);
+      // Import Download model dynamically to avoid circular dependency
+      return jsonList;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  static Future<void> saveRecordings(List<dynamic> recordings) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = recordings.map((r) => r.toJson()).toList();
+    await prefs.setString(_keyRecordings, jsonEncode(jsonList));
+  }
+
+  static Future<List<dynamic>> getRecordings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_keyRecordings);
+    if (jsonString == null || jsonString.isEmpty) {
+      return [];
+    }
+    try {
+      final List<dynamic> jsonList = jsonDecode(jsonString);
+      return jsonList;
+    } catch (e) {
+      return [];
+    }
+  }
 }
