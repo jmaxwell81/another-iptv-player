@@ -12280,6 +12280,2144 @@ class EpgSourcesCompanion extends UpdateCompanion<EpgSourceData> {
   }
 }
 
+class $CachedSubtitlesTable extends CachedSubtitles
+    with TableInfo<$CachedSubtitlesTable, CachedSubtitleData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CachedSubtitlesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentIdMeta = const VerificationMeta(
+    'contentId',
+  );
+  @override
+  late final GeneratedColumn<String> contentId = GeneratedColumn<String>(
+    'content_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentTypeMeta = const VerificationMeta(
+    'contentType',
+  );
+  @override
+  late final GeneratedColumn<String> contentType = GeneratedColumn<String>(
+    'content_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentNameMeta = const VerificationMeta(
+    'contentName',
+  );
+  @override
+  late final GeneratedColumn<String> contentName = GeneratedColumn<String>(
+    'content_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _languageMeta = const VerificationMeta(
+    'language',
+  );
+  @override
+  late final GeneratedColumn<String> language = GeneratedColumn<String>(
+    'language',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _languageNameMeta = const VerificationMeta(
+    'languageName',
+  );
+  @override
+  late final GeneratedColumn<String> languageName = GeneratedColumn<String>(
+    'language_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _subtitleFormatMeta = const VerificationMeta(
+    'subtitleFormat',
+  );
+  @override
+  late final GeneratedColumn<String> subtitleFormat = GeneratedColumn<String>(
+    'subtitle_format',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _filePathMeta = const VerificationMeta(
+    'filePath',
+  );
+  @override
+  late final GeneratedColumn<String> filePath = GeneratedColumn<String>(
+    'file_path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _openSubtitlesIdMeta = const VerificationMeta(
+    'openSubtitlesId',
+  );
+  @override
+  late final GeneratedColumn<String> openSubtitlesId = GeneratedColumn<String>(
+    'open_subtitles_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _downloadCountMeta = const VerificationMeta(
+    'downloadCount',
+  );
+  @override
+  late final GeneratedColumn<int> downloadCount = GeneratedColumn<int>(
+    'download_count',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _matchScoreMeta = const VerificationMeta(
+    'matchScore',
+  );
+  @override
+  late final GeneratedColumn<double> matchScore = GeneratedColumn<double>(
+    'match_score',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _downloadedAtMeta = const VerificationMeta(
+    'downloadedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> downloadedAt = GeneratedColumn<DateTime>(
+    'downloaded_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _lastUsedAtMeta = const VerificationMeta(
+    'lastUsedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastUsedAt = GeneratedColumn<DateTime>(
+    'last_used_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    contentId,
+    contentType,
+    contentName,
+    language,
+    languageName,
+    subtitleFormat,
+    filePath,
+    openSubtitlesId,
+    downloadCount,
+    matchScore,
+    downloadedAt,
+    lastUsedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'cached_subtitles';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CachedSubtitleData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('content_id')) {
+      context.handle(
+        _contentIdMeta,
+        contentId.isAcceptableOrUnknown(data['content_id']!, _contentIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_contentIdMeta);
+    }
+    if (data.containsKey('content_type')) {
+      context.handle(
+        _contentTypeMeta,
+        contentType.isAcceptableOrUnknown(
+          data['content_type']!,
+          _contentTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_contentTypeMeta);
+    }
+    if (data.containsKey('content_name')) {
+      context.handle(
+        _contentNameMeta,
+        contentName.isAcceptableOrUnknown(
+          data['content_name']!,
+          _contentNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_contentNameMeta);
+    }
+    if (data.containsKey('language')) {
+      context.handle(
+        _languageMeta,
+        language.isAcceptableOrUnknown(data['language']!, _languageMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_languageMeta);
+    }
+    if (data.containsKey('language_name')) {
+      context.handle(
+        _languageNameMeta,
+        languageName.isAcceptableOrUnknown(
+          data['language_name']!,
+          _languageNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_languageNameMeta);
+    }
+    if (data.containsKey('subtitle_format')) {
+      context.handle(
+        _subtitleFormatMeta,
+        subtitleFormat.isAcceptableOrUnknown(
+          data['subtitle_format']!,
+          _subtitleFormatMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_subtitleFormatMeta);
+    }
+    if (data.containsKey('file_path')) {
+      context.handle(
+        _filePathMeta,
+        filePath.isAcceptableOrUnknown(data['file_path']!, _filePathMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_filePathMeta);
+    }
+    if (data.containsKey('open_subtitles_id')) {
+      context.handle(
+        _openSubtitlesIdMeta,
+        openSubtitlesId.isAcceptableOrUnknown(
+          data['open_subtitles_id']!,
+          _openSubtitlesIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('download_count')) {
+      context.handle(
+        _downloadCountMeta,
+        downloadCount.isAcceptableOrUnknown(
+          data['download_count']!,
+          _downloadCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('match_score')) {
+      context.handle(
+        _matchScoreMeta,
+        matchScore.isAcceptableOrUnknown(data['match_score']!, _matchScoreMeta),
+      );
+    }
+    if (data.containsKey('downloaded_at')) {
+      context.handle(
+        _downloadedAtMeta,
+        downloadedAt.isAcceptableOrUnknown(
+          data['downloaded_at']!,
+          _downloadedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_used_at')) {
+      context.handle(
+        _lastUsedAtMeta,
+        lastUsedAt.isAcceptableOrUnknown(
+          data['last_used_at']!,
+          _lastUsedAtMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CachedSubtitleData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CachedSubtitleData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      contentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_id'],
+      )!,
+      contentType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_type'],
+      )!,
+      contentName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_name'],
+      )!,
+      language: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}language'],
+      )!,
+      languageName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}language_name'],
+      )!,
+      subtitleFormat: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}subtitle_format'],
+      )!,
+      filePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}file_path'],
+      )!,
+      openSubtitlesId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}open_subtitles_id'],
+      ),
+      downloadCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}download_count'],
+      ),
+      matchScore: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}match_score'],
+      ),
+      downloadedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}downloaded_at'],
+      )!,
+      lastUsedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_used_at'],
+      ),
+    );
+  }
+
+  @override
+  $CachedSubtitlesTable createAlias(String alias) {
+    return $CachedSubtitlesTable(attachedDatabase, alias);
+  }
+}
+
+class CachedSubtitleData extends DataClass
+    implements Insertable<CachedSubtitleData> {
+  final String id;
+  final String contentId;
+  final String contentType;
+  final String contentName;
+  final String language;
+  final String languageName;
+  final String subtitleFormat;
+  final String filePath;
+  final String? openSubtitlesId;
+  final int? downloadCount;
+  final double? matchScore;
+  final DateTime downloadedAt;
+  final DateTime? lastUsedAt;
+  const CachedSubtitleData({
+    required this.id,
+    required this.contentId,
+    required this.contentType,
+    required this.contentName,
+    required this.language,
+    required this.languageName,
+    required this.subtitleFormat,
+    required this.filePath,
+    this.openSubtitlesId,
+    this.downloadCount,
+    this.matchScore,
+    required this.downloadedAt,
+    this.lastUsedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['content_id'] = Variable<String>(contentId);
+    map['content_type'] = Variable<String>(contentType);
+    map['content_name'] = Variable<String>(contentName);
+    map['language'] = Variable<String>(language);
+    map['language_name'] = Variable<String>(languageName);
+    map['subtitle_format'] = Variable<String>(subtitleFormat);
+    map['file_path'] = Variable<String>(filePath);
+    if (!nullToAbsent || openSubtitlesId != null) {
+      map['open_subtitles_id'] = Variable<String>(openSubtitlesId);
+    }
+    if (!nullToAbsent || downloadCount != null) {
+      map['download_count'] = Variable<int>(downloadCount);
+    }
+    if (!nullToAbsent || matchScore != null) {
+      map['match_score'] = Variable<double>(matchScore);
+    }
+    map['downloaded_at'] = Variable<DateTime>(downloadedAt);
+    if (!nullToAbsent || lastUsedAt != null) {
+      map['last_used_at'] = Variable<DateTime>(lastUsedAt);
+    }
+    return map;
+  }
+
+  CachedSubtitlesCompanion toCompanion(bool nullToAbsent) {
+    return CachedSubtitlesCompanion(
+      id: Value(id),
+      contentId: Value(contentId),
+      contentType: Value(contentType),
+      contentName: Value(contentName),
+      language: Value(language),
+      languageName: Value(languageName),
+      subtitleFormat: Value(subtitleFormat),
+      filePath: Value(filePath),
+      openSubtitlesId: openSubtitlesId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(openSubtitlesId),
+      downloadCount: downloadCount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(downloadCount),
+      matchScore: matchScore == null && nullToAbsent
+          ? const Value.absent()
+          : Value(matchScore),
+      downloadedAt: Value(downloadedAt),
+      lastUsedAt: lastUsedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastUsedAt),
+    );
+  }
+
+  factory CachedSubtitleData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CachedSubtitleData(
+      id: serializer.fromJson<String>(json['id']),
+      contentId: serializer.fromJson<String>(json['contentId']),
+      contentType: serializer.fromJson<String>(json['contentType']),
+      contentName: serializer.fromJson<String>(json['contentName']),
+      language: serializer.fromJson<String>(json['language']),
+      languageName: serializer.fromJson<String>(json['languageName']),
+      subtitleFormat: serializer.fromJson<String>(json['subtitleFormat']),
+      filePath: serializer.fromJson<String>(json['filePath']),
+      openSubtitlesId: serializer.fromJson<String?>(json['openSubtitlesId']),
+      downloadCount: serializer.fromJson<int?>(json['downloadCount']),
+      matchScore: serializer.fromJson<double?>(json['matchScore']),
+      downloadedAt: serializer.fromJson<DateTime>(json['downloadedAt']),
+      lastUsedAt: serializer.fromJson<DateTime?>(json['lastUsedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'contentId': serializer.toJson<String>(contentId),
+      'contentType': serializer.toJson<String>(contentType),
+      'contentName': serializer.toJson<String>(contentName),
+      'language': serializer.toJson<String>(language),
+      'languageName': serializer.toJson<String>(languageName),
+      'subtitleFormat': serializer.toJson<String>(subtitleFormat),
+      'filePath': serializer.toJson<String>(filePath),
+      'openSubtitlesId': serializer.toJson<String?>(openSubtitlesId),
+      'downloadCount': serializer.toJson<int?>(downloadCount),
+      'matchScore': serializer.toJson<double?>(matchScore),
+      'downloadedAt': serializer.toJson<DateTime>(downloadedAt),
+      'lastUsedAt': serializer.toJson<DateTime?>(lastUsedAt),
+    };
+  }
+
+  CachedSubtitleData copyWith({
+    String? id,
+    String? contentId,
+    String? contentType,
+    String? contentName,
+    String? language,
+    String? languageName,
+    String? subtitleFormat,
+    String? filePath,
+    Value<String?> openSubtitlesId = const Value.absent(),
+    Value<int?> downloadCount = const Value.absent(),
+    Value<double?> matchScore = const Value.absent(),
+    DateTime? downloadedAt,
+    Value<DateTime?> lastUsedAt = const Value.absent(),
+  }) => CachedSubtitleData(
+    id: id ?? this.id,
+    contentId: contentId ?? this.contentId,
+    contentType: contentType ?? this.contentType,
+    contentName: contentName ?? this.contentName,
+    language: language ?? this.language,
+    languageName: languageName ?? this.languageName,
+    subtitleFormat: subtitleFormat ?? this.subtitleFormat,
+    filePath: filePath ?? this.filePath,
+    openSubtitlesId: openSubtitlesId.present
+        ? openSubtitlesId.value
+        : this.openSubtitlesId,
+    downloadCount: downloadCount.present
+        ? downloadCount.value
+        : this.downloadCount,
+    matchScore: matchScore.present ? matchScore.value : this.matchScore,
+    downloadedAt: downloadedAt ?? this.downloadedAt,
+    lastUsedAt: lastUsedAt.present ? lastUsedAt.value : this.lastUsedAt,
+  );
+  CachedSubtitleData copyWithCompanion(CachedSubtitlesCompanion data) {
+    return CachedSubtitleData(
+      id: data.id.present ? data.id.value : this.id,
+      contentId: data.contentId.present ? data.contentId.value : this.contentId,
+      contentType: data.contentType.present
+          ? data.contentType.value
+          : this.contentType,
+      contentName: data.contentName.present
+          ? data.contentName.value
+          : this.contentName,
+      language: data.language.present ? data.language.value : this.language,
+      languageName: data.languageName.present
+          ? data.languageName.value
+          : this.languageName,
+      subtitleFormat: data.subtitleFormat.present
+          ? data.subtitleFormat.value
+          : this.subtitleFormat,
+      filePath: data.filePath.present ? data.filePath.value : this.filePath,
+      openSubtitlesId: data.openSubtitlesId.present
+          ? data.openSubtitlesId.value
+          : this.openSubtitlesId,
+      downloadCount: data.downloadCount.present
+          ? data.downloadCount.value
+          : this.downloadCount,
+      matchScore: data.matchScore.present
+          ? data.matchScore.value
+          : this.matchScore,
+      downloadedAt: data.downloadedAt.present
+          ? data.downloadedAt.value
+          : this.downloadedAt,
+      lastUsedAt: data.lastUsedAt.present
+          ? data.lastUsedAt.value
+          : this.lastUsedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CachedSubtitleData(')
+          ..write('id: $id, ')
+          ..write('contentId: $contentId, ')
+          ..write('contentType: $contentType, ')
+          ..write('contentName: $contentName, ')
+          ..write('language: $language, ')
+          ..write('languageName: $languageName, ')
+          ..write('subtitleFormat: $subtitleFormat, ')
+          ..write('filePath: $filePath, ')
+          ..write('openSubtitlesId: $openSubtitlesId, ')
+          ..write('downloadCount: $downloadCount, ')
+          ..write('matchScore: $matchScore, ')
+          ..write('downloadedAt: $downloadedAt, ')
+          ..write('lastUsedAt: $lastUsedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    contentId,
+    contentType,
+    contentName,
+    language,
+    languageName,
+    subtitleFormat,
+    filePath,
+    openSubtitlesId,
+    downloadCount,
+    matchScore,
+    downloadedAt,
+    lastUsedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CachedSubtitleData &&
+          other.id == this.id &&
+          other.contentId == this.contentId &&
+          other.contentType == this.contentType &&
+          other.contentName == this.contentName &&
+          other.language == this.language &&
+          other.languageName == this.languageName &&
+          other.subtitleFormat == this.subtitleFormat &&
+          other.filePath == this.filePath &&
+          other.openSubtitlesId == this.openSubtitlesId &&
+          other.downloadCount == this.downloadCount &&
+          other.matchScore == this.matchScore &&
+          other.downloadedAt == this.downloadedAt &&
+          other.lastUsedAt == this.lastUsedAt);
+}
+
+class CachedSubtitlesCompanion extends UpdateCompanion<CachedSubtitleData> {
+  final Value<String> id;
+  final Value<String> contentId;
+  final Value<String> contentType;
+  final Value<String> contentName;
+  final Value<String> language;
+  final Value<String> languageName;
+  final Value<String> subtitleFormat;
+  final Value<String> filePath;
+  final Value<String?> openSubtitlesId;
+  final Value<int?> downloadCount;
+  final Value<double?> matchScore;
+  final Value<DateTime> downloadedAt;
+  final Value<DateTime?> lastUsedAt;
+  final Value<int> rowid;
+  const CachedSubtitlesCompanion({
+    this.id = const Value.absent(),
+    this.contentId = const Value.absent(),
+    this.contentType = const Value.absent(),
+    this.contentName = const Value.absent(),
+    this.language = const Value.absent(),
+    this.languageName = const Value.absent(),
+    this.subtitleFormat = const Value.absent(),
+    this.filePath = const Value.absent(),
+    this.openSubtitlesId = const Value.absent(),
+    this.downloadCount = const Value.absent(),
+    this.matchScore = const Value.absent(),
+    this.downloadedAt = const Value.absent(),
+    this.lastUsedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CachedSubtitlesCompanion.insert({
+    required String id,
+    required String contentId,
+    required String contentType,
+    required String contentName,
+    required String language,
+    required String languageName,
+    required String subtitleFormat,
+    required String filePath,
+    this.openSubtitlesId = const Value.absent(),
+    this.downloadCount = const Value.absent(),
+    this.matchScore = const Value.absent(),
+    this.downloadedAt = const Value.absent(),
+    this.lastUsedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       contentId = Value(contentId),
+       contentType = Value(contentType),
+       contentName = Value(contentName),
+       language = Value(language),
+       languageName = Value(languageName),
+       subtitleFormat = Value(subtitleFormat),
+       filePath = Value(filePath);
+  static Insertable<CachedSubtitleData> custom({
+    Expression<String>? id,
+    Expression<String>? contentId,
+    Expression<String>? contentType,
+    Expression<String>? contentName,
+    Expression<String>? language,
+    Expression<String>? languageName,
+    Expression<String>? subtitleFormat,
+    Expression<String>? filePath,
+    Expression<String>? openSubtitlesId,
+    Expression<int>? downloadCount,
+    Expression<double>? matchScore,
+    Expression<DateTime>? downloadedAt,
+    Expression<DateTime>? lastUsedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (contentId != null) 'content_id': contentId,
+      if (contentType != null) 'content_type': contentType,
+      if (contentName != null) 'content_name': contentName,
+      if (language != null) 'language': language,
+      if (languageName != null) 'language_name': languageName,
+      if (subtitleFormat != null) 'subtitle_format': subtitleFormat,
+      if (filePath != null) 'file_path': filePath,
+      if (openSubtitlesId != null) 'open_subtitles_id': openSubtitlesId,
+      if (downloadCount != null) 'download_count': downloadCount,
+      if (matchScore != null) 'match_score': matchScore,
+      if (downloadedAt != null) 'downloaded_at': downloadedAt,
+      if (lastUsedAt != null) 'last_used_at': lastUsedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CachedSubtitlesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? contentId,
+    Value<String>? contentType,
+    Value<String>? contentName,
+    Value<String>? language,
+    Value<String>? languageName,
+    Value<String>? subtitleFormat,
+    Value<String>? filePath,
+    Value<String?>? openSubtitlesId,
+    Value<int?>? downloadCount,
+    Value<double?>? matchScore,
+    Value<DateTime>? downloadedAt,
+    Value<DateTime?>? lastUsedAt,
+    Value<int>? rowid,
+  }) {
+    return CachedSubtitlesCompanion(
+      id: id ?? this.id,
+      contentId: contentId ?? this.contentId,
+      contentType: contentType ?? this.contentType,
+      contentName: contentName ?? this.contentName,
+      language: language ?? this.language,
+      languageName: languageName ?? this.languageName,
+      subtitleFormat: subtitleFormat ?? this.subtitleFormat,
+      filePath: filePath ?? this.filePath,
+      openSubtitlesId: openSubtitlesId ?? this.openSubtitlesId,
+      downloadCount: downloadCount ?? this.downloadCount,
+      matchScore: matchScore ?? this.matchScore,
+      downloadedAt: downloadedAt ?? this.downloadedAt,
+      lastUsedAt: lastUsedAt ?? this.lastUsedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (contentId.present) {
+      map['content_id'] = Variable<String>(contentId.value);
+    }
+    if (contentType.present) {
+      map['content_type'] = Variable<String>(contentType.value);
+    }
+    if (contentName.present) {
+      map['content_name'] = Variable<String>(contentName.value);
+    }
+    if (language.present) {
+      map['language'] = Variable<String>(language.value);
+    }
+    if (languageName.present) {
+      map['language_name'] = Variable<String>(languageName.value);
+    }
+    if (subtitleFormat.present) {
+      map['subtitle_format'] = Variable<String>(subtitleFormat.value);
+    }
+    if (filePath.present) {
+      map['file_path'] = Variable<String>(filePath.value);
+    }
+    if (openSubtitlesId.present) {
+      map['open_subtitles_id'] = Variable<String>(openSubtitlesId.value);
+    }
+    if (downloadCount.present) {
+      map['download_count'] = Variable<int>(downloadCount.value);
+    }
+    if (matchScore.present) {
+      map['match_score'] = Variable<double>(matchScore.value);
+    }
+    if (downloadedAt.present) {
+      map['downloaded_at'] = Variable<DateTime>(downloadedAt.value);
+    }
+    if (lastUsedAt.present) {
+      map['last_used_at'] = Variable<DateTime>(lastUsedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CachedSubtitlesCompanion(')
+          ..write('id: $id, ')
+          ..write('contentId: $contentId, ')
+          ..write('contentType: $contentType, ')
+          ..write('contentName: $contentName, ')
+          ..write('language: $language, ')
+          ..write('languageName: $languageName, ')
+          ..write('subtitleFormat: $subtitleFormat, ')
+          ..write('filePath: $filePath, ')
+          ..write('openSubtitlesId: $openSubtitlesId, ')
+          ..write('downloadCount: $downloadCount, ')
+          ..write('matchScore: $matchScore, ')
+          ..write('downloadedAt: $downloadedAt, ')
+          ..write('lastUsedAt: $lastUsedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ContentDetailsTable extends ContentDetails
+    with TableInfo<$ContentDetailsTable, ContentDetailsData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ContentDetailsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentIdMeta = const VerificationMeta(
+    'contentId',
+  );
+  @override
+  late final GeneratedColumn<String> contentId = GeneratedColumn<String>(
+    'content_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _playlistIdMeta = const VerificationMeta(
+    'playlistId',
+  );
+  @override
+  late final GeneratedColumn<String> playlistId = GeneratedColumn<String>(
+    'playlist_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentTypeMeta = const VerificationMeta(
+    'contentType',
+  );
+  @override
+  late final GeneratedColumn<String> contentType = GeneratedColumn<String>(
+    'content_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _tmdbIdMeta = const VerificationMeta('tmdbId');
+  @override
+  late final GeneratedColumn<int> tmdbId = GeneratedColumn<int>(
+    'tmdb_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _imdbIdMeta = const VerificationMeta('imdbId');
+  @override
+  late final GeneratedColumn<String> imdbId = GeneratedColumn<String>(
+    'imdb_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _originalTitleMeta = const VerificationMeta(
+    'originalTitle',
+  );
+  @override
+  late final GeneratedColumn<String> originalTitle = GeneratedColumn<String>(
+    'original_title',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _overviewMeta = const VerificationMeta(
+    'overview',
+  );
+  @override
+  late final GeneratedColumn<String> overview = GeneratedColumn<String>(
+    'overview',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _posterPathMeta = const VerificationMeta(
+    'posterPath',
+  );
+  @override
+  late final GeneratedColumn<String> posterPath = GeneratedColumn<String>(
+    'poster_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _backdropPathMeta = const VerificationMeta(
+    'backdropPath',
+  );
+  @override
+  late final GeneratedColumn<String> backdropPath = GeneratedColumn<String>(
+    'backdrop_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _voteAverageMeta = const VerificationMeta(
+    'voteAverage',
+  );
+  @override
+  late final GeneratedColumn<double> voteAverage = GeneratedColumn<double>(
+    'vote_average',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _voteCountMeta = const VerificationMeta(
+    'voteCount',
+  );
+  @override
+  late final GeneratedColumn<int> voteCount = GeneratedColumn<int>(
+    'vote_count',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _releaseDateMeta = const VerificationMeta(
+    'releaseDate',
+  );
+  @override
+  late final GeneratedColumn<String> releaseDate = GeneratedColumn<String>(
+    'release_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _runtimeMeta = const VerificationMeta(
+    'runtime',
+  );
+  @override
+  late final GeneratedColumn<int> runtime = GeneratedColumn<int>(
+    'runtime',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _genresMeta = const VerificationMeta('genres');
+  @override
+  late final GeneratedColumn<String> genres = GeneratedColumn<String>(
+    'genres',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _castMeta = const VerificationMeta('cast');
+  @override
+  late final GeneratedColumn<String> cast = GeneratedColumn<String>(
+    'cast',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _directorMeta = const VerificationMeta(
+    'director',
+  );
+  @override
+  late final GeneratedColumn<String> director = GeneratedColumn<String>(
+    'director',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _productionCompaniesMeta =
+      const VerificationMeta('productionCompanies');
+  @override
+  late final GeneratedColumn<String> productionCompanies =
+      GeneratedColumn<String>(
+        'production_companies',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _similarContentMeta = const VerificationMeta(
+    'similarContent',
+  );
+  @override
+  late final GeneratedColumn<String> similarContent = GeneratedColumn<String>(
+    'similar_content',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _keywordsMeta = const VerificationMeta(
+    'keywords',
+  );
+  @override
+  late final GeneratedColumn<String> keywords = GeneratedColumn<String>(
+    'keywords',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _certificationsMeta = const VerificationMeta(
+    'certifications',
+  );
+  @override
+  late final GeneratedColumn<String> certifications = GeneratedColumn<String>(
+    'certifications',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fetchedAtMeta = const VerificationMeta(
+    'fetchedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> fetchedAt = GeneratedColumn<DateTime>(
+    'fetched_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    contentId,
+    playlistId,
+    contentType,
+    tmdbId,
+    imdbId,
+    title,
+    originalTitle,
+    overview,
+    posterPath,
+    backdropPath,
+    voteAverage,
+    voteCount,
+    releaseDate,
+    runtime,
+    genres,
+    cast,
+    director,
+    productionCompanies,
+    similarContent,
+    keywords,
+    certifications,
+    fetchedAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'content_details';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ContentDetailsData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('content_id')) {
+      context.handle(
+        _contentIdMeta,
+        contentId.isAcceptableOrUnknown(data['content_id']!, _contentIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_contentIdMeta);
+    }
+    if (data.containsKey('playlist_id')) {
+      context.handle(
+        _playlistIdMeta,
+        playlistId.isAcceptableOrUnknown(data['playlist_id']!, _playlistIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_playlistIdMeta);
+    }
+    if (data.containsKey('content_type')) {
+      context.handle(
+        _contentTypeMeta,
+        contentType.isAcceptableOrUnknown(
+          data['content_type']!,
+          _contentTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_contentTypeMeta);
+    }
+    if (data.containsKey('tmdb_id')) {
+      context.handle(
+        _tmdbIdMeta,
+        tmdbId.isAcceptableOrUnknown(data['tmdb_id']!, _tmdbIdMeta),
+      );
+    }
+    if (data.containsKey('imdb_id')) {
+      context.handle(
+        _imdbIdMeta,
+        imdbId.isAcceptableOrUnknown(data['imdb_id']!, _imdbIdMeta),
+      );
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('original_title')) {
+      context.handle(
+        _originalTitleMeta,
+        originalTitle.isAcceptableOrUnknown(
+          data['original_title']!,
+          _originalTitleMeta,
+        ),
+      );
+    }
+    if (data.containsKey('overview')) {
+      context.handle(
+        _overviewMeta,
+        overview.isAcceptableOrUnknown(data['overview']!, _overviewMeta),
+      );
+    }
+    if (data.containsKey('poster_path')) {
+      context.handle(
+        _posterPathMeta,
+        posterPath.isAcceptableOrUnknown(data['poster_path']!, _posterPathMeta),
+      );
+    }
+    if (data.containsKey('backdrop_path')) {
+      context.handle(
+        _backdropPathMeta,
+        backdropPath.isAcceptableOrUnknown(
+          data['backdrop_path']!,
+          _backdropPathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('vote_average')) {
+      context.handle(
+        _voteAverageMeta,
+        voteAverage.isAcceptableOrUnknown(
+          data['vote_average']!,
+          _voteAverageMeta,
+        ),
+      );
+    }
+    if (data.containsKey('vote_count')) {
+      context.handle(
+        _voteCountMeta,
+        voteCount.isAcceptableOrUnknown(data['vote_count']!, _voteCountMeta),
+      );
+    }
+    if (data.containsKey('release_date')) {
+      context.handle(
+        _releaseDateMeta,
+        releaseDate.isAcceptableOrUnknown(
+          data['release_date']!,
+          _releaseDateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('runtime')) {
+      context.handle(
+        _runtimeMeta,
+        runtime.isAcceptableOrUnknown(data['runtime']!, _runtimeMeta),
+      );
+    }
+    if (data.containsKey('genres')) {
+      context.handle(
+        _genresMeta,
+        genres.isAcceptableOrUnknown(data['genres']!, _genresMeta),
+      );
+    }
+    if (data.containsKey('cast')) {
+      context.handle(
+        _castMeta,
+        cast.isAcceptableOrUnknown(data['cast']!, _castMeta),
+      );
+    }
+    if (data.containsKey('director')) {
+      context.handle(
+        _directorMeta,
+        director.isAcceptableOrUnknown(data['director']!, _directorMeta),
+      );
+    }
+    if (data.containsKey('production_companies')) {
+      context.handle(
+        _productionCompaniesMeta,
+        productionCompanies.isAcceptableOrUnknown(
+          data['production_companies']!,
+          _productionCompaniesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('similar_content')) {
+      context.handle(
+        _similarContentMeta,
+        similarContent.isAcceptableOrUnknown(
+          data['similar_content']!,
+          _similarContentMeta,
+        ),
+      );
+    }
+    if (data.containsKey('keywords')) {
+      context.handle(
+        _keywordsMeta,
+        keywords.isAcceptableOrUnknown(data['keywords']!, _keywordsMeta),
+      );
+    }
+    if (data.containsKey('certifications')) {
+      context.handle(
+        _certificationsMeta,
+        certifications.isAcceptableOrUnknown(
+          data['certifications']!,
+          _certificationsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('fetched_at')) {
+      context.handle(
+        _fetchedAtMeta,
+        fetchedAt.isAcceptableOrUnknown(data['fetched_at']!, _fetchedAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ContentDetailsData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ContentDetailsData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      contentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_id'],
+      )!,
+      playlistId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}playlist_id'],
+      )!,
+      contentType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_type'],
+      )!,
+      tmdbId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}tmdb_id'],
+      ),
+      imdbId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}imdb_id'],
+      ),
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      originalTitle: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}original_title'],
+      ),
+      overview: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}overview'],
+      ),
+      posterPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}poster_path'],
+      ),
+      backdropPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}backdrop_path'],
+      ),
+      voteAverage: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}vote_average'],
+      ),
+      voteCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}vote_count'],
+      ),
+      releaseDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}release_date'],
+      ),
+      runtime: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}runtime'],
+      ),
+      genres: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}genres'],
+      ),
+      cast: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cast'],
+      ),
+      director: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}director'],
+      ),
+      productionCompanies: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}production_companies'],
+      ),
+      similarContent: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}similar_content'],
+      ),
+      keywords: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}keywords'],
+      ),
+      certifications: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}certifications'],
+      ),
+      fetchedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}fetched_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ContentDetailsTable createAlias(String alias) {
+    return $ContentDetailsTable(attachedDatabase, alias);
+  }
+}
+
+class ContentDetailsData extends DataClass
+    implements Insertable<ContentDetailsData> {
+  final String id;
+  final String contentId;
+  final String playlistId;
+  final String contentType;
+  final int? tmdbId;
+  final String? imdbId;
+  final String title;
+  final String? originalTitle;
+  final String? overview;
+  final String? posterPath;
+  final String? backdropPath;
+  final double? voteAverage;
+  final int? voteCount;
+  final String? releaseDate;
+  final int? runtime;
+  final String? genres;
+  final String? cast;
+  final String? director;
+  final String? productionCompanies;
+  final String? similarContent;
+  final String? keywords;
+  final String? certifications;
+  final DateTime fetchedAt;
+  final DateTime updatedAt;
+  const ContentDetailsData({
+    required this.id,
+    required this.contentId,
+    required this.playlistId,
+    required this.contentType,
+    this.tmdbId,
+    this.imdbId,
+    required this.title,
+    this.originalTitle,
+    this.overview,
+    this.posterPath,
+    this.backdropPath,
+    this.voteAverage,
+    this.voteCount,
+    this.releaseDate,
+    this.runtime,
+    this.genres,
+    this.cast,
+    this.director,
+    this.productionCompanies,
+    this.similarContent,
+    this.keywords,
+    this.certifications,
+    required this.fetchedAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['content_id'] = Variable<String>(contentId);
+    map['playlist_id'] = Variable<String>(playlistId);
+    map['content_type'] = Variable<String>(contentType);
+    if (!nullToAbsent || tmdbId != null) {
+      map['tmdb_id'] = Variable<int>(tmdbId);
+    }
+    if (!nullToAbsent || imdbId != null) {
+      map['imdb_id'] = Variable<String>(imdbId);
+    }
+    map['title'] = Variable<String>(title);
+    if (!nullToAbsent || originalTitle != null) {
+      map['original_title'] = Variable<String>(originalTitle);
+    }
+    if (!nullToAbsent || overview != null) {
+      map['overview'] = Variable<String>(overview);
+    }
+    if (!nullToAbsent || posterPath != null) {
+      map['poster_path'] = Variable<String>(posterPath);
+    }
+    if (!nullToAbsent || backdropPath != null) {
+      map['backdrop_path'] = Variable<String>(backdropPath);
+    }
+    if (!nullToAbsent || voteAverage != null) {
+      map['vote_average'] = Variable<double>(voteAverage);
+    }
+    if (!nullToAbsent || voteCount != null) {
+      map['vote_count'] = Variable<int>(voteCount);
+    }
+    if (!nullToAbsent || releaseDate != null) {
+      map['release_date'] = Variable<String>(releaseDate);
+    }
+    if (!nullToAbsent || runtime != null) {
+      map['runtime'] = Variable<int>(runtime);
+    }
+    if (!nullToAbsent || genres != null) {
+      map['genres'] = Variable<String>(genres);
+    }
+    if (!nullToAbsent || cast != null) {
+      map['cast'] = Variable<String>(cast);
+    }
+    if (!nullToAbsent || director != null) {
+      map['director'] = Variable<String>(director);
+    }
+    if (!nullToAbsent || productionCompanies != null) {
+      map['production_companies'] = Variable<String>(productionCompanies);
+    }
+    if (!nullToAbsent || similarContent != null) {
+      map['similar_content'] = Variable<String>(similarContent);
+    }
+    if (!nullToAbsent || keywords != null) {
+      map['keywords'] = Variable<String>(keywords);
+    }
+    if (!nullToAbsent || certifications != null) {
+      map['certifications'] = Variable<String>(certifications);
+    }
+    map['fetched_at'] = Variable<DateTime>(fetchedAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  ContentDetailsCompanion toCompanion(bool nullToAbsent) {
+    return ContentDetailsCompanion(
+      id: Value(id),
+      contentId: Value(contentId),
+      playlistId: Value(playlistId),
+      contentType: Value(contentType),
+      tmdbId: tmdbId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(tmdbId),
+      imdbId: imdbId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(imdbId),
+      title: Value(title),
+      originalTitle: originalTitle == null && nullToAbsent
+          ? const Value.absent()
+          : Value(originalTitle),
+      overview: overview == null && nullToAbsent
+          ? const Value.absent()
+          : Value(overview),
+      posterPath: posterPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(posterPath),
+      backdropPath: backdropPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(backdropPath),
+      voteAverage: voteAverage == null && nullToAbsent
+          ? const Value.absent()
+          : Value(voteAverage),
+      voteCount: voteCount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(voteCount),
+      releaseDate: releaseDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(releaseDate),
+      runtime: runtime == null && nullToAbsent
+          ? const Value.absent()
+          : Value(runtime),
+      genres: genres == null && nullToAbsent
+          ? const Value.absent()
+          : Value(genres),
+      cast: cast == null && nullToAbsent ? const Value.absent() : Value(cast),
+      director: director == null && nullToAbsent
+          ? const Value.absent()
+          : Value(director),
+      productionCompanies: productionCompanies == null && nullToAbsent
+          ? const Value.absent()
+          : Value(productionCompanies),
+      similarContent: similarContent == null && nullToAbsent
+          ? const Value.absent()
+          : Value(similarContent),
+      keywords: keywords == null && nullToAbsent
+          ? const Value.absent()
+          : Value(keywords),
+      certifications: certifications == null && nullToAbsent
+          ? const Value.absent()
+          : Value(certifications),
+      fetchedAt: Value(fetchedAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory ContentDetailsData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ContentDetailsData(
+      id: serializer.fromJson<String>(json['id']),
+      contentId: serializer.fromJson<String>(json['contentId']),
+      playlistId: serializer.fromJson<String>(json['playlistId']),
+      contentType: serializer.fromJson<String>(json['contentType']),
+      tmdbId: serializer.fromJson<int?>(json['tmdbId']),
+      imdbId: serializer.fromJson<String?>(json['imdbId']),
+      title: serializer.fromJson<String>(json['title']),
+      originalTitle: serializer.fromJson<String?>(json['originalTitle']),
+      overview: serializer.fromJson<String?>(json['overview']),
+      posterPath: serializer.fromJson<String?>(json['posterPath']),
+      backdropPath: serializer.fromJson<String?>(json['backdropPath']),
+      voteAverage: serializer.fromJson<double?>(json['voteAverage']),
+      voteCount: serializer.fromJson<int?>(json['voteCount']),
+      releaseDate: serializer.fromJson<String?>(json['releaseDate']),
+      runtime: serializer.fromJson<int?>(json['runtime']),
+      genres: serializer.fromJson<String?>(json['genres']),
+      cast: serializer.fromJson<String?>(json['cast']),
+      director: serializer.fromJson<String?>(json['director']),
+      productionCompanies: serializer.fromJson<String?>(
+        json['productionCompanies'],
+      ),
+      similarContent: serializer.fromJson<String?>(json['similarContent']),
+      keywords: serializer.fromJson<String?>(json['keywords']),
+      certifications: serializer.fromJson<String?>(json['certifications']),
+      fetchedAt: serializer.fromJson<DateTime>(json['fetchedAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'contentId': serializer.toJson<String>(contentId),
+      'playlistId': serializer.toJson<String>(playlistId),
+      'contentType': serializer.toJson<String>(contentType),
+      'tmdbId': serializer.toJson<int?>(tmdbId),
+      'imdbId': serializer.toJson<String?>(imdbId),
+      'title': serializer.toJson<String>(title),
+      'originalTitle': serializer.toJson<String?>(originalTitle),
+      'overview': serializer.toJson<String?>(overview),
+      'posterPath': serializer.toJson<String?>(posterPath),
+      'backdropPath': serializer.toJson<String?>(backdropPath),
+      'voteAverage': serializer.toJson<double?>(voteAverage),
+      'voteCount': serializer.toJson<int?>(voteCount),
+      'releaseDate': serializer.toJson<String?>(releaseDate),
+      'runtime': serializer.toJson<int?>(runtime),
+      'genres': serializer.toJson<String?>(genres),
+      'cast': serializer.toJson<String?>(cast),
+      'director': serializer.toJson<String?>(director),
+      'productionCompanies': serializer.toJson<String?>(productionCompanies),
+      'similarContent': serializer.toJson<String?>(similarContent),
+      'keywords': serializer.toJson<String?>(keywords),
+      'certifications': serializer.toJson<String?>(certifications),
+      'fetchedAt': serializer.toJson<DateTime>(fetchedAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  ContentDetailsData copyWith({
+    String? id,
+    String? contentId,
+    String? playlistId,
+    String? contentType,
+    Value<int?> tmdbId = const Value.absent(),
+    Value<String?> imdbId = const Value.absent(),
+    String? title,
+    Value<String?> originalTitle = const Value.absent(),
+    Value<String?> overview = const Value.absent(),
+    Value<String?> posterPath = const Value.absent(),
+    Value<String?> backdropPath = const Value.absent(),
+    Value<double?> voteAverage = const Value.absent(),
+    Value<int?> voteCount = const Value.absent(),
+    Value<String?> releaseDate = const Value.absent(),
+    Value<int?> runtime = const Value.absent(),
+    Value<String?> genres = const Value.absent(),
+    Value<String?> cast = const Value.absent(),
+    Value<String?> director = const Value.absent(),
+    Value<String?> productionCompanies = const Value.absent(),
+    Value<String?> similarContent = const Value.absent(),
+    Value<String?> keywords = const Value.absent(),
+    Value<String?> certifications = const Value.absent(),
+    DateTime? fetchedAt,
+    DateTime? updatedAt,
+  }) => ContentDetailsData(
+    id: id ?? this.id,
+    contentId: contentId ?? this.contentId,
+    playlistId: playlistId ?? this.playlistId,
+    contentType: contentType ?? this.contentType,
+    tmdbId: tmdbId.present ? tmdbId.value : this.tmdbId,
+    imdbId: imdbId.present ? imdbId.value : this.imdbId,
+    title: title ?? this.title,
+    originalTitle: originalTitle.present
+        ? originalTitle.value
+        : this.originalTitle,
+    overview: overview.present ? overview.value : this.overview,
+    posterPath: posterPath.present ? posterPath.value : this.posterPath,
+    backdropPath: backdropPath.present ? backdropPath.value : this.backdropPath,
+    voteAverage: voteAverage.present ? voteAverage.value : this.voteAverage,
+    voteCount: voteCount.present ? voteCount.value : this.voteCount,
+    releaseDate: releaseDate.present ? releaseDate.value : this.releaseDate,
+    runtime: runtime.present ? runtime.value : this.runtime,
+    genres: genres.present ? genres.value : this.genres,
+    cast: cast.present ? cast.value : this.cast,
+    director: director.present ? director.value : this.director,
+    productionCompanies: productionCompanies.present
+        ? productionCompanies.value
+        : this.productionCompanies,
+    similarContent: similarContent.present
+        ? similarContent.value
+        : this.similarContent,
+    keywords: keywords.present ? keywords.value : this.keywords,
+    certifications: certifications.present
+        ? certifications.value
+        : this.certifications,
+    fetchedAt: fetchedAt ?? this.fetchedAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  ContentDetailsData copyWithCompanion(ContentDetailsCompanion data) {
+    return ContentDetailsData(
+      id: data.id.present ? data.id.value : this.id,
+      contentId: data.contentId.present ? data.contentId.value : this.contentId,
+      playlistId: data.playlistId.present
+          ? data.playlistId.value
+          : this.playlistId,
+      contentType: data.contentType.present
+          ? data.contentType.value
+          : this.contentType,
+      tmdbId: data.tmdbId.present ? data.tmdbId.value : this.tmdbId,
+      imdbId: data.imdbId.present ? data.imdbId.value : this.imdbId,
+      title: data.title.present ? data.title.value : this.title,
+      originalTitle: data.originalTitle.present
+          ? data.originalTitle.value
+          : this.originalTitle,
+      overview: data.overview.present ? data.overview.value : this.overview,
+      posterPath: data.posterPath.present
+          ? data.posterPath.value
+          : this.posterPath,
+      backdropPath: data.backdropPath.present
+          ? data.backdropPath.value
+          : this.backdropPath,
+      voteAverage: data.voteAverage.present
+          ? data.voteAverage.value
+          : this.voteAverage,
+      voteCount: data.voteCount.present ? data.voteCount.value : this.voteCount,
+      releaseDate: data.releaseDate.present
+          ? data.releaseDate.value
+          : this.releaseDate,
+      runtime: data.runtime.present ? data.runtime.value : this.runtime,
+      genres: data.genres.present ? data.genres.value : this.genres,
+      cast: data.cast.present ? data.cast.value : this.cast,
+      director: data.director.present ? data.director.value : this.director,
+      productionCompanies: data.productionCompanies.present
+          ? data.productionCompanies.value
+          : this.productionCompanies,
+      similarContent: data.similarContent.present
+          ? data.similarContent.value
+          : this.similarContent,
+      keywords: data.keywords.present ? data.keywords.value : this.keywords,
+      certifications: data.certifications.present
+          ? data.certifications.value
+          : this.certifications,
+      fetchedAt: data.fetchedAt.present ? data.fetchedAt.value : this.fetchedAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ContentDetailsData(')
+          ..write('id: $id, ')
+          ..write('contentId: $contentId, ')
+          ..write('playlistId: $playlistId, ')
+          ..write('contentType: $contentType, ')
+          ..write('tmdbId: $tmdbId, ')
+          ..write('imdbId: $imdbId, ')
+          ..write('title: $title, ')
+          ..write('originalTitle: $originalTitle, ')
+          ..write('overview: $overview, ')
+          ..write('posterPath: $posterPath, ')
+          ..write('backdropPath: $backdropPath, ')
+          ..write('voteAverage: $voteAverage, ')
+          ..write('voteCount: $voteCount, ')
+          ..write('releaseDate: $releaseDate, ')
+          ..write('runtime: $runtime, ')
+          ..write('genres: $genres, ')
+          ..write('cast: $cast, ')
+          ..write('director: $director, ')
+          ..write('productionCompanies: $productionCompanies, ')
+          ..write('similarContent: $similarContent, ')
+          ..write('keywords: $keywords, ')
+          ..write('certifications: $certifications, ')
+          ..write('fetchedAt: $fetchedAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    contentId,
+    playlistId,
+    contentType,
+    tmdbId,
+    imdbId,
+    title,
+    originalTitle,
+    overview,
+    posterPath,
+    backdropPath,
+    voteAverage,
+    voteCount,
+    releaseDate,
+    runtime,
+    genres,
+    cast,
+    director,
+    productionCompanies,
+    similarContent,
+    keywords,
+    certifications,
+    fetchedAt,
+    updatedAt,
+  ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ContentDetailsData &&
+          other.id == this.id &&
+          other.contentId == this.contentId &&
+          other.playlistId == this.playlistId &&
+          other.contentType == this.contentType &&
+          other.tmdbId == this.tmdbId &&
+          other.imdbId == this.imdbId &&
+          other.title == this.title &&
+          other.originalTitle == this.originalTitle &&
+          other.overview == this.overview &&
+          other.posterPath == this.posterPath &&
+          other.backdropPath == this.backdropPath &&
+          other.voteAverage == this.voteAverage &&
+          other.voteCount == this.voteCount &&
+          other.releaseDate == this.releaseDate &&
+          other.runtime == this.runtime &&
+          other.genres == this.genres &&
+          other.cast == this.cast &&
+          other.director == this.director &&
+          other.productionCompanies == this.productionCompanies &&
+          other.similarContent == this.similarContent &&
+          other.keywords == this.keywords &&
+          other.certifications == this.certifications &&
+          other.fetchedAt == this.fetchedAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class ContentDetailsCompanion extends UpdateCompanion<ContentDetailsData> {
+  final Value<String> id;
+  final Value<String> contentId;
+  final Value<String> playlistId;
+  final Value<String> contentType;
+  final Value<int?> tmdbId;
+  final Value<String?> imdbId;
+  final Value<String> title;
+  final Value<String?> originalTitle;
+  final Value<String?> overview;
+  final Value<String?> posterPath;
+  final Value<String?> backdropPath;
+  final Value<double?> voteAverage;
+  final Value<int?> voteCount;
+  final Value<String?> releaseDate;
+  final Value<int?> runtime;
+  final Value<String?> genres;
+  final Value<String?> cast;
+  final Value<String?> director;
+  final Value<String?> productionCompanies;
+  final Value<String?> similarContent;
+  final Value<String?> keywords;
+  final Value<String?> certifications;
+  final Value<DateTime> fetchedAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const ContentDetailsCompanion({
+    this.id = const Value.absent(),
+    this.contentId = const Value.absent(),
+    this.playlistId = const Value.absent(),
+    this.contentType = const Value.absent(),
+    this.tmdbId = const Value.absent(),
+    this.imdbId = const Value.absent(),
+    this.title = const Value.absent(),
+    this.originalTitle = const Value.absent(),
+    this.overview = const Value.absent(),
+    this.posterPath = const Value.absent(),
+    this.backdropPath = const Value.absent(),
+    this.voteAverage = const Value.absent(),
+    this.voteCount = const Value.absent(),
+    this.releaseDate = const Value.absent(),
+    this.runtime = const Value.absent(),
+    this.genres = const Value.absent(),
+    this.cast = const Value.absent(),
+    this.director = const Value.absent(),
+    this.productionCompanies = const Value.absent(),
+    this.similarContent = const Value.absent(),
+    this.keywords = const Value.absent(),
+    this.certifications = const Value.absent(),
+    this.fetchedAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ContentDetailsCompanion.insert({
+    required String id,
+    required String contentId,
+    required String playlistId,
+    required String contentType,
+    this.tmdbId = const Value.absent(),
+    this.imdbId = const Value.absent(),
+    required String title,
+    this.originalTitle = const Value.absent(),
+    this.overview = const Value.absent(),
+    this.posterPath = const Value.absent(),
+    this.backdropPath = const Value.absent(),
+    this.voteAverage = const Value.absent(),
+    this.voteCount = const Value.absent(),
+    this.releaseDate = const Value.absent(),
+    this.runtime = const Value.absent(),
+    this.genres = const Value.absent(),
+    this.cast = const Value.absent(),
+    this.director = const Value.absent(),
+    this.productionCompanies = const Value.absent(),
+    this.similarContent = const Value.absent(),
+    this.keywords = const Value.absent(),
+    this.certifications = const Value.absent(),
+    this.fetchedAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       contentId = Value(contentId),
+       playlistId = Value(playlistId),
+       contentType = Value(contentType),
+       title = Value(title);
+  static Insertable<ContentDetailsData> custom({
+    Expression<String>? id,
+    Expression<String>? contentId,
+    Expression<String>? playlistId,
+    Expression<String>? contentType,
+    Expression<int>? tmdbId,
+    Expression<String>? imdbId,
+    Expression<String>? title,
+    Expression<String>? originalTitle,
+    Expression<String>? overview,
+    Expression<String>? posterPath,
+    Expression<String>? backdropPath,
+    Expression<double>? voteAverage,
+    Expression<int>? voteCount,
+    Expression<String>? releaseDate,
+    Expression<int>? runtime,
+    Expression<String>? genres,
+    Expression<String>? cast,
+    Expression<String>? director,
+    Expression<String>? productionCompanies,
+    Expression<String>? similarContent,
+    Expression<String>? keywords,
+    Expression<String>? certifications,
+    Expression<DateTime>? fetchedAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (contentId != null) 'content_id': contentId,
+      if (playlistId != null) 'playlist_id': playlistId,
+      if (contentType != null) 'content_type': contentType,
+      if (tmdbId != null) 'tmdb_id': tmdbId,
+      if (imdbId != null) 'imdb_id': imdbId,
+      if (title != null) 'title': title,
+      if (originalTitle != null) 'original_title': originalTitle,
+      if (overview != null) 'overview': overview,
+      if (posterPath != null) 'poster_path': posterPath,
+      if (backdropPath != null) 'backdrop_path': backdropPath,
+      if (voteAverage != null) 'vote_average': voteAverage,
+      if (voteCount != null) 'vote_count': voteCount,
+      if (releaseDate != null) 'release_date': releaseDate,
+      if (runtime != null) 'runtime': runtime,
+      if (genres != null) 'genres': genres,
+      if (cast != null) 'cast': cast,
+      if (director != null) 'director': director,
+      if (productionCompanies != null)
+        'production_companies': productionCompanies,
+      if (similarContent != null) 'similar_content': similarContent,
+      if (keywords != null) 'keywords': keywords,
+      if (certifications != null) 'certifications': certifications,
+      if (fetchedAt != null) 'fetched_at': fetchedAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ContentDetailsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? contentId,
+    Value<String>? playlistId,
+    Value<String>? contentType,
+    Value<int?>? tmdbId,
+    Value<String?>? imdbId,
+    Value<String>? title,
+    Value<String?>? originalTitle,
+    Value<String?>? overview,
+    Value<String?>? posterPath,
+    Value<String?>? backdropPath,
+    Value<double?>? voteAverage,
+    Value<int?>? voteCount,
+    Value<String?>? releaseDate,
+    Value<int?>? runtime,
+    Value<String?>? genres,
+    Value<String?>? cast,
+    Value<String?>? director,
+    Value<String?>? productionCompanies,
+    Value<String?>? similarContent,
+    Value<String?>? keywords,
+    Value<String?>? certifications,
+    Value<DateTime>? fetchedAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return ContentDetailsCompanion(
+      id: id ?? this.id,
+      contentId: contentId ?? this.contentId,
+      playlistId: playlistId ?? this.playlistId,
+      contentType: contentType ?? this.contentType,
+      tmdbId: tmdbId ?? this.tmdbId,
+      imdbId: imdbId ?? this.imdbId,
+      title: title ?? this.title,
+      originalTitle: originalTitle ?? this.originalTitle,
+      overview: overview ?? this.overview,
+      posterPath: posterPath ?? this.posterPath,
+      backdropPath: backdropPath ?? this.backdropPath,
+      voteAverage: voteAverage ?? this.voteAverage,
+      voteCount: voteCount ?? this.voteCount,
+      releaseDate: releaseDate ?? this.releaseDate,
+      runtime: runtime ?? this.runtime,
+      genres: genres ?? this.genres,
+      cast: cast ?? this.cast,
+      director: director ?? this.director,
+      productionCompanies: productionCompanies ?? this.productionCompanies,
+      similarContent: similarContent ?? this.similarContent,
+      keywords: keywords ?? this.keywords,
+      certifications: certifications ?? this.certifications,
+      fetchedAt: fetchedAt ?? this.fetchedAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (contentId.present) {
+      map['content_id'] = Variable<String>(contentId.value);
+    }
+    if (playlistId.present) {
+      map['playlist_id'] = Variable<String>(playlistId.value);
+    }
+    if (contentType.present) {
+      map['content_type'] = Variable<String>(contentType.value);
+    }
+    if (tmdbId.present) {
+      map['tmdb_id'] = Variable<int>(tmdbId.value);
+    }
+    if (imdbId.present) {
+      map['imdb_id'] = Variable<String>(imdbId.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (originalTitle.present) {
+      map['original_title'] = Variable<String>(originalTitle.value);
+    }
+    if (overview.present) {
+      map['overview'] = Variable<String>(overview.value);
+    }
+    if (posterPath.present) {
+      map['poster_path'] = Variable<String>(posterPath.value);
+    }
+    if (backdropPath.present) {
+      map['backdrop_path'] = Variable<String>(backdropPath.value);
+    }
+    if (voteAverage.present) {
+      map['vote_average'] = Variable<double>(voteAverage.value);
+    }
+    if (voteCount.present) {
+      map['vote_count'] = Variable<int>(voteCount.value);
+    }
+    if (releaseDate.present) {
+      map['release_date'] = Variable<String>(releaseDate.value);
+    }
+    if (runtime.present) {
+      map['runtime'] = Variable<int>(runtime.value);
+    }
+    if (genres.present) {
+      map['genres'] = Variable<String>(genres.value);
+    }
+    if (cast.present) {
+      map['cast'] = Variable<String>(cast.value);
+    }
+    if (director.present) {
+      map['director'] = Variable<String>(director.value);
+    }
+    if (productionCompanies.present) {
+      map['production_companies'] = Variable<String>(productionCompanies.value);
+    }
+    if (similarContent.present) {
+      map['similar_content'] = Variable<String>(similarContent.value);
+    }
+    if (keywords.present) {
+      map['keywords'] = Variable<String>(keywords.value);
+    }
+    if (certifications.present) {
+      map['certifications'] = Variable<String>(certifications.value);
+    }
+    if (fetchedAt.present) {
+      map['fetched_at'] = Variable<DateTime>(fetchedAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ContentDetailsCompanion(')
+          ..write('id: $id, ')
+          ..write('contentId: $contentId, ')
+          ..write('playlistId: $playlistId, ')
+          ..write('contentType: $contentType, ')
+          ..write('tmdbId: $tmdbId, ')
+          ..write('imdbId: $imdbId, ')
+          ..write('title: $title, ')
+          ..write('originalTitle: $originalTitle, ')
+          ..write('overview: $overview, ')
+          ..write('posterPath: $posterPath, ')
+          ..write('backdropPath: $backdropPath, ')
+          ..write('voteAverage: $voteAverage, ')
+          ..write('voteCount: $voteCount, ')
+          ..write('releaseDate: $releaseDate, ')
+          ..write('runtime: $runtime, ')
+          ..write('genres: $genres, ')
+          ..write('cast: $cast, ')
+          ..write('director: $director, ')
+          ..write('productionCompanies: $productionCompanies, ')
+          ..write('similarContent: $similarContent, ')
+          ..write('keywords: $keywords, ')
+          ..write('certifications: $certifications, ')
+          ..write('fetchedAt: $fetchedAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -12302,6 +14440,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $EpgProgramsTable epgPrograms = $EpgProgramsTable(this);
   late final $EpgChannelsTable epgChannels = $EpgChannelsTable(this);
   late final $EpgSourcesTable epgSources = $EpgSourcesTable(this);
+  late final $CachedSubtitlesTable cachedSubtitles = $CachedSubtitlesTable(
+    this,
+  );
+  late final $ContentDetailsTable contentDetails = $ContentDetailsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -12326,6 +14468,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     epgPrograms,
     epgChannels,
     epgSources,
+    cachedSubtitles,
+    contentDetails,
   ];
 }
 
@@ -18256,6 +20400,973 @@ typedef $$EpgSourcesTableProcessedTableManager =
       EpgSourceData,
       PrefetchHooks Function()
     >;
+typedef $$CachedSubtitlesTableCreateCompanionBuilder =
+    CachedSubtitlesCompanion Function({
+      required String id,
+      required String contentId,
+      required String contentType,
+      required String contentName,
+      required String language,
+      required String languageName,
+      required String subtitleFormat,
+      required String filePath,
+      Value<String?> openSubtitlesId,
+      Value<int?> downloadCount,
+      Value<double?> matchScore,
+      Value<DateTime> downloadedAt,
+      Value<DateTime?> lastUsedAt,
+      Value<int> rowid,
+    });
+typedef $$CachedSubtitlesTableUpdateCompanionBuilder =
+    CachedSubtitlesCompanion Function({
+      Value<String> id,
+      Value<String> contentId,
+      Value<String> contentType,
+      Value<String> contentName,
+      Value<String> language,
+      Value<String> languageName,
+      Value<String> subtitleFormat,
+      Value<String> filePath,
+      Value<String?> openSubtitlesId,
+      Value<int?> downloadCount,
+      Value<double?> matchScore,
+      Value<DateTime> downloadedAt,
+      Value<DateTime?> lastUsedAt,
+      Value<int> rowid,
+    });
+
+class $$CachedSubtitlesTableFilterComposer
+    extends Composer<_$AppDatabase, $CachedSubtitlesTable> {
+  $$CachedSubtitlesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contentId => $composableBuilder(
+    column: $table.contentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contentType => $composableBuilder(
+    column: $table.contentType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contentName => $composableBuilder(
+    column: $table.contentName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get language => $composableBuilder(
+    column: $table.language,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get languageName => $composableBuilder(
+    column: $table.languageName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get subtitleFormat => $composableBuilder(
+    column: $table.subtitleFormat,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get filePath => $composableBuilder(
+    column: $table.filePath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get openSubtitlesId => $composableBuilder(
+    column: $table.openSubtitlesId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get downloadCount => $composableBuilder(
+    column: $table.downloadCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get matchScore => $composableBuilder(
+    column: $table.matchScore,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get downloadedAt => $composableBuilder(
+    column: $table.downloadedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastUsedAt => $composableBuilder(
+    column: $table.lastUsedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CachedSubtitlesTableOrderingComposer
+    extends Composer<_$AppDatabase, $CachedSubtitlesTable> {
+  $$CachedSubtitlesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contentId => $composableBuilder(
+    column: $table.contentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contentType => $composableBuilder(
+    column: $table.contentType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contentName => $composableBuilder(
+    column: $table.contentName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get language => $composableBuilder(
+    column: $table.language,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get languageName => $composableBuilder(
+    column: $table.languageName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get subtitleFormat => $composableBuilder(
+    column: $table.subtitleFormat,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get filePath => $composableBuilder(
+    column: $table.filePath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get openSubtitlesId => $composableBuilder(
+    column: $table.openSubtitlesId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get downloadCount => $composableBuilder(
+    column: $table.downloadCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get matchScore => $composableBuilder(
+    column: $table.matchScore,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get downloadedAt => $composableBuilder(
+    column: $table.downloadedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastUsedAt => $composableBuilder(
+    column: $table.lastUsedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CachedSubtitlesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CachedSubtitlesTable> {
+  $$CachedSubtitlesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get contentId =>
+      $composableBuilder(column: $table.contentId, builder: (column) => column);
+
+  GeneratedColumn<String> get contentType => $composableBuilder(
+    column: $table.contentType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get contentName => $composableBuilder(
+    column: $table.contentName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get language =>
+      $composableBuilder(column: $table.language, builder: (column) => column);
+
+  GeneratedColumn<String> get languageName => $composableBuilder(
+    column: $table.languageName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get subtitleFormat => $composableBuilder(
+    column: $table.subtitleFormat,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get filePath =>
+      $composableBuilder(column: $table.filePath, builder: (column) => column);
+
+  GeneratedColumn<String> get openSubtitlesId => $composableBuilder(
+    column: $table.openSubtitlesId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get downloadCount => $composableBuilder(
+    column: $table.downloadCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get matchScore => $composableBuilder(
+    column: $table.matchScore,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get downloadedAt => $composableBuilder(
+    column: $table.downloadedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastUsedAt => $composableBuilder(
+    column: $table.lastUsedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$CachedSubtitlesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CachedSubtitlesTable,
+          CachedSubtitleData,
+          $$CachedSubtitlesTableFilterComposer,
+          $$CachedSubtitlesTableOrderingComposer,
+          $$CachedSubtitlesTableAnnotationComposer,
+          $$CachedSubtitlesTableCreateCompanionBuilder,
+          $$CachedSubtitlesTableUpdateCompanionBuilder,
+          (
+            CachedSubtitleData,
+            BaseReferences<
+              _$AppDatabase,
+              $CachedSubtitlesTable,
+              CachedSubtitleData
+            >,
+          ),
+          CachedSubtitleData,
+          PrefetchHooks Function()
+        > {
+  $$CachedSubtitlesTableTableManager(
+    _$AppDatabase db,
+    $CachedSubtitlesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CachedSubtitlesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CachedSubtitlesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CachedSubtitlesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> contentId = const Value.absent(),
+                Value<String> contentType = const Value.absent(),
+                Value<String> contentName = const Value.absent(),
+                Value<String> language = const Value.absent(),
+                Value<String> languageName = const Value.absent(),
+                Value<String> subtitleFormat = const Value.absent(),
+                Value<String> filePath = const Value.absent(),
+                Value<String?> openSubtitlesId = const Value.absent(),
+                Value<int?> downloadCount = const Value.absent(),
+                Value<double?> matchScore = const Value.absent(),
+                Value<DateTime> downloadedAt = const Value.absent(),
+                Value<DateTime?> lastUsedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CachedSubtitlesCompanion(
+                id: id,
+                contentId: contentId,
+                contentType: contentType,
+                contentName: contentName,
+                language: language,
+                languageName: languageName,
+                subtitleFormat: subtitleFormat,
+                filePath: filePath,
+                openSubtitlesId: openSubtitlesId,
+                downloadCount: downloadCount,
+                matchScore: matchScore,
+                downloadedAt: downloadedAt,
+                lastUsedAt: lastUsedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String contentId,
+                required String contentType,
+                required String contentName,
+                required String language,
+                required String languageName,
+                required String subtitleFormat,
+                required String filePath,
+                Value<String?> openSubtitlesId = const Value.absent(),
+                Value<int?> downloadCount = const Value.absent(),
+                Value<double?> matchScore = const Value.absent(),
+                Value<DateTime> downloadedAt = const Value.absent(),
+                Value<DateTime?> lastUsedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CachedSubtitlesCompanion.insert(
+                id: id,
+                contentId: contentId,
+                contentType: contentType,
+                contentName: contentName,
+                language: language,
+                languageName: languageName,
+                subtitleFormat: subtitleFormat,
+                filePath: filePath,
+                openSubtitlesId: openSubtitlesId,
+                downloadCount: downloadCount,
+                matchScore: matchScore,
+                downloadedAt: downloadedAt,
+                lastUsedAt: lastUsedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CachedSubtitlesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CachedSubtitlesTable,
+      CachedSubtitleData,
+      $$CachedSubtitlesTableFilterComposer,
+      $$CachedSubtitlesTableOrderingComposer,
+      $$CachedSubtitlesTableAnnotationComposer,
+      $$CachedSubtitlesTableCreateCompanionBuilder,
+      $$CachedSubtitlesTableUpdateCompanionBuilder,
+      (
+        CachedSubtitleData,
+        BaseReferences<
+          _$AppDatabase,
+          $CachedSubtitlesTable,
+          CachedSubtitleData
+        >,
+      ),
+      CachedSubtitleData,
+      PrefetchHooks Function()
+    >;
+typedef $$ContentDetailsTableCreateCompanionBuilder =
+    ContentDetailsCompanion Function({
+      required String id,
+      required String contentId,
+      required String playlistId,
+      required String contentType,
+      Value<int?> tmdbId,
+      Value<String?> imdbId,
+      required String title,
+      Value<String?> originalTitle,
+      Value<String?> overview,
+      Value<String?> posterPath,
+      Value<String?> backdropPath,
+      Value<double?> voteAverage,
+      Value<int?> voteCount,
+      Value<String?> releaseDate,
+      Value<int?> runtime,
+      Value<String?> genres,
+      Value<String?> cast,
+      Value<String?> director,
+      Value<String?> productionCompanies,
+      Value<String?> similarContent,
+      Value<String?> keywords,
+      Value<String?> certifications,
+      Value<DateTime> fetchedAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+typedef $$ContentDetailsTableUpdateCompanionBuilder =
+    ContentDetailsCompanion Function({
+      Value<String> id,
+      Value<String> contentId,
+      Value<String> playlistId,
+      Value<String> contentType,
+      Value<int?> tmdbId,
+      Value<String?> imdbId,
+      Value<String> title,
+      Value<String?> originalTitle,
+      Value<String?> overview,
+      Value<String?> posterPath,
+      Value<String?> backdropPath,
+      Value<double?> voteAverage,
+      Value<int?> voteCount,
+      Value<String?> releaseDate,
+      Value<int?> runtime,
+      Value<String?> genres,
+      Value<String?> cast,
+      Value<String?> director,
+      Value<String?> productionCompanies,
+      Value<String?> similarContent,
+      Value<String?> keywords,
+      Value<String?> certifications,
+      Value<DateTime> fetchedAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$ContentDetailsTableFilterComposer
+    extends Composer<_$AppDatabase, $ContentDetailsTable> {
+  $$ContentDetailsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contentId => $composableBuilder(
+    column: $table.contentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get playlistId => $composableBuilder(
+    column: $table.playlistId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contentType => $composableBuilder(
+    column: $table.contentType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get tmdbId => $composableBuilder(
+    column: $table.tmdbId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get imdbId => $composableBuilder(
+    column: $table.imdbId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get originalTitle => $composableBuilder(
+    column: $table.originalTitle,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get overview => $composableBuilder(
+    column: $table.overview,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get posterPath => $composableBuilder(
+    column: $table.posterPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get backdropPath => $composableBuilder(
+    column: $table.backdropPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get voteAverage => $composableBuilder(
+    column: $table.voteAverage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get voteCount => $composableBuilder(
+    column: $table.voteCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get releaseDate => $composableBuilder(
+    column: $table.releaseDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get runtime => $composableBuilder(
+    column: $table.runtime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get genres => $composableBuilder(
+    column: $table.genres,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cast => $composableBuilder(
+    column: $table.cast,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get director => $composableBuilder(
+    column: $table.director,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get productionCompanies => $composableBuilder(
+    column: $table.productionCompanies,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get similarContent => $composableBuilder(
+    column: $table.similarContent,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get keywords => $composableBuilder(
+    column: $table.keywords,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get certifications => $composableBuilder(
+    column: $table.certifications,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get fetchedAt => $composableBuilder(
+    column: $table.fetchedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ContentDetailsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ContentDetailsTable> {
+  $$ContentDetailsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contentId => $composableBuilder(
+    column: $table.contentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get playlistId => $composableBuilder(
+    column: $table.playlistId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contentType => $composableBuilder(
+    column: $table.contentType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get tmdbId => $composableBuilder(
+    column: $table.tmdbId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get imdbId => $composableBuilder(
+    column: $table.imdbId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get originalTitle => $composableBuilder(
+    column: $table.originalTitle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get overview => $composableBuilder(
+    column: $table.overview,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get posterPath => $composableBuilder(
+    column: $table.posterPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get backdropPath => $composableBuilder(
+    column: $table.backdropPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get voteAverage => $composableBuilder(
+    column: $table.voteAverage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get voteCount => $composableBuilder(
+    column: $table.voteCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get releaseDate => $composableBuilder(
+    column: $table.releaseDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get runtime => $composableBuilder(
+    column: $table.runtime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get genres => $composableBuilder(
+    column: $table.genres,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get cast => $composableBuilder(
+    column: $table.cast,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get director => $composableBuilder(
+    column: $table.director,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get productionCompanies => $composableBuilder(
+    column: $table.productionCompanies,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get similarContent => $composableBuilder(
+    column: $table.similarContent,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get keywords => $composableBuilder(
+    column: $table.keywords,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get certifications => $composableBuilder(
+    column: $table.certifications,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get fetchedAt => $composableBuilder(
+    column: $table.fetchedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ContentDetailsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ContentDetailsTable> {
+  $$ContentDetailsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get contentId =>
+      $composableBuilder(column: $table.contentId, builder: (column) => column);
+
+  GeneratedColumn<String> get playlistId => $composableBuilder(
+    column: $table.playlistId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get contentType => $composableBuilder(
+    column: $table.contentType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get tmdbId =>
+      $composableBuilder(column: $table.tmdbId, builder: (column) => column);
+
+  GeneratedColumn<String> get imdbId =>
+      $composableBuilder(column: $table.imdbId, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get originalTitle => $composableBuilder(
+    column: $table.originalTitle,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get overview =>
+      $composableBuilder(column: $table.overview, builder: (column) => column);
+
+  GeneratedColumn<String> get posterPath => $composableBuilder(
+    column: $table.posterPath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get backdropPath => $composableBuilder(
+    column: $table.backdropPath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get voteAverage => $composableBuilder(
+    column: $table.voteAverage,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get voteCount =>
+      $composableBuilder(column: $table.voteCount, builder: (column) => column);
+
+  GeneratedColumn<String> get releaseDate => $composableBuilder(
+    column: $table.releaseDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get runtime =>
+      $composableBuilder(column: $table.runtime, builder: (column) => column);
+
+  GeneratedColumn<String> get genres =>
+      $composableBuilder(column: $table.genres, builder: (column) => column);
+
+  GeneratedColumn<String> get cast =>
+      $composableBuilder(column: $table.cast, builder: (column) => column);
+
+  GeneratedColumn<String> get director =>
+      $composableBuilder(column: $table.director, builder: (column) => column);
+
+  GeneratedColumn<String> get productionCompanies => $composableBuilder(
+    column: $table.productionCompanies,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get similarContent => $composableBuilder(
+    column: $table.similarContent,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get keywords =>
+      $composableBuilder(column: $table.keywords, builder: (column) => column);
+
+  GeneratedColumn<String> get certifications => $composableBuilder(
+    column: $table.certifications,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get fetchedAt =>
+      $composableBuilder(column: $table.fetchedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$ContentDetailsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ContentDetailsTable,
+          ContentDetailsData,
+          $$ContentDetailsTableFilterComposer,
+          $$ContentDetailsTableOrderingComposer,
+          $$ContentDetailsTableAnnotationComposer,
+          $$ContentDetailsTableCreateCompanionBuilder,
+          $$ContentDetailsTableUpdateCompanionBuilder,
+          (
+            ContentDetailsData,
+            BaseReferences<
+              _$AppDatabase,
+              $ContentDetailsTable,
+              ContentDetailsData
+            >,
+          ),
+          ContentDetailsData,
+          PrefetchHooks Function()
+        > {
+  $$ContentDetailsTableTableManager(
+    _$AppDatabase db,
+    $ContentDetailsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ContentDetailsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ContentDetailsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ContentDetailsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> contentId = const Value.absent(),
+                Value<String> playlistId = const Value.absent(),
+                Value<String> contentType = const Value.absent(),
+                Value<int?> tmdbId = const Value.absent(),
+                Value<String?> imdbId = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<String?> originalTitle = const Value.absent(),
+                Value<String?> overview = const Value.absent(),
+                Value<String?> posterPath = const Value.absent(),
+                Value<String?> backdropPath = const Value.absent(),
+                Value<double?> voteAverage = const Value.absent(),
+                Value<int?> voteCount = const Value.absent(),
+                Value<String?> releaseDate = const Value.absent(),
+                Value<int?> runtime = const Value.absent(),
+                Value<String?> genres = const Value.absent(),
+                Value<String?> cast = const Value.absent(),
+                Value<String?> director = const Value.absent(),
+                Value<String?> productionCompanies = const Value.absent(),
+                Value<String?> similarContent = const Value.absent(),
+                Value<String?> keywords = const Value.absent(),
+                Value<String?> certifications = const Value.absent(),
+                Value<DateTime> fetchedAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ContentDetailsCompanion(
+                id: id,
+                contentId: contentId,
+                playlistId: playlistId,
+                contentType: contentType,
+                tmdbId: tmdbId,
+                imdbId: imdbId,
+                title: title,
+                originalTitle: originalTitle,
+                overview: overview,
+                posterPath: posterPath,
+                backdropPath: backdropPath,
+                voteAverage: voteAverage,
+                voteCount: voteCount,
+                releaseDate: releaseDate,
+                runtime: runtime,
+                genres: genres,
+                cast: cast,
+                director: director,
+                productionCompanies: productionCompanies,
+                similarContent: similarContent,
+                keywords: keywords,
+                certifications: certifications,
+                fetchedAt: fetchedAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String contentId,
+                required String playlistId,
+                required String contentType,
+                Value<int?> tmdbId = const Value.absent(),
+                Value<String?> imdbId = const Value.absent(),
+                required String title,
+                Value<String?> originalTitle = const Value.absent(),
+                Value<String?> overview = const Value.absent(),
+                Value<String?> posterPath = const Value.absent(),
+                Value<String?> backdropPath = const Value.absent(),
+                Value<double?> voteAverage = const Value.absent(),
+                Value<int?> voteCount = const Value.absent(),
+                Value<String?> releaseDate = const Value.absent(),
+                Value<int?> runtime = const Value.absent(),
+                Value<String?> genres = const Value.absent(),
+                Value<String?> cast = const Value.absent(),
+                Value<String?> director = const Value.absent(),
+                Value<String?> productionCompanies = const Value.absent(),
+                Value<String?> similarContent = const Value.absent(),
+                Value<String?> keywords = const Value.absent(),
+                Value<String?> certifications = const Value.absent(),
+                Value<DateTime> fetchedAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ContentDetailsCompanion.insert(
+                id: id,
+                contentId: contentId,
+                playlistId: playlistId,
+                contentType: contentType,
+                tmdbId: tmdbId,
+                imdbId: imdbId,
+                title: title,
+                originalTitle: originalTitle,
+                overview: overview,
+                posterPath: posterPath,
+                backdropPath: backdropPath,
+                voteAverage: voteAverage,
+                voteCount: voteCount,
+                releaseDate: releaseDate,
+                runtime: runtime,
+                genres: genres,
+                cast: cast,
+                director: director,
+                productionCompanies: productionCompanies,
+                similarContent: similarContent,
+                keywords: keywords,
+                certifications: certifications,
+                fetchedAt: fetchedAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ContentDetailsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ContentDetailsTable,
+      ContentDetailsData,
+      $$ContentDetailsTableFilterComposer,
+      $$ContentDetailsTableOrderingComposer,
+      $$ContentDetailsTableAnnotationComposer,
+      $$ContentDetailsTableCreateCompanionBuilder,
+      $$ContentDetailsTableUpdateCompanionBuilder,
+      (
+        ContentDetailsData,
+        BaseReferences<_$AppDatabase, $ContentDetailsTable, ContentDetailsData>,
+      ),
+      ContentDetailsData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -18298,4 +21409,8 @@ class $AppDatabaseManager {
       $$EpgChannelsTableTableManager(_db, _db.epgChannels);
   $$EpgSourcesTableTableManager get epgSources =>
       $$EpgSourcesTableTableManager(_db, _db.epgSources);
+  $$CachedSubtitlesTableTableManager get cachedSubtitles =>
+      $$CachedSubtitlesTableTableManager(_db, _db.cachedSubtitles);
+  $$ContentDetailsTableTableManager get contentDetails =>
+      $$ContentDetailsTableTableManager(_db, _db.contentDetails);
 }

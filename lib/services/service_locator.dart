@@ -2,6 +2,8 @@ import 'package:another_iptv_player/l10n/app_localizations.dart';
 import 'package:another_iptv_player/repositories/epg_repository.dart';
 import 'package:another_iptv_player/services/network_discovery_service.dart';
 import 'package:another_iptv_player/services/stream_server.dart';
+import 'package:another_iptv_player/services/opensubtitles_service.dart';
+import 'package:another_iptv_player/services/tmdb_service.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:another_iptv_player/database/database.dart';
@@ -20,8 +22,14 @@ Future<void> setupServiceLocator() async {
     () => NetworkDiscoveryService(),
   );
   getIt.registerLazySingleton<EpgRepository>(() => EpgRepository());
+  getIt.registerLazySingleton<OpenSubtitlesService>(() => OpenSubtitlesService());
+  getIt.registerLazySingleton<TmdbService>(() => TmdbService());
 
   MediaKit.ensureInitialized();
+
+  // Initialize external services
+  await getIt<OpenSubtitlesService>().initialize();
+  await getIt<TmdbService>().initialize();
 }
 
 void setupLocator(BuildContext context) {

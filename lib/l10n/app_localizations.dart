@@ -1829,6 +1829,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Failed to fetch EPG data'**
   String get epg_fetch_error;
+
+  /// No description provided for @votes.
+  ///
+  /// In en, this message translates to:
+  /// **'votes'**
+  String get votes;
+
+  /// No description provided for @similar_content.
+  ///
+  /// In en, this message translates to:
+  /// **'Similar Content'**
+  String get similar_content;
+
+  /// No description provided for @similar_content_available.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} similar titles found'**
+  String similar_content_available(Object count);
+
+  /// No description provided for @keywords.
+  ///
+  /// In en, this message translates to:
+  /// **'Keywords'**
+  String get keywords;
+
+  /// No description provided for @tmdb_rating.
+  ///
+  /// In en, this message translates to:
+  /// **'TMDB Rating'**
+  String get tmdb_rating;
+
+  /// No description provided for @external_services.
+  ///
+  /// In en, this message translates to:
+  /// **'External Services'**
+  String get external_services;
+
+  /// No description provided for @opensubtitles_api_key.
+  ///
+  /// In en, this message translates to:
+  /// **'OpenSubtitles API Key'**
+  String get opensubtitles_api_key;
+
+  /// No description provided for @tmdb_api_key.
+  ///
+  /// In en, this message translates to:
+  /// **'TMDB API Key'**
+  String get tmdb_api_key;
+
+  /// No description provided for @api_key_not_set.
+  ///
+  /// In en, this message translates to:
+  /// **'Not configured'**
+  String get api_key_not_set;
+
+  /// No description provided for @api_key_configured.
+  ///
+  /// In en, this message translates to:
+  /// **'Configured'**
+  String get api_key_configured;
+
+  /// No description provided for @enter_api_key.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter API Key'**
+  String get enter_api_key;
+
+  /// No description provided for @api_key_saved.
+  ///
+  /// In en, this message translates to:
+  /// **'API key saved'**
+  String get api_key_saved;
+
+  /// No description provided for @preferred_subtitle_language.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferred Subtitle Language'**
+  String get preferred_subtitle_language;
+
+  /// No description provided for @auto_download_subtitles.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-download Subtitles'**
+  String get auto_download_subtitles;
+
+  /// No description provided for @auto_download_subtitles_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically download subtitles when playing content'**
+  String get auto_download_subtitles_desc;
 }
 
 class _AppLocalizationsDelegate

@@ -512,6 +512,59 @@ class EpgSources extends Table {
   Set<Column> get primaryKey => {playlistId};
 }
 
+/// Cached subtitles downloaded from OpenSubtitles
+@DataClassName('CachedSubtitleData')
+class CachedSubtitles extends Table {
+  TextColumn get id => text()(); // Unique ID (hash of contentId + language)
+  TextColumn get contentId => text()(); // Stream ID or movie/series ID
+  TextColumn get contentType => text()(); // 'vod', 'series', 'live'
+  TextColumn get contentName => text()(); // Name of the content for display
+  TextColumn get language => text()(); // ISO 639-1 language code
+  TextColumn get languageName => text()(); // Human-readable language name
+  TextColumn get subtitleFormat => text()(); // 'srt', 'vtt', 'ass', etc.
+  TextColumn get filePath => text()(); // Local file path to cached subtitle
+  TextColumn get openSubtitlesId => text().nullable()(); // OpenSubtitles file ID
+  IntColumn get downloadCount => integer().nullable()(); // OpenSubtitles download count
+  RealColumn get matchScore => real().nullable()(); // Match confidence score
+  DateTimeColumn get downloadedAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUsedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Cached movie/series details from TMDB
+@DataClassName('ContentDetailsData')
+class ContentDetails extends Table {
+  TextColumn get id => text()(); // contentId_playlistId
+  TextColumn get contentId => text()(); // Stream ID
+  TextColumn get playlistId => text()();
+  TextColumn get contentType => text()(); // 'vod', 'series'
+  IntColumn get tmdbId => integer().nullable()(); // TMDB ID
+  TextColumn get imdbId => text().nullable()(); // IMDB ID
+  TextColumn get title => text()();
+  TextColumn get originalTitle => text().nullable()();
+  TextColumn get overview => text().nullable()(); // Plot/description
+  TextColumn get posterPath => text().nullable()(); // TMDB poster URL
+  TextColumn get backdropPath => text().nullable()(); // TMDB backdrop URL
+  RealColumn get voteAverage => real().nullable()(); // TMDB rating (0-10)
+  IntColumn get voteCount => integer().nullable()();
+  TextColumn get releaseDate => text().nullable()();
+  IntColumn get runtime => integer().nullable()(); // Runtime in minutes
+  TextColumn get genres => text().nullable()(); // JSON array of genres
+  TextColumn get cast => text().nullable()(); // JSON array of cast members
+  TextColumn get director => text().nullable()();
+  TextColumn get productionCompanies => text().nullable()(); // JSON array
+  TextColumn get similarContent => text().nullable()(); // JSON array of similar TMDB IDs
+  TextColumn get keywords => text().nullable()(); // JSON array of keywords
+  TextColumn get certifications => text().nullable()(); // Content ratings by region
+  DateTimeColumn get fetchedAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DriftDatabase(
   tables: [
     Playlists,
@@ -533,6 +586,8 @@ class EpgSources extends Table {
     EpgPrograms,
     EpgChannels,
     EpgSources,
+    CachedSubtitles,
+    ContentDetails,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -560,7 +615,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   // === PLAYLIST İŞLEMLERİ ===
 
@@ -1555,6 +1610,19 @@ class AppDatabase extends _$AppDatabase {
     return data.map((item) => M3uItem.fromData(item)).toList();
   }
 
+  Future<List<M3uItem>> searchM3uItems(String playlistId, String query) async {
+    final data = await (select(m3uItems)
+          ..where(
+            (tbl) =>
+                tbl.playlistId.equals(playlistId) &
+                (tbl.name.contains(query) | tbl.tvgName.contains(query)),
+          )
+          ..orderBy([(tbl) => OrderingTerm.asc(tbl.name)])
+          ..limit(50))
+        .get();
+    return data.map((item) => M3uItem.fromData(item)).toList();
+  }
+
   Future<List<SeriesStream>> searchSeries(
     String playlistId,
     String query,
@@ -1795,6 +1863,15 @@ class AppDatabase extends _$AppDatabase {
           await m.createTable(epgSources);
         } catch (e) {
           print('EPG tables migration skipped: $e');
+        }
+      }
+
+      if (from < 12) {
+        try {
+          await m.createTable(cachedSubtitles);
+          await m.createTable(contentDetails);
+        } catch (e) {
+          print('Subtitle/ContentDetails tables migration skipped: $e');
         }
       }
     },
@@ -2134,5 +2211,117 @@ class AppDatabase extends _$AppDatabase {
     }
 
     return grouped;
+  }
+
+  // === CACHED SUBTITLES ===
+
+  /// Insert or update a cached subtitle
+  Future<void> upsertCachedSubtitle(CachedSubtitlesCompanion subtitle) async {
+    await into(cachedSubtitles).insertOnConflictUpdate(subtitle);
+  }
+
+  /// Get cached subtitles for a content item
+  Future<List<CachedSubtitleData>> getCachedSubtitles(String contentId) async {
+    return (select(cachedSubtitles)
+          ..where((s) => s.contentId.equals(contentId))
+          ..orderBy([(s) => OrderingTerm.desc(s.downloadedAt)]))
+        .get();
+  }
+
+  /// Get cached subtitle by content and language
+  Future<CachedSubtitleData?> getCachedSubtitle(
+    String contentId,
+    String language,
+  ) async {
+    return (select(cachedSubtitles)
+          ..where((s) =>
+              s.contentId.equals(contentId) & s.language.equals(language)))
+        .getSingleOrNull();
+  }
+
+  /// Delete cached subtitle
+  Future<int> deleteCachedSubtitle(String id) async {
+    return (delete(cachedSubtitles)..where((s) => s.id.equals(id))).go();
+  }
+
+  /// Delete all cached subtitles for a content item
+  Future<int> deleteCachedSubtitlesForContent(String contentId) async {
+    return (delete(cachedSubtitles)..where((s) => s.contentId.equals(contentId)))
+        .go();
+  }
+
+  /// Update last used time for a subtitle
+  Future<void> updateSubtitleLastUsed(String id) async {
+    await (update(cachedSubtitles)..where((s) => s.id.equals(id))).write(
+      CachedSubtitlesCompanion(lastUsedAt: Value(DateTime.now())),
+    );
+  }
+
+  /// Get all cached subtitles (for management UI)
+  Future<List<CachedSubtitleData>> getAllCachedSubtitles() async {
+    return (select(cachedSubtitles)
+          ..orderBy([(s) => OrderingTerm.desc(s.downloadedAt)]))
+        .get();
+  }
+
+  // === CONTENT DETAILS (TMDB) ===
+
+  /// Insert or update content details
+  Future<void> upsertContentDetails(ContentDetailsCompanion details) async {
+    await into(contentDetails).insertOnConflictUpdate(details);
+  }
+
+  /// Get content details by content ID and playlist ID
+  Future<ContentDetailsData?> getContentDetails(
+    String contentId,
+    String playlistId,
+  ) async {
+    final id = '${contentId}_$playlistId';
+    return (select(contentDetails)..where((d) => d.id.equals(id)))
+        .getSingleOrNull();
+  }
+
+  /// Get content details by TMDB ID
+  Future<ContentDetailsData?> getContentDetailsByTmdbId(int tmdbId) async {
+    return (select(contentDetails)..where((d) => d.tmdbId.equals(tmdbId)))
+        .getSingleOrNull();
+  }
+
+  /// Get content details by IMDB ID
+  Future<ContentDetailsData?> getContentDetailsByImdbId(String imdbId) async {
+    return (select(contentDetails)..where((d) => d.imdbId.equals(imdbId)))
+        .getSingleOrNull();
+  }
+
+  /// Delete content details
+  Future<int> deleteContentDetails(String contentId, String playlistId) async {
+    final id = '${contentId}_$playlistId';
+    return (delete(contentDetails)..where((d) => d.id.equals(id))).go();
+  }
+
+  /// Check if content details exist and are fresh (within maxAge)
+  Future<bool> hasValidContentDetails(
+    String contentId,
+    String playlistId, {
+    Duration maxAge = const Duration(days: 7),
+  }) async {
+    final details = await getContentDetails(contentId, playlistId);
+    if (details == null) return false;
+    return DateTime.now().difference(details.fetchedAt) < maxAge;
+  }
+
+  /// Get content details that need updating (older than maxAge)
+  Future<List<ContentDetailsData>> getStaleContentDetails({
+    Duration maxAge = const Duration(days: 7),
+  }) async {
+    final cutoff = DateTime.now().subtract(maxAge);
+    return (select(contentDetails)
+          ..where((d) => d.fetchedAt.isSmallerThanValue(cutoff)))
+        .get();
+  }
+
+  /// Clear all cached content details
+  Future<int> clearAllContentDetails() async {
+    return delete(contentDetails).go();
   }
 }

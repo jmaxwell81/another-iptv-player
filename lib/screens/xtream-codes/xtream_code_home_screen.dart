@@ -16,6 +16,7 @@ import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/utils/navigate_by_content_type.dart';
 import 'package:another_iptv_player/utils/responsive_helper.dart';
 import 'package:another_iptv_player/widgets/category_section.dart';
+import 'package:another_iptv_player/widgets/global_search_delegate.dart';
 import 'package:another_iptv_player/controllers/favorites_controller.dart';
 import 'package:another_iptv_player/controllers/hidden_items_controller.dart';
 import 'package:another_iptv_player/models/favorite.dart';
@@ -262,7 +263,8 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
       actions: [
         IconButton(
           icon: const Icon(Icons.search),
-          onPressed: () => _navigateToSearch(context, contentType),
+          tooltip: 'Search',
+          onPressed: () => _showGlobalSearch(context),
         ),
       ],
     );
@@ -293,7 +295,8 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
       actions: [
         IconButton(
           icon: const Icon(Icons.search),
-          onPressed: () => _navigateToSearch(context, contentType),
+          tooltip: 'Search',
+          onPressed: () => _showGlobalSearch(context),
         ),
       ],
     );
@@ -304,6 +307,24 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
       context,
       MaterialPageRoute(
         builder: (context) => SearchScreen(contentType: contentType),
+      ),
+    );
+  }
+
+  void _showGlobalSearch(BuildContext context) {
+    showSearch(
+      context: context,
+      delegate: GlobalSearchDelegate(
+        onResultSelected: (result) {
+          // Navigate to the appropriate panel
+          _controller.onNavigationTap(result.panelIndex);
+          // Play the selected content
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (context.mounted) {
+              navigateByContentType(context, result.item);
+            }
+          });
+        },
       ),
     );
   }

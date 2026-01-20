@@ -9,6 +9,7 @@ import 'package:another_iptv_player/l10n/localization_extension.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:another_iptv_player/services/watch_history_service.dart';
 import 'package:another_iptv_player/utils/renaming_extension.dart';
+import 'package:another_iptv_player/widgets/tmdb_details_widget.dart';
 import '../../../controllers/favorites_controller.dart';
 import 'episode_screen.dart';
 
@@ -400,10 +401,32 @@ class _SeriesScreenState extends State<SeriesScreen> {
           // Dizi Bilgileri
           _buildSeriesDetails(),
 
+          const SizedBox(height: 24),
+
+          // TMDB Enhanced Details
+          TmdbDetailsWidget(
+            contentId: widget.contentItem.id,
+            playlistId: _playlistId,
+            contentType: 'series',
+            title: _displayName,
+            year: _extractYear(),
+          ),
+
           const SizedBox(height: 40),
         ],
       ),
     );
+  }
+
+  int? _extractYear() {
+    final releaseDate = seriesInfo?.releaseDate ?? widget.contentItem.seriesStream?.releaseDate;
+    if (releaseDate != null && releaseDate.isNotEmpty) {
+      final yearMatch = RegExp(r'(\d{4})').firstMatch(releaseDate);
+      if (yearMatch != null) {
+        return int.tryParse(yearMatch.group(1)!);
+      }
+    }
+    return null;
   }
 
   /// Builds the "Continue: S x Episode y" pill button shown on the series page.

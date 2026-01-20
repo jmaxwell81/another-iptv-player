@@ -9,6 +9,7 @@ import 'package:another_iptv_player/models/view_state.dart';
 import 'package:another_iptv_player/repositories/iptv_repository.dart';
 import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/services/category_config_service.dart';
+import 'package:another_iptv_player/services/parental_control_service.dart';
 import '../repositories/user_preferences.dart';
 import '../screens/xtream-codes/xtream_code_data_loader_screen.dart';
 
@@ -18,7 +19,7 @@ class XtreamCodeHomeController extends ChangeNotifier {
   String? _errorMessage;
   ViewState _viewState = ViewState.idle;
 
-  int _currentIndex = 0;
+  int _currentIndex = 2; // Default to Live Streams, will be updated from preferences
   final bool _isLoading = false;
 
   final List<CategoryViewModel> _liveCategories = [];
@@ -52,44 +53,70 @@ class XtreamCodeHomeController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Getters for visible categories (filtered by hidden, then merged/ordered)
+  // Parental control service for filtering content
+  final ParentalControlService _parentalService = ParentalControlService();
+
+  // Getters for visible categories (filtered by hidden, parental controls, then merged/ordered)
   List<CategoryViewModel> get visibleLiveCategories {
     final filtered = _liveCategories
         .where((c) => !_hiddenCategoryIds.contains(c.category.categoryId))
+        .where((c) => !_parentalService.shouldHideCategory(
+            c.category.categoryId, c.category.categoryName))
         .toList();
     final playlistId = AppState.currentPlaylist?.id;
-    if (playlistId == null) return filtered;
-    return CategoryConfigService().applyConfig(
+    if (playlistId == null) return _applyContentFiltering(filtered);
+    return _applyContentFiltering(CategoryConfigService().applyConfig(
       playlistId: playlistId,
       type: CategoryType.live,
       categories: filtered,
-    );
+    ));
   }
 
   List<CategoryViewModel> get visibleMovieCategories {
     final filtered = _movieCategories
         .where((c) => !_hiddenCategoryIds.contains(c.category.categoryId))
+        .where((c) => !_parentalService.shouldHideCategory(
+            c.category.categoryId, c.category.categoryName))
         .toList();
     final playlistId = AppState.currentPlaylist?.id;
-    if (playlistId == null) return filtered;
-    return CategoryConfigService().applyConfig(
+    if (playlistId == null) return _applyContentFiltering(filtered);
+    return _applyContentFiltering(CategoryConfigService().applyConfig(
       playlistId: playlistId,
       type: CategoryType.vod,
       categories: filtered,
-    );
+    ));
   }
 
   List<CategoryViewModel> get visibleSeriesCategories {
     final filtered = _seriesCategories
         .where((c) => !_hiddenCategoryIds.contains(c.category.categoryId))
+        .where((c) => !_parentalService.shouldHideCategory(
+            c.category.categoryId, c.category.categoryName))
         .toList();
     final playlistId = AppState.currentPlaylist?.id;
-    if (playlistId == null) return filtered;
-    return CategoryConfigService().applyConfig(
+    if (playlistId == null) return _applyContentFiltering(filtered);
+    return _applyContentFiltering(CategoryConfigService().applyConfig(
       playlistId: playlistId,
       type: CategoryType.series,
       categories: filtered,
-    );
+    ));
+  }
+
+  // Filter content items within categories based on parental controls
+  List<CategoryViewModel> _applyContentFiltering(List<CategoryViewModel> categories) {
+    return categories.map((category) {
+      final filteredItems = _parentalService.filterContent<ContentItem>(
+        category.contentItems,
+        getId: (item) => item.id,
+        getName: (item) => item.name,
+        getCategoryId: (item) => category.category.categoryId,
+        getCategoryName: (item) => category.category.categoryName,
+      );
+      return CategoryViewModel(
+        category: category.category,
+        contentItems: filteredItems,
+      );
+    }).where((category) => category.contentItems.isNotEmpty).toList();
   }
 
   // Getters
@@ -111,8 +138,48 @@ class XtreamCodeHomeController extends ChangeNotifier {
   }
 
   Future<void> _initializeData(bool all) async {
+    // Load default panel preference
+    await _loadDefaultPanel();
+    // Initialize parental controls
+    await _parentalService.initialize();
     await loadHiddenCategories();
     await _loadCategories(all);
+  }
+
+  Future<void> _loadDefaultPanel() async {
+    final defaultPanel = await UserPreferences.getDefaultPanel();
+    _currentIndex = _panelNameToIndex(defaultPanel);
+
+    // Jump PageController to the correct page after loading preference
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(_currentIndex);
+    } else {
+      // If PageController doesn't have clients yet, recreate it with initial page
+      _pageController = PageController(initialPage: _currentIndex);
+    }
+
+    notifyListeners();
+  }
+
+  int _panelNameToIndex(String panelName) {
+    switch (panelName.toLowerCase()) {
+      case 'history':
+        return 0;
+      case 'favorites':
+        return 1;
+      case 'live':
+        return 2;
+      case 'guide':
+        return 3;
+      case 'movies':
+        return 4;
+      case 'series':
+        return 5;
+      case 'settings':
+        return 6;
+      default:
+        return 2; // Default to Live Streams
+    }
   }
 
   @override

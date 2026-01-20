@@ -1,6 +1,7 @@
 import 'package:another_iptv_player/l10n/localization_extension.dart';
 import 'package:another_iptv_player/models/custom_rename.dart';
 import 'package:another_iptv_player/models/epg_program.dart';
+import 'package:another_iptv_player/services/parental_control_service.dart';
 import 'package:another_iptv_player/utils/renaming_extension.dart';
 import 'package:another_iptv_player/widgets/rename_dialog.dart';
 import 'package:flutter/material.dart';
@@ -149,6 +150,50 @@ class _CategorySectionState extends State<CategorySection> {
                                     Icon(Icons.visibility_off, size: 20),
                                     SizedBox(width: 8),
                                     Text('Hide Category'),
+                                  ],
+                                ),
+                              ),
+                            // Parental lock option for categories (only visible in parent mode)
+                            if (ParentalControlService().parentModeActive)
+                              PopupMenuItem<String>(
+                                value: 'parental_lock_category',
+                                onTap: () {
+                                  Future.delayed(Duration.zero, () async {
+                                    if (!mounted) return;
+                                    final service = ParentalControlService();
+                                    final categoryId = widget.category.category.categoryId;
+                                    final isLocked = service.isCategoryLocked(categoryId);
+                                    if (isLocked) {
+                                      await service.unlockCategory(categoryId);
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Category unlocked for kids')),
+                                        );
+                                      }
+                                    } else {
+                                      await service.lockCategory(categoryId);
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Category locked for kids')),
+                                        );
+                                      }
+                                    }
+                                  });
+                                },
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      ParentalControlService().isCategoryLocked(widget.category.category.categoryId)
+                                          ? Icons.lock_open
+                                          : Icons.lock,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      ParentalControlService().isCategoryLocked(widget.category.category.categoryId)
+                                          ? 'Unlock for Kids'
+                                          : 'Lock for Kids',
+                                    ),
                                   ],
                                 ),
                               ),

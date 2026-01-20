@@ -17,6 +17,7 @@ import 'package:another_iptv_player/repositories/user_preferences.dart';
 import 'package:another_iptv_player/utils/navigate_by_content_type.dart';
 import 'package:another_iptv_player/utils/responsive_helper.dart';
 import 'package:another_iptv_player/widgets/category_section.dart';
+import 'package:another_iptv_player/widgets/global_search_delegate.dart';
 
 /// Home screen for combined/unified mode showing content from multiple playlists
 class UnifiedHomeScreen extends StatefulWidget {
@@ -301,6 +302,12 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
         title: Text(title),
         elevation: 0,
         actions: [
+          // Global search button
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () => _showGlobalSearch(context, controller),
+            tooltip: 'Search',
+          ),
           // Source filter button
           IconButton(
             icon: Badge(
@@ -491,6 +498,25 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
   /// Convert ContentType to CategoryType for source filtering
   CategoryType _contentTypeToCategoryType(ContentType contentType) {
     return ContentType.toCategoryType(contentType);
+  }
+
+  /// Show global search dialog
+  void _showGlobalSearch(BuildContext context, UnifiedHomeController controller) {
+    showSearch(
+      context: context,
+      delegate: GlobalSearchDelegate(
+        onResultSelected: (result) {
+          // Navigate to the appropriate panel
+          controller.onNavigationTap(result.panelIndex);
+          // Play the selected content
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (context.mounted) {
+              navigateByContentType(context, result.item);
+            }
+          });
+        },
+      ),
+    );
   }
 
   /// Show bottom sheet for source filtering

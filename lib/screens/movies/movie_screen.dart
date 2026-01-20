@@ -20,6 +20,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../widgets/player_widget.dart';
 import 'package:another_iptv_player/utils/renaming_extension.dart';
+import 'package:another_iptv_player/widgets/tmdb_details_widget.dart';
 
 class MovieScreen extends StatefulWidget {
   final ContentItem contentItem;
@@ -514,12 +515,46 @@ class _MovieScreenState extends State<MovieScreen> {
           _buildExtraDetails(context)!,
           const SizedBox(height: 24),
         ],
+        // TMDB Enhanced Details
+        TmdbDetailsWidget(
+          contentId: widget.contentItem.id,
+          playlistId: _playlistId,
+          contentType: 'vod',
+          title: _displayName,
+          imdbId: _extractImdbId(),
+          year: _extractYear(),
+        ),
         if (_buildTrailerButton(context) != null) ...[
           _buildTrailerButton(context)!,
           const SizedBox(height: 24),
         ],
       ],
     );
+  }
+
+  int? _extractYear() {
+    // Try to extract year from release date or vodInfo
+    if (_vodInfo != null) {
+      final releaseDate = _vodInfo!['releaseDate'] ?? _vodInfo!['release_date'] ?? _vodInfo!['year'];
+      if (releaseDate is String && releaseDate.isNotEmpty) {
+        final yearMatch = RegExp(r'(\d{4})').firstMatch(releaseDate);
+        if (yearMatch != null) {
+          return int.tryParse(yearMatch.group(1)!);
+        }
+      }
+    }
+    return null;
+  }
+
+  String? _extractImdbId() {
+    // Try to extract IMDB ID from vodInfo if available
+    if (_vodInfo != null) {
+      final imdbId = _vodInfo!['imdb_id'] ?? _vodInfo!['imdb'];
+      if (imdbId is String && imdbId.isNotEmpty) {
+        return imdbId;
+      }
+    }
+    return null;
   }
 
   Widget _buildDesktopLayout(BuildContext context) {
@@ -550,6 +585,15 @@ class _MovieScreenState extends State<MovieScreen> {
                 _buildExtraDetails(context)!,
                 const SizedBox(height: 24),
               ],
+              // TMDB Enhanced Details
+              TmdbDetailsWidget(
+                contentId: widget.contentItem.id,
+                playlistId: _playlistId,
+                contentType: 'vod',
+                title: _displayName,
+                imdbId: _extractImdbId(),
+                year: _extractYear(),
+              ),
               if (_buildTrailerButton(context) != null) ...[
                 Align(
                   alignment: Alignment.centerLeft,

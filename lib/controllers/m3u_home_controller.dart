@@ -8,15 +8,18 @@ import 'package:another_iptv_player/models/playlist_model.dart';
 import 'package:another_iptv_player/models/view_state.dart';
 import 'package:another_iptv_player/repositories/m3u_repository.dart';
 import 'package:another_iptv_player/services/app_state.dart';
+import 'package:another_iptv_player/services/parental_control_service.dart';
+import 'package:another_iptv_player/repositories/user_preferences.dart';
 import 'package:flutter/material.dart';
 
 class M3UHomeController extends ChangeNotifier {
   late PageController _pageController;
   final M3uRepository _repository = AppState.m3uRepository!;
+  final ParentalControlService _parentalService = ParentalControlService();
   String? _errorMessage;
   ViewState _viewState = ViewState.idle;
 
-  int _currentIndex = 0;
+  int _currentIndex = 2; // Default to All items, will be updated from preferences
   bool _isLoading = true;
 
   final List<CategoryViewModel> _liveCategories = [];
@@ -32,11 +35,34 @@ class M3UHomeController extends ChangeNotifier {
 
   int get currentIndex => _currentIndex;
 
-  List<CategoryViewModel>? get liveCategories => _liveCategories;
+  // Visible categories with parental filtering applied
+  List<CategoryViewModel>? get liveCategories => _applyParentalFiltering(_liveCategories);
 
-  List<CategoryViewModel>? get vodCategories => _vodCategories;
+  List<CategoryViewModel>? get vodCategories => _applyParentalFiltering(_vodCategories);
 
-  List<CategoryViewModel>? get seriesCategories => _seriesCategories;
+  List<CategoryViewModel>? get seriesCategories => _applyParentalFiltering(_seriesCategories);
+
+  // Filter categories and content based on parental controls
+  List<CategoryViewModel> _applyParentalFiltering(List<CategoryViewModel> categories) {
+    return categories
+        .where((c) => !_parentalService.shouldHideCategory(
+            c.category.categoryId, c.category.categoryName))
+        .map((category) {
+          final filteredItems = _parentalService.filterContent<ContentItem>(
+            category.contentItems,
+            getId: (item) => item.id,
+            getName: (item) => item.name,
+            getCategoryId: (item) => category.category.categoryId,
+            getCategoryName: (item) => category.category.categoryName,
+          );
+          return CategoryViewModel(
+            category: category.category,
+            contentItems: filteredItems,
+          );
+        })
+        .where((category) => category.contentItems.isNotEmpty)
+        .toList();
+  }
 
   List<M3uItem>? get m3uItems => _m3uItems;
 
@@ -50,8 +76,49 @@ class M3UHomeController extends ChangeNotifier {
 
   M3UHomeController() {
     _pageController = PageController();
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    // Load default panel preference
+    await _loadDefaultPanel();
+    // Initialize parental controls first
+    await _parentalService.initialize();
     _loadM3uItems();
     _loadCategories();
+  }
+
+  Future<void> _loadDefaultPanel() async {
+    final defaultPanel = await UserPreferences.getDefaultPanel();
+    _currentIndex = _panelNameToIndex(defaultPanel);
+
+    // Jump PageController to the correct page after loading preference
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(_currentIndex);
+    } else {
+      // If PageController doesn't have clients yet, recreate it with initial page
+      _pageController = PageController(initialPage: _currentIndex);
+    }
+
+    notifyListeners();
+  }
+
+  int _panelNameToIndex(String panelName) {
+    switch (panelName.toLowerCase()) {
+      case 'history':
+        return 0;
+      case 'favorites':
+        return 1;
+      case 'all':
+      case 'live':
+        return 2;
+      case 'guide':
+        return 3;
+      case 'settings':
+        return 4;
+      default:
+        return 2; // Default to All/Live
+    }
   }
 
   @override

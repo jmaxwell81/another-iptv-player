@@ -10,6 +10,7 @@ import 'package:another_iptv_player/models/category_view_model.dart';
 import 'package:another_iptv_player/repositories/m3u_repository.dart';
 import 'package:another_iptv_player/screens/category_detail_screen.dart';
 import 'package:another_iptv_player/widgets/category_section.dart';
+import 'package:another_iptv_player/widgets/global_search_delegate.dart';
 import 'package:another_iptv_player/utils/responsive_helper.dart';
 import 'package:another_iptv_player/utils/navigate_by_content_type.dart';
 
@@ -190,6 +191,13 @@ class _M3UHomeScreenState extends State<M3UHomeScreen> {
       floating: true,
       snap: true,
       elevation: 0,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.search),
+          tooltip: 'Search',
+          onPressed: () => _showGlobalSearch(context),
+        ),
+      ],
     );
   }
 
@@ -205,7 +213,31 @@ class _M3UHomeScreenState extends State<M3UHomeScreen> {
       floating: true,
       snap: true,
       elevation: 0,
-      actions: [],
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.search),
+          tooltip: 'Search',
+          onPressed: () => _showGlobalSearch(context),
+        ),
+      ],
+    );
+  }
+
+  void _showGlobalSearch(BuildContext context) {
+    showSearch(
+      context: context,
+      delegate: GlobalSearchDelegate(
+        onResultSelected: (result) {
+          // M3U has all content in panel 2 (unlike Xtream which has separate panels)
+          _controller.onNavigationTap(2);
+          // Play the selected content
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (context.mounted) {
+              navigateByContentType(context, result.item);
+            }
+          });
+        },
+      ),
     );
   }
 

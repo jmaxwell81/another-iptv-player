@@ -6,6 +6,7 @@ import 'package:another_iptv_player/models/renaming_rule.dart';
 import 'package:another_iptv_player/models/custom_rename.dart';
 import 'package:another_iptv_player/models/category_configuration.dart';
 import 'package:another_iptv_player/models/active_playlists_config.dart';
+import 'package:another_iptv_player/models/parental_settings.dart';
 
 class UserPreferences {
   static const String _keyLastPlaylist = 'last_playlist';
@@ -762,5 +763,249 @@ class UserPreferences {
     } catch (e) {
       return [];
     }
+  }
+
+  // Parental control settings
+  static const String _keyParentalSettings = 'parental_settings';
+  static const String _keyCatchUpUrls = 'catch_up_urls';
+
+  static Future<void> setParentalSettings(ParentalSettings settings) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyParentalSettings, settings.toJsonString());
+  }
+
+  static Future<ParentalSettings> getParentalSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_keyParentalSettings);
+    if (jsonString == null || jsonString.isEmpty) {
+      return ParentalSettings();
+    }
+    try {
+      return ParentalSettings.fromJsonString(jsonString);
+    } catch (e) {
+      return ParentalSettings();
+    }
+  }
+
+  // Catch Up URL configuration per playlist
+  static Future<void> setCatchUpUrl(String playlistId, String url) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_keyCatchUpUrls) ?? '{}';
+    final Map<String, dynamic> urls = jsonDecode(jsonString);
+    urls[playlistId] = url;
+    await prefs.setString(_keyCatchUpUrls, jsonEncode(urls));
+  }
+
+  static Future<String?> getCatchUpUrl(String playlistId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_keyCatchUpUrls);
+    if (jsonString == null || jsonString.isEmpty) {
+      return null;
+    }
+    try {
+      final Map<String, dynamic> urls = jsonDecode(jsonString);
+      return urls[playlistId] as String?;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  static Future<Map<String, String>> getAllCatchUpUrls() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_keyCatchUpUrls);
+    if (jsonString == null || jsonString.isEmpty) {
+      return {};
+    }
+    try {
+      final Map<String, dynamic> urls = jsonDecode(jsonString);
+      return urls.map((key, value) => MapEntry(key, value as String));
+    } catch (e) {
+      return {};
+    }
+  }
+
+  // Timeshift recordings storage
+  static const String _keyTimeshiftRecordings = 'timeshift_recordings';
+
+  static Future<void> setTimeshiftRecordings(List<Map<String, dynamic>> recordings) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyTimeshiftRecordings, jsonEncode(recordings));
+  }
+
+  static Future<List<Map<String, dynamic>>> getTimeshiftRecordings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_keyTimeshiftRecordings);
+    if (jsonString == null || jsonString.isEmpty) {
+      return [];
+    }
+    try {
+      final List<dynamic> list = jsonDecode(jsonString);
+      return list.cast<Map<String, dynamic>>();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // Default panel setting (which panel to navigate to on app launch)
+  // Values: 'history', 'favorites', 'live', 'tv_guide', 'movies', 'series', 'settings'
+  static const String _keyDefaultPanel = 'default_panel';
+
+  static Future<void> setDefaultPanel(String panel) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyDefaultPanel, panel);
+  }
+
+  static Future<String> getDefaultPanel() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyDefaultPanel) ?? 'live'; // Default to Live Streams
+  }
+
+  // Timeshift enabled setting
+  static const String _keyTimeshiftEnabled = 'timeshift_enabled';
+
+  static Future<void> setTimeshiftEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyTimeshiftEnabled, enabled);
+  }
+
+  static Future<bool> getTimeshiftEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyTimeshiftEnabled) ?? true; // Enabled by default
+  }
+
+  // Timeshift max buffer duration in minutes
+  static const String _keyTimeshiftMaxBuffer = 'timeshift_max_buffer';
+
+  static Future<void> setTimeshiftMaxBuffer(int minutes) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_keyTimeshiftMaxBuffer, minutes);
+  }
+
+  static Future<int> getTimeshiftMaxBuffer() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_keyTimeshiftMaxBuffer) ?? 30; // Default 30 minutes
+  }
+
+  // Custom FFmpeg path for timeshift
+  static const String _keyCustomFfmpegPath = 'custom_ffmpeg_path';
+
+  static Future<void> setCustomFfmpegPath(String? path) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (path == null || path.isEmpty) {
+      await prefs.remove(_keyCustomFfmpegPath);
+    } else {
+      await prefs.setString(_keyCustomFfmpegPath, path);
+    }
+  }
+
+  static Future<String?> getCustomFfmpegPath() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyCustomFfmpegPath);
+  }
+
+  // External API keys for subtitles and movie details
+  static const String _keyOpenSubtitlesApiKey = 'opensubtitles_api_key';
+  static const String _keyOpenSubtitlesUsername = 'opensubtitles_username';
+  static const String _keyOpenSubtitlesPassword = 'opensubtitles_password';
+  static const String _keyTmdbApiKey = 'tmdb_api_key';
+  static const String _keyPreferredSubtitleLanguage = 'preferred_subtitle_language';
+  static const String _keyAutoDownloadSubtitles = 'auto_download_subtitles';
+  static const String _keySubtitleDownloadPath = 'subtitle_download_path';
+
+  // OpenSubtitles API key (free registration at opensubtitles.com)
+  static Future<void> setOpenSubtitlesApiKey(String? apiKey) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (apiKey == null || apiKey.isEmpty) {
+      await prefs.remove(_keyOpenSubtitlesApiKey);
+    } else {
+      await prefs.setString(_keyOpenSubtitlesApiKey, apiKey);
+    }
+  }
+
+  static Future<String?> getOpenSubtitlesApiKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyOpenSubtitlesApiKey);
+  }
+
+  // OpenSubtitles username (optional, increases rate limit)
+  static Future<void> setOpenSubtitlesUsername(String? username) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (username == null || username.isEmpty) {
+      await prefs.remove(_keyOpenSubtitlesUsername);
+    } else {
+      await prefs.setString(_keyOpenSubtitlesUsername, username);
+    }
+  }
+
+  static Future<String?> getOpenSubtitlesUsername() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyOpenSubtitlesUsername);
+  }
+
+  // OpenSubtitles password
+  static Future<void> setOpenSubtitlesPassword(String? password) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (password == null || password.isEmpty) {
+      await prefs.remove(_keyOpenSubtitlesPassword);
+    } else {
+      await prefs.setString(_keyOpenSubtitlesPassword, password);
+    }
+  }
+
+  static Future<String?> getOpenSubtitlesPassword() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyOpenSubtitlesPassword);
+  }
+
+  // TMDB API key (free registration at themoviedb.org)
+  static Future<void> setTmdbApiKey(String? apiKey) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (apiKey == null || apiKey.isEmpty) {
+      await prefs.remove(_keyTmdbApiKey);
+    } else {
+      await prefs.setString(_keyTmdbApiKey, apiKey);
+    }
+  }
+
+  static Future<String?> getTmdbApiKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyTmdbApiKey);
+  }
+
+  // Preferred subtitle language (ISO 639-1 code, e.g., 'en', 'es', 'fr')
+  static Future<void> setPreferredSubtitleLanguage(String language) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyPreferredSubtitleLanguage, language);
+  }
+
+  static Future<String> getPreferredSubtitleLanguage() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyPreferredSubtitleLanguage) ?? 'en';
+  }
+
+  // Auto-download subtitles when playing movies/series
+  static Future<void> setAutoDownloadSubtitles(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyAutoDownloadSubtitles, enabled);
+  }
+
+  static Future<bool> getAutoDownloadSubtitles() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyAutoDownloadSubtitles) ?? false;
+  }
+
+  // Custom subtitle download path
+  static Future<void> setSubtitleDownloadPath(String? path) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (path == null || path.isEmpty) {
+      await prefs.remove(_keySubtitleDownloadPath);
+    } else {
+      await prefs.setString(_keySubtitleDownloadPath, path);
+    }
+  }
+
+  static Future<String?> getSubtitleDownloadPath() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keySubtitleDownloadPath);
   }
 }

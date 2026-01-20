@@ -927,4 +927,52 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get epg_fetch_error => 'Failed to fetch EPG data';
+
+  @override
+  String get votes => 'votes';
+
+  @override
+  String get similar_content => 'Similar Content';
+
+  @override
+  String similar_content_available(Object count) {
+    return '$count similar titles found';
+  }
+
+  @override
+  String get keywords => 'Keywords';
+
+  @override
+  String get tmdb_rating => 'TMDB Rating';
+
+  @override
+  String get external_services => 'External Services';
+
+  @override
+  String get opensubtitles_api_key => 'OpenSubtitles API Key';
+
+  @override
+  String get tmdb_api_key => 'TMDB API Key';
+
+  @override
+  String get api_key_not_set => 'Not configured';
+
+  @override
+  String get api_key_configured => 'Configured';
+
+  @override
+  String get enter_api_key => 'Enter API Key';
+
+  @override
+  String get api_key_saved => 'API key saved';
+
+  @override
+  String get preferred_subtitle_language => 'Preferred Subtitle Language';
+
+  @override
+  String get auto_download_subtitles => 'Auto-download Subtitles';
+
+  @override
+  String get auto_download_subtitles_desc =>
+      'Automatically download subtitles when playing content';
 }

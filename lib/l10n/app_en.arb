@@ -317,5 +317,20 @@
   "no_epg_data": "No EPG data available",
   "fetching_epg": "Fetching EPG data...",
   "epg_fetch_success": "EPG data updated successfully",
-  "epg_fetch_error": "Failed to fetch EPG data"
+  "epg_fetch_error": "Failed to fetch EPG data",
+  "votes": "votes",
+  "similar_content": "Similar Content",
+  "similar_content_available": "{count} similar titles found",
+  "keywords": "Keywords",
+  "tmdb_rating": "TMDB Rating",
+  "external_services": "External Services",
+  "opensubtitles_api_key": "OpenSubtitles API Key",
+  "tmdb_api_key": "TMDB API Key",
+  "api_key_not_set": "Not configured",
+  "api_key_configured": "Configured",
+  "enter_api_key": "Enter API Key",
+  "api_key_saved": "API key saved",
+  "preferred_subtitle_language": "Preferred Subtitle Language",
+  "auto_download_subtitles": "Auto-download Subtitles",
+  "auto_download_subtitles_desc": "Automatically download subtitles when playing content"
 }

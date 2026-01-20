@@ -3,7 +3,9 @@ import 'package:another_iptv_player/screens/app_initializer_screen.dart';
 import 'package:another_iptv_player/screens/stream_server_screen.dart';
 import 'package:another_iptv_player/services/category_config_service.dart';
 import 'package:another_iptv_player/services/custom_rename_service.dart';
+import 'package:another_iptv_player/services/failed_domain_cache.dart';
 import 'package:another_iptv_player/services/renaming_service.dart';
+import 'package:another_iptv_player/services/timeshift_service.dart';
 import 'package:another_iptv_player/services/vpn_detection_service.dart';
 import 'package:another_iptv_player/widgets/vpn_status_widget.dart';
 import 'package:flutter/material.dart';
@@ -22,6 +24,8 @@ Future<void> main() async {
   await CustomRenameService().loadRenames();
   await CategoryConfigService().loadConfigs();
   await VpnDetectionService().initialize();
+  await FailedDomainCache().initialize();
+  await TimeshiftService().initialize();
   runApp(
     MultiProvider(
       providers: [

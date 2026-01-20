@@ -1,10 +1,12 @@
 import 'package:another_iptv_player/l10n/localization_extension.dart';
 import 'package:another_iptv_player/models/custom_rename.dart';
 import 'package:another_iptv_player/models/epg_program.dart';
+import 'package:another_iptv_player/screens/catch_up/catch_up_screen.dart';
+import 'package:another_iptv_player/services/parental_control_service.dart';
 import 'package:another_iptv_player/services/source_health_service.dart';
 import 'package:another_iptv_player/utils/renaming_extension.dart';
 import 'package:another_iptv_player/widgets/rename_dialog.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:another_iptv_player/widgets/smart_cached_image.dart';
 import 'package:flutter/material.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
 import 'package:another_iptv_player/models/content_type.dart';
@@ -121,7 +123,7 @@ class _ContentCardState extends State<ContentCard> {
                 children: [
                   Positioned.fill(
                     child: widget.content.imagePath.isNotEmpty
-                        ? CachedNetworkImage(
+                        ? SmartCachedImage(
                       imageUrl: widget.content.imagePath,
                       fit: _getFitForContentType(),
                       placeholder: (context, url) => Container(
@@ -394,6 +396,84 @@ class _ContentCardState extends State<ContentCard> {
                       'Hide "${widget.categoryName}"',
                       overflow: TextOverflow.ellipsis,
                     ),
+                  ),
+                ],
+              ),
+            ),
+          // Catch Up option for live streams
+          if (widget.content.contentType == ContentType.liveStream && widget.playlistId != null)
+            PopupMenuItem<String>(
+              value: 'catch_up',
+              onTap: () {
+                Future.delayed(Duration.zero, () {
+                  if (!mounted) return;
+                  // Get channel ID from liveStream or m3uItem
+                  final channelId = widget.content.liveStream?.epgChannelId ??
+                      widget.content.liveStream?.streamId ??
+                      widget.content.m3uItem?.tvgId ??
+                      widget.content.id;
+                  navigator.push(
+                    MaterialPageRoute(
+                      builder: (context) => CatchUpScreen(
+                        channelId: channelId,
+                        channelName: widget.content.name,
+                        playlistId: widget.playlistId!,
+                        channelIcon: widget.content.imagePath,
+                      ),
+                    ),
+                  );
+                });
+              },
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.history,
+                    size: 20,
+                  ),
+                  SizedBox(width: 8),
+                  Text('Catch Up'),
+                ],
+              ),
+            ),
+          // Parental lock/unlock option (only visible in parent mode)
+          if (ParentalControlService().parentModeActive)
+            PopupMenuItem<String>(
+              value: 'parental_lock',
+              onTap: () {
+                Future.delayed(Duration.zero, () async {
+                  if (!mounted) return;
+                  final service = ParentalControlService();
+                  final isLocked = service.isContentLocked(widget.content.id);
+                  if (isLocked) {
+                    await service.unlockContent(widget.content.id);
+                    if (popupContext.mounted) {
+                      ScaffoldMessenger.of(popupContext).showSnackBar(
+                        const SnackBar(content: Text('Content unlocked')),
+                      );
+                    }
+                  } else {
+                    await service.lockContent(widget.content.id);
+                    if (popupContext.mounted) {
+                      ScaffoldMessenger.of(popupContext).showSnackBar(
+                        const SnackBar(content: Text('Content locked')),
+                      );
+                    }
+                  }
+                });
+              },
+              child: Row(
+                children: [
+                  Icon(
+                    ParentalControlService().isContentLocked(widget.content.id)
+                        ? Icons.lock_open
+                        : Icons.lock,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    ParentalControlService().isContentLocked(widget.content.id)
+                        ? 'Unlock for Kids'
+                        : 'Lock for Kids',
                   ),
                 ],
               ),
