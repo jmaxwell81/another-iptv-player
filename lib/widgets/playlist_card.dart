@@ -1,4 +1,5 @@
 import 'package:another_iptv_player/l10n/localization_extension.dart';
+import 'package:another_iptv_player/utils/app_themes.dart';
 import 'package:flutter/material.dart';
 import '../../../../models/playlist_model.dart';
 import '../../utils/playlist_utils.dart';
@@ -18,12 +19,13 @@ class PlaylistCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: 2,
+      elevation: 0,
+      color: AppThemes.surfaceGrey,
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
@@ -75,18 +77,22 @@ class _PlaylistInfo extends StatelessWidget {
       children: [
         Text(
           playlist.name,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppThemes.textWhite,
+          ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 6),
         Row(
           children: [
             _TypeChip(type: playlist.type),
             const SizedBox(width: 8),
-            const Icon(Icons.access_time, size: 12, color: Colors.grey),
+            const Icon(Icons.access_time, size: 12, color: AppThemes.iconGrey),
             const SizedBox(width: 4),
             Text(
               PlaylistUtils.formatDate(playlist.createdAt),
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: const TextStyle(fontSize: 12, color: AppThemes.textGrey),
             ),
           ],
         ),
@@ -94,7 +100,7 @@ class _PlaylistInfo extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             playlist.url!,
-            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+            style: const TextStyle(fontSize: 11, color: AppThemes.iconGrey),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

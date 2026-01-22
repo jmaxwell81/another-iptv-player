@@ -150,13 +150,16 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
     }
   }
 
-  List<CategoryListItem> _buildOrderedList(CategoryType type) {
+  /// Build the full ordered list WITHOUT any filters applied
+  /// This is used to preserve order of hidden/filtered items when reordering
+  List<CategoryListItem> _buildFullOrderedList(CategoryType type) {
     final categories = _getCategoriesForType(type);
     final typeConfig = _config?.getConfigForType(type);
 
     List<CategoryListItem> allItems = [];
 
-    if (typeConfig == null) {
+    if (typeConfig == null || typeConfig.order.isEmpty) {
+      // No config or order - return all categories in their original order
       allItems = categories.map((c) => CategoryListItem(
         id: c.categoryId,
         displayName: c.categoryName.applyRenamingRules(isCategory: true, itemId: c.categoryId, playlistId: widget.playlistId),
@@ -183,7 +186,7 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
             displayName: mergeGroup.displayName,
             originalName: mergeGroup.displayName,
             isMerged: true,
-            isHidden: false, // Merged groups can't be hidden individually
+            isHidden: false,
             mergedCategoryIds: mergeGroup.categoryIds,
             mergedCategoryNames: mergedNames,
           ));
@@ -214,7 +217,14 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
       }
     }
 
-    // Apply filters
+    return allItems;
+  }
+
+  List<CategoryListItem> _buildOrderedList(CategoryType type) {
+    // Get the full unfiltered list first
+    final allItems = _buildFullOrderedList(type);
+
+    // Then apply filters
     return allItems.where((item) {
       // Filter by hidden/visible
       if (_showHiddenOnly && !item.isHidden) return false;
@@ -399,22 +409,51 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
   Future<void> _moveToPosition(String itemId, int currentIndex) async {
     final navigator = Navigator.of(context);
     final type = _getCurrentType();
-    final items = _buildOrderedList(type);
+    final filteredItems = _buildOrderedList(type);
+    final fullList = _buildFullOrderedList(type);
+    final fullOrder = fullList.map((item) => item.id).toList();
+
+    // Find current position in full list
+    final fullCurrentIndex = fullOrder.indexOf(itemId);
+    if (fullCurrentIndex == -1) return;
 
     final newPosition = await showDialog<int>(
       context: navigator.context,
       builder: (context) => _MoveToPositionDialog(
         currentPosition: currentIndex + 1,
-        totalItems: items.length,
+        totalItems: filteredItems.length,
       ),
     );
 
     if (newPosition != null && newPosition != currentIndex + 1) {
-      await CategoryConfigService().moveCategory(
+      // Find the target item in filtered list
+      final targetIndex = newPosition - 1;
+      final targetItemId = targetIndex < filteredItems.length
+          ? filteredItems[targetIndex].id
+          : null;
+
+      // Remove from current position in full list
+      fullOrder.removeAt(fullCurrentIndex);
+
+      // Find target position in full list
+      int targetFullIndex;
+      if (targetItemId != null) {
+        targetFullIndex = fullOrder.indexOf(targetItemId);
+        if (targetFullIndex == -1) {
+          targetFullIndex = fullOrder.length;
+        }
+      } else {
+        targetFullIndex = fullOrder.length;
+      }
+
+      // Insert at new position
+      fullOrder.insert(targetFullIndex, itemId);
+
+      // Save the complete new order
+      await CategoryConfigService().setOrder(
         playlistId: widget.playlistId,
         type: type,
-        itemId: itemId,
-        newIndex: newPosition - 1,
+        order: fullOrder,
       );
       await _loadData();
     }
@@ -663,12 +702,40 @@ class _CategoryConfigScreenState extends State<CategoryConfigScreen>
       itemCount: items.length,
       onReorder: (oldIndex, newIndex) async {
         if (newIndex > oldIndex) newIndex--;
-        final item = items[oldIndex];
-        await CategoryConfigService().moveCategory(
+        // Get the FULL unfiltered list to preserve order of hidden/filtered items
+        final fullList = _buildFullOrderedList(type);
+        final fullOrder = fullList.map((item) => item.id).toList();
+
+        // Find the items being moved in the filtered list
+        final movedItemId = items[oldIndex].id;
+        final targetItemId = newIndex < items.length ? items[newIndex].id : null;
+
+        // Find positions in the full list
+        final movedFullIndex = fullOrder.indexOf(movedItemId);
+        if (movedFullIndex == -1) return;
+
+        // Remove from current position
+        fullOrder.removeAt(movedFullIndex);
+
+        // Find the target position in the full list
+        int targetFullIndex;
+        if (targetItemId != null) {
+          targetFullIndex = fullOrder.indexOf(targetItemId);
+          if (targetFullIndex == -1) {
+            targetFullIndex = fullOrder.length;
+          }
+        } else {
+          targetFullIndex = fullOrder.length;
+        }
+
+        // Insert at new position
+        fullOrder.insert(targetFullIndex, movedItemId);
+
+        // Save the complete new order
+        await CategoryConfigService().setOrder(
           playlistId: widget.playlistId,
           type: type,
-          itemId: item.id,
-          newIndex: newIndex,
+          order: fullOrder,
         );
         await _loadData();
       },

@@ -155,8 +155,16 @@ class _VpnStatusWidgetState extends State<VpnStatusWidget> {
   }
 
   void _showStatusDetails(BuildContext context) {
+    // Use rootNavigator to handle cases where widget is in an overlay
+    final navigator = Navigator.maybeOf(context, rootNavigator: true);
+    if (navigator == null) {
+      // No navigator available, skip showing dialog
+      return;
+    }
+
     showDialog(
       context: context,
+      useRootNavigator: true,
       builder: (context) => AlertDialog(
         title: Row(
           children: [

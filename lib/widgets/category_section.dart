@@ -1,6 +1,8 @@
 import 'package:another_iptv_player/l10n/localization_extension.dart';
 import 'package:another_iptv_player/models/custom_rename.dart';
 import 'package:another_iptv_player/models/epg_program.dart';
+import 'package:another_iptv_player/services/parental_control_service.dart';
+import 'package:another_iptv_player/utils/app_themes.dart';
 import 'package:another_iptv_player/utils/renaming_extension.dart';
 import 'package:another_iptv_player/widgets/rename_dialog.dart';
 import 'package:flutter/material.dart';
@@ -79,13 +81,13 @@ class _CategorySectionState extends State<CategorySection> {
     final navigator = Navigator.of(context);
 
     return Container(
-      margin: EdgeInsets.only(bottom: 20),
+      margin: const EdgeInsets.only(bottom: 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -93,16 +95,19 @@ class _CategorySectionState extends State<CategorySection> {
                   child: Row(
                     children: [
                       Flexible(
-                        child: SelectableText(
+                        child: Text(
                           displayName,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
+                          style: const TextStyle(
+                            color: AppThemes.categoryGrey,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ),
                       if (widget.showContextMenu)
                         PopupMenuButton<String>(
-                          icon: const Icon(Icons.more_vert, size: 20),
+                          icon: const Icon(Icons.more_vert, size: 18, color: AppThemes.iconGrey),
                           padding: EdgeInsets.zero,
                           position: PopupMenuPosition.under,
                           itemBuilder: (popupContext) => [
@@ -152,6 +157,50 @@ class _CategorySectionState extends State<CategorySection> {
                                   ],
                                 ),
                               ),
+                            // Parental lock option for categories (only visible in parent mode)
+                            if (ParentalControlService().parentModeActive)
+                              PopupMenuItem<String>(
+                                value: 'parental_lock_category',
+                                onTap: () {
+                                  Future.delayed(Duration.zero, () async {
+                                    if (!mounted) return;
+                                    final service = ParentalControlService();
+                                    final categoryId = widget.category.category.categoryId;
+                                    final isLocked = service.isCategoryLocked(categoryId);
+                                    if (isLocked) {
+                                      await service.unlockCategory(categoryId);
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Category unlocked for kids')),
+                                        );
+                                      }
+                                    } else {
+                                      await service.lockCategory(categoryId);
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Category locked for kids')),
+                                        );
+                                      }
+                                    }
+                                  });
+                                },
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      ParentalControlService().isCategoryLocked(widget.category.category.categoryId)
+                                          ? Icons.lock_open
+                                          : Icons.lock,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      ParentalControlService().isCategoryLocked(widget.category.category.categoryId)
+                                          ? 'Unlock for Kids'
+                                          : 'Lock for Kids',
+                                    ),
+                                  ],
+                                ),
+                              ),
                           ],
                         ),
                     ],
@@ -159,9 +208,27 @@ class _CategorySectionState extends State<CategorySection> {
                 ),
                 TextButton(
                   onPressed: widget.onSeeAllTap,
-                  child: Text(
-                    context.loc.see_all,
-                    style: TextStyle(fontSize: 11),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        context.loc.see_all,
+                        style: const TextStyle(
+                          color: AppThemes.categoryGrey,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      const Icon(
+                        Icons.chevron_right,
+                        size: 16,
+                        color: AppThemes.categoryGrey,
+                      ),
+                    ],
                   ),
                 ),
               ],

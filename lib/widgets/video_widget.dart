@@ -7,6 +7,7 @@ import 'package:another_iptv_player/widgets/player-buttons/video_info_widget.dar
 import 'package:another_iptv_player/widgets/player-buttons/video_settings_widget.dart';
 import 'package:another_iptv_player/widgets/player-buttons/video_stream_to_network_widget.dart';
 import 'package:another_iptv_player/widgets/player-buttons/video_title_widget.dart';
+import 'package:another_iptv_player/widgets/timeshift_controls.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
@@ -83,7 +84,10 @@ class _VideoWidgetState extends State<VideoWidget> {
             VideoFavoriteWidget(),
             VideoSettingsWidget(),
           ],
-          bottomButtonBar: const [MaterialPositionIndicator()],
+          bottomButtonBar: const [
+            TimeshiftIndicator(),
+            Expanded(child: MaterialPositionIndicator()),
+          ],
         ),
         fullscreen: MaterialVideoControlsThemeData().copyWith(
           brightnessGesture: _brightnessGesture,
@@ -103,6 +107,10 @@ class _VideoWidgetState extends State<VideoWidget> {
             VideoSettingsWidget(),
           ],
           seekBarMargin: EdgeInsets.fromLTRB(0, 0, 0, 10),
+          bottomButtonBar: const [
+            TimeshiftIndicator(),
+            Expanded(child: MaterialPositionIndicator()),
+          ],
         ),
         child: Scaffold(
           body: Video(
@@ -132,6 +140,10 @@ class _VideoWidgetState extends State<VideoWidget> {
               VideoStreamToNetworkWidget(),
               VideoSettingsWidget(),
             ],
+            bottomButtonBar: const [
+              TimeshiftIndicator(),
+              SizedBox(width: 8),
+            ],
           ),
           fullscreen: MaterialDesktopVideoControlsThemeData().copyWith(
             modifyVolumeOnScroll: false,
@@ -147,6 +159,10 @@ class _VideoWidgetState extends State<VideoWidget> {
               VideoFavoriteWidget(),
               VideoStreamToNetworkWidget(),
               VideoSettingsWidget(),
+            ],
+            bottomButtonBar: const [
+              TimeshiftIndicator(),
+              SizedBox(width: 8),
             ],
           ),
           child: Scaffold(

@@ -12,6 +12,7 @@ import 'package:another_iptv_player/utils/navigate_by_content_type.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
 import 'package:another_iptv_player/models/content_type.dart';
 import 'package:another_iptv_player/widgets/tv_guide/tv_guide_program_cell.dart';
+import 'package:another_iptv_player/widgets/player_widget.dart';
 
 class TvGuideScreen extends StatefulWidget {
   const TvGuideScreen({super.key});
@@ -35,6 +36,7 @@ class _TvGuideScreenState extends State<TvGuideScreen> {
   bool _autoPreview = true;
   TvGuideChannel? _selectedChannel;
   EpgProgram? _selectedProgram;
+  Key? _playerKey; // Key to force player recreation when channel changes
 
   @override
   void initState() {
@@ -201,6 +203,7 @@ class _TvGuideScreenState extends State<TvGuideScreen> {
               if (!_autoPreview) {
                 _selectedChannel = null;
                 _selectedProgram = null;
+                _playerKey = null;
               }
             });
           },
@@ -284,6 +287,18 @@ class _TvGuideScreenState extends State<TvGuideScreen> {
     final channel = _selectedChannel!;
     final program = _selectedProgram ?? channel.currentProgram;
 
+    // Create ContentItem from TvGuideChannel for player
+    final contentItem = ContentItem(
+      channel.streamId,
+      channel.name,
+      channel.icon ?? '',
+      ContentType.liveStream,
+      liveStream: channel.liveStream,
+      m3uItem: channel.m3uItem,
+      sourcePlaylistId: channel.playlistId,
+      sourceType: channel.sourceType,
+    );
+
     return Container(
       height: _previewPanelHeight,
       decoration: BoxDecoration(
@@ -292,34 +307,22 @@ class _TvGuideScreenState extends State<TvGuideScreen> {
       ),
       child: Row(
         children: [
-          // Preview video placeholder/player
+          // Preview video player
           AspectRatio(
             aspectRatio: 16 / 9,
             child: Container(
               color: Colors.black,
               child: Stack(
                 children: [
-                  // Channel logo as placeholder
-                  Center(
-                    child: channel.icon != null && channel.icon!.isNotEmpty
-                        ? CachedNetworkImage(
-                            imageUrl: channel.icon!,
-                            width: 80,
-                            height: 80,
-                            fit: BoxFit.contain,
-                            errorWidget: (context, url, error) => Icon(
-                              Icons.tv,
-                              size: 48,
-                              color: theme.colorScheme.onSurface.withOpacity(0.5),
-                            ),
-                          )
-                        : Icon(
-                            Icons.tv,
-                            size: 48,
-                            color: theme.colorScheme.onSurface.withOpacity(0.5),
-                          ),
-                  ),
-                  // Live indicator
+                  // Actual video player
+                  if (_playerKey != null)
+                    PlayerWidget(
+                      key: _playerKey,
+                      contentItem: contentItem,
+                      showControls: false,
+                      showInfo: false,
+                    ),
+                  // Live indicator overlay
                   if (program?.isLive == true)
                     Positioned(
                       top: 8,
@@ -435,6 +438,7 @@ class _TvGuideScreenState extends State<TvGuideScreen> {
                           setState(() {
                             _selectedChannel = null;
                             _selectedProgram = null;
+                            _playerKey = null;
                           });
                         },
                         child: const Text('Close'),
@@ -451,6 +455,13 @@ class _TvGuideScreenState extends State<TvGuideScreen> {
   }
 
   void _watchChannel(BuildContext context, TvGuideChannel channel) {
+    // Stop preview player before navigating to full screen
+    setState(() {
+      _selectedChannel = null;
+      _selectedProgram = null;
+      _playerKey = null;
+    });
+
     final contentItem = ContentItem(
       channel.streamId,
       channel.name,
@@ -883,10 +894,11 @@ class _TvGuideScreenState extends State<TvGuideScreen> {
 
   void _onChannelTap(BuildContext context, TvGuideChannel channel) {
     if (_autoPreview) {
-      // Update preview
+      // Update preview and create new player key to force recreation
       setState(() {
         _selectedChannel = channel;
         _selectedProgram = channel.currentProgram;
+        _playerKey = ValueKey('${channel.streamId}_${DateTime.now().millisecondsSinceEpoch}');
       });
     } else {
       // Navigate directly to the channel
@@ -896,10 +908,11 @@ class _TvGuideScreenState extends State<TvGuideScreen> {
 
   void _onProgramTap(BuildContext context, TvGuideChannel channel, EpgProgram program) {
     if (_autoPreview) {
-      // Update preview with specific program
+      // Update preview and create new player key to force recreation
       setState(() {
         _selectedChannel = channel;
         _selectedProgram = program;
+        _playerKey = ValueKey('${channel.streamId}_${DateTime.now().millisecondsSinceEpoch}');
       });
     } else {
       // Navigate directly to the channel

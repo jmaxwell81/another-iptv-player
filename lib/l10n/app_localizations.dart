@@ -1829,6 +1829,606 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Failed to fetch EPG data'**
   String get epg_fetch_error;
+
+  /// No description provided for @votes.
+  ///
+  /// In en, this message translates to:
+  /// **'votes'**
+  String get votes;
+
+  /// No description provided for @similar_content.
+  ///
+  /// In en, this message translates to:
+  /// **'Similar Content'**
+  String get similar_content;
+
+  /// No description provided for @similar_content_available.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} similar titles found'**
+  String similar_content_available(Object count);
+
+  /// No description provided for @keywords.
+  ///
+  /// In en, this message translates to:
+  /// **'Keywords'**
+  String get keywords;
+
+  /// No description provided for @tmdb_rating.
+  ///
+  /// In en, this message translates to:
+  /// **'TMDB Rating'**
+  String get tmdb_rating;
+
+  /// No description provided for @external_services.
+  ///
+  /// In en, this message translates to:
+  /// **'External Services'**
+  String get external_services;
+
+  /// No description provided for @opensubtitles_api_key.
+  ///
+  /// In en, this message translates to:
+  /// **'OpenSubtitles API Key'**
+  String get opensubtitles_api_key;
+
+  /// No description provided for @tmdb_api_key.
+  ///
+  /// In en, this message translates to:
+  /// **'TMDB API Key'**
+  String get tmdb_api_key;
+
+  /// No description provided for @api_key_not_set.
+  ///
+  /// In en, this message translates to:
+  /// **'Not configured'**
+  String get api_key_not_set;
+
+  /// No description provided for @api_key_configured.
+  ///
+  /// In en, this message translates to:
+  /// **'Configured'**
+  String get api_key_configured;
+
+  /// No description provided for @enter_api_key.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter API Key'**
+  String get enter_api_key;
+
+  /// No description provided for @api_key_saved.
+  ///
+  /// In en, this message translates to:
+  /// **'API key saved'**
+  String get api_key_saved;
+
+  /// No description provided for @preferred_subtitle_language.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferred Subtitle Language'**
+  String get preferred_subtitle_language;
+
+  /// No description provided for @auto_download_subtitles.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-download Subtitles'**
+  String get auto_download_subtitles;
+
+  /// No description provided for @auto_download_subtitles_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically download subtitles when playing content'**
+  String get auto_download_subtitles_desc;
+
+  /// No description provided for @available_sources.
+  ///
+  /// In en, this message translates to:
+  /// **'Available Sources'**
+  String get available_sources;
+
+  /// No description provided for @recommended.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended'**
+  String get recommended;
+
+  /// No description provided for @source_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} sources'**
+  String source_count(int count);
+
+  /// No description provided for @consolidation_settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Content Consolidation'**
+  String get consolidation_settings;
+
+  /// No description provided for @enable_consolidation.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Consolidation'**
+  String get enable_consolidation;
+
+  /// No description provided for @enable_consolidation_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Merge duplicate content from multiple sources'**
+  String get enable_consolidation_desc;
+
+  /// No description provided for @preferred_quality.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferred Quality'**
+  String get preferred_quality;
+
+  /// No description provided for @preferred_language.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferred Language'**
+  String get preferred_language;
+
+  /// No description provided for @quality_4k.
+  ///
+  /// In en, this message translates to:
+  /// **'4K / UHD'**
+  String get quality_4k;
+
+  /// No description provided for @quality_1080p.
+  ///
+  /// In en, this message translates to:
+  /// **'1080p / Full HD'**
+  String get quality_1080p;
+
+  /// No description provided for @quality_720p.
+  ///
+  /// In en, this message translates to:
+  /// **'720p / HD'**
+  String get quality_720p;
+
+  /// No description provided for @quality_sd.
+  ///
+  /// In en, this message translates to:
+  /// **'SD'**
+  String get quality_sd;
+
+  /// No description provided for @content_filters.
+  ///
+  /// In en, this message translates to:
+  /// **'Content Filters'**
+  String get content_filters;
+
+  /// No description provided for @language_filter.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get language_filter;
+
+  /// No description provided for @filter_rules.
+  ///
+  /// In en, this message translates to:
+  /// **'Rules'**
+  String get filter_rules;
+
+  /// No description provided for @tag_mappings.
+  ///
+  /// In en, this message translates to:
+  /// **'Mappings'**
+  String get tag_mappings;
+
+  /// No description provided for @enable_language_filter.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Language Filter'**
+  String get enable_language_filter;
+
+  /// No description provided for @enable_language_filter_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Show only content matching your preferred languages'**
+  String get enable_language_filter_desc;
+
+  /// No description provided for @hide_unknown_language.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide Unknown Language'**
+  String get hide_unknown_language;
+
+  /// No description provided for @hide_unknown_language_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide content with no detected language tag'**
+  String get hide_unknown_language_desc;
+
+  /// No description provided for @preferred_languages.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferred Languages'**
+  String get preferred_languages;
+
+  /// No description provided for @preferred_languages_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Select the languages you want to see'**
+  String get preferred_languages_desc;
+
+  /// No description provided for @matching_tags.
+  ///
+  /// In en, this message translates to:
+  /// **'Matching Tags'**
+  String get matching_tags;
+
+  /// No description provided for @add_filter_rule.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Filter Rule'**
+  String get add_filter_rule;
+
+  /// No description provided for @edit_filter_rule.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Filter Rule'**
+  String get edit_filter_rule;
+
+  /// No description provided for @no_filter_rules.
+  ///
+  /// In en, this message translates to:
+  /// **'No Filter Rules'**
+  String get no_filter_rules;
+
+  /// No description provided for @no_filter_rules_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Add rules to hide or show content based on name patterns'**
+  String get no_filter_rules_desc;
+
+  /// No description provided for @pattern.
+  ///
+  /// In en, this message translates to:
+  /// **'Pattern'**
+  String get pattern;
+
+  /// No description provided for @pattern_regex_help.
+  ///
+  /// In en, this message translates to:
+  /// **'Use regular expressions for advanced matching'**
+  String get pattern_regex_help;
+
+  /// No description provided for @pattern_wildcard_help.
+  ///
+  /// In en, this message translates to:
+  /// **'Use * as wildcard (e.g., *spanish*)'**
+  String get pattern_wildcard_help;
+
+  /// No description provided for @use_regex.
+  ///
+  /// In en, this message translates to:
+  /// **'Use Regular Expression'**
+  String get use_regex;
+
+  /// No description provided for @use_regex_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable regex pattern matching'**
+  String get use_regex_desc;
+
+  /// No description provided for @hide_matching.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide Matching'**
+  String get hide_matching;
+
+  /// No description provided for @hide_matching_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide items that match this pattern'**
+  String get hide_matching_desc;
+
+  /// No description provided for @show_only_matching_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Show only items that match this pattern'**
+  String get show_only_matching_desc;
+
+  /// No description provided for @apply_to.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply To'**
+  String get apply_to;
+
+  /// No description provided for @content_items.
+  ///
+  /// In en, this message translates to:
+  /// **'Content Items'**
+  String get content_items;
+
+  /// No description provided for @category_names.
+  ///
+  /// In en, this message translates to:
+  /// **'Category Names'**
+  String get category_names;
+
+  /// No description provided for @save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get save;
+
+  /// No description provided for @edit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get edit;
+
+  /// No description provided for @search_mappings.
+  ///
+  /// In en, this message translates to:
+  /// **'Search mappings...'**
+  String get search_mappings;
+
+  /// No description provided for @add.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get add;
+
+  /// No description provided for @add_tag_mapping.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Tag Mapping'**
+  String get add_tag_mapping;
+
+  /// No description provided for @tag.
+  ///
+  /// In en, this message translates to:
+  /// **'Tag'**
+  String get tag;
+
+  /// No description provided for @language.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get language;
+
+  /// No description provided for @bulk_hide_content.
+  ///
+  /// In en, this message translates to:
+  /// **'Bulk Hide Content'**
+  String get bulk_hide_content;
+
+  /// No description provided for @hide_selected.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide Selected'**
+  String get hide_selected;
+
+  /// No description provided for @show_only_selected.
+  ///
+  /// In en, this message translates to:
+  /// **'Show Only Selected'**
+  String get show_only_selected;
+
+  /// No description provided for @apply_to_all_categories.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply to All Categories'**
+  String get apply_to_all_categories;
+
+  /// No description provided for @items_matching.
+  ///
+  /// In en, this message translates to:
+  /// **'items matching'**
+  String get items_matching;
+
+  /// No description provided for @enter_pattern_to_search.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a pattern to search'**
+  String get enter_pattern_to_search;
+
+  /// No description provided for @no_matches_found.
+  ///
+  /// In en, this message translates to:
+  /// **'No matches found'**
+  String get no_matches_found;
+
+  /// No description provided for @hide_count.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide {count}'**
+  String hide_count(int count);
+
+  /// No description provided for @create_filter.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Filter'**
+  String get create_filter;
+
+  /// No description provided for @quick_hide_pattern.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick Hide by Pattern'**
+  String get quick_hide_pattern;
+
+  /// No description provided for @hide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide'**
+  String get hide;
+
+  /// No description provided for @custom_categories.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom Categories'**
+  String get custom_categories;
+
+  /// No description provided for @custom_categories_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Create your own categories to organize content'**
+  String get custom_categories_desc;
+
+  /// No description provided for @no_custom_categories.
+  ///
+  /// In en, this message translates to:
+  /// **'No Custom Categories'**
+  String get no_custom_categories;
+
+  /// No description provided for @create_category.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Category'**
+  String get create_category;
+
+  /// No description provided for @edit_category.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Category'**
+  String get edit_category;
+
+  /// No description provided for @delete_category.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Category'**
+  String get delete_category;
+
+  /// No description provided for @delete_category_confirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete \"{name}\"? This will remove {count} items from this category.'**
+  String delete_category_confirm(String name, int count);
+
+  /// No description provided for @category_name.
+  ///
+  /// In en, this message translates to:
+  /// **'Category Name'**
+  String get category_name;
+
+  /// No description provided for @icon.
+  ///
+  /// In en, this message translates to:
+  /// **'Icon'**
+  String get icon;
+
+  /// No description provided for @content_type_filter.
+  ///
+  /// In en, this message translates to:
+  /// **'Content Type'**
+  String get content_type_filter;
+
+  /// No description provided for @view_items.
+  ///
+  /// In en, this message translates to:
+  /// **'View Items'**
+  String get view_items;
+
+  /// No description provided for @items.
+  ///
+  /// In en, this message translates to:
+  /// **'items'**
+  String get items;
+
+  /// No description provided for @no_items_in_category.
+  ///
+  /// In en, this message translates to:
+  /// **'No items in this category'**
+  String get no_items_in_category;
+
+  /// No description provided for @create.
+  ///
+  /// In en, this message translates to:
+  /// **'Create'**
+  String get create;
+
+  /// No description provided for @bulk_move_items.
+  ///
+  /// In en, this message translates to:
+  /// **'Bulk Move Items'**
+  String get bulk_move_items;
+
+  /// No description provided for @search_pattern.
+  ///
+  /// In en, this message translates to:
+  /// **'Search Pattern'**
+  String get search_pattern;
+
+  /// No description provided for @search_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by category or item name...'**
+  String get search_hint;
+
+  /// No description provided for @search_by_category.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by Category'**
+  String get search_by_category;
+
+  /// No description provided for @search_by_name.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by Name'**
+  String get search_by_name;
+
+  /// No description provided for @items_found.
+  ///
+  /// In en, this message translates to:
+  /// **'items found'**
+  String get items_found;
+
+  /// No description provided for @enter_search_pattern.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a search pattern to find items'**
+  String get enter_search_pattern;
+
+  /// No description provided for @name_matches.
+  ///
+  /// In en, this message translates to:
+  /// **'Name Matches'**
+  String get name_matches;
+
+  /// No description provided for @move_to_category.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to Category'**
+  String get move_to_category;
+
+  /// No description provided for @new_category.
+  ///
+  /// In en, this message translates to:
+  /// **'New Category'**
+  String get new_category;
+
+  /// No description provided for @new_category_name.
+  ///
+  /// In en, this message translates to:
+  /// **'New Category Name'**
+  String get new_category_name;
+
+  /// No description provided for @select_category.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a category'**
+  String get select_category;
+
+  /// No description provided for @move_count.
+  ///
+  /// In en, this message translates to:
+  /// **'Move {count} items'**
+  String move_count(int count);
+
+  /// No description provided for @bulk_add_items.
+  ///
+  /// In en, this message translates to:
+  /// **'Bulk Add Items'**
+  String get bulk_add_items;
+
+  /// No description provided for @no_content_loaded.
+  ///
+  /// In en, this message translates to:
+  /// **'No content available. Please load a playlist first.'**
+  String get no_content_loaded;
 }
 
 class _AppLocalizationsDelegate

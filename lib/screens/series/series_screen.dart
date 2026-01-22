@@ -1,21 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:another_iptv_player/database/database.dart';
 import 'package:another_iptv_player/models/api_configuration_model.dart';
+import 'package:another_iptv_player/models/consolidated_content_item.dart';
+import 'package:another_iptv_player/models/content_source_link.dart';
 import 'package:another_iptv_player/models/content_type.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
 import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/repositories/iptv_repository.dart';
 import 'package:another_iptv_player/l10n/localization_extension.dart';
+import 'package:another_iptv_player/widgets/source_selection_widget.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:another_iptv_player/services/watch_history_service.dart';
 import 'package:another_iptv_player/utils/renaming_extension.dart';
+import 'package:another_iptv_player/widgets/tmdb_details_widget.dart';
 import '../../../controllers/favorites_controller.dart';
 import 'episode_screen.dart';
 
 class SeriesScreen extends StatefulWidget {
   final ContentItem contentItem;
 
-  const SeriesScreen({super.key, required this.contentItem});
+  /// Optional consolidated item for multi-source content
+  final ConsolidatedContentItem? consolidatedItem;
+
+  const SeriesScreen({
+    super.key,
+    required this.contentItem,
+    this.consolidatedItem,
+  });
 
   @override
   State<SeriesScreen> createState() => _SeriesScreenState();
@@ -36,6 +47,21 @@ class _SeriesScreenState extends State<SeriesScreen> {
   // Last opened episode for this series (for Continue Watching button)
   EpisodesData? _lastOpenedEpisode;
 
+  /// Currently selected source for multi-source content
+  ContentSourceLink? _selectedSource;
+
+  /// The actual content item to use (may change when source changes)
+  late ContentItem _activeContentItem;
+
+  /// Whether this item has multiple sources available
+  bool get _hasMultipleSources =>
+      widget.consolidatedItem != null &&
+      widget.consolidatedItem!.hasMultipleSources;
+
+  /// Get available sources
+  List<ContentSourceLink> get _availableSources =>
+      widget.consolidatedItem?.sourceLinks ?? [];
+
   // Helper to get playlist ID
   String get _playlistId =>
       widget.contentItem.sourcePlaylistId ??
@@ -52,11 +78,37 @@ class _SeriesScreenState extends State<SeriesScreen> {
   @override
   void initState() {
     super.initState();
+
+    // Initialize active content item and selected source
+    _activeContentItem = widget.contentItem;
+    if (widget.consolidatedItem != null) {
+      _selectedSource = widget.consolidatedItem!.preferredSource;
+      if (_selectedSource != null) {
+        _activeContentItem = widget.consolidatedItem!.toContentItemWithSource(_selectedSource!);
+      }
+    }
+
     _initializeRepository();
     _favoritesController = FavoritesController();
     _watchHistoryService = WatchHistoryService();
     _loadSeriesDetails();
     _checkFavoriteStatus();
+  }
+
+  /// Handle source selection change
+  void _onSourceSelected(ContentSourceLink source) {
+    if (source == _selectedSource) return;
+
+    setState(() {
+      _selectedSource = source;
+      if (widget.consolidatedItem != null) {
+        _activeContentItem = widget.consolidatedItem!.toContentItemWithSource(source);
+      }
+    });
+
+    // Reinitialize repository for new source and reload details
+    _initializeRepository();
+    _loadSeriesDetails();
   }
 
   void _initializeRepository() {
@@ -400,10 +452,55 @@ class _SeriesScreenState extends State<SeriesScreen> {
           // Dizi Bilgileri
           _buildSeriesDetails(),
 
+          const SizedBox(height: 24),
+
+          // TMDB Enhanced Details
+          TmdbDetailsWidget(
+            contentId: widget.contentItem.id,
+            playlistId: _playlistId,
+            contentType: 'series',
+            title: _displayName,
+            year: _extractYear(),
+          ),
+
+          // Source Selection (for multi-source content)
+          if (_hasMultipleSources) ...[
+            const SizedBox(height: 24),
+            _buildSourceSelectionSection(context),
+          ],
+
           const SizedBox(height: 40),
         ],
       ),
     );
+  }
+
+  /// Build the source selection section for multi-source content
+  Widget _buildSourceSelectionSection(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+      ),
+      child: SourceSelectionWidget(
+        sources: _availableSources,
+        selectedSource: _selectedSource,
+        onSourceSelected: _onSourceSelected,
+      ),
+    );
+  }
+
+  int? _extractYear() {
+    final releaseDate = seriesInfo?.releaseDate ?? widget.contentItem.seriesStream?.releaseDate;
+    if (releaseDate != null && releaseDate.isNotEmpty) {
+      final yearMatch = RegExp(r'(\d{4})').firstMatch(releaseDate);
+      if (yearMatch != null) {
+        return int.tryParse(yearMatch.group(1)!);
+      }
+    }
+    return null;
   }
 
   /// Builds the "Continue: S x Episode y" pill button shown on the series page.

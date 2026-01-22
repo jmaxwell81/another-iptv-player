@@ -14,9 +14,11 @@ import 'package:another_iptv_player/screens/settings/general_settings_section.da
 import 'package:another_iptv_player/screens/tv_guide/tv_guide_screen.dart';
 import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/repositories/user_preferences.dart';
+import 'package:another_iptv_player/utils/app_themes.dart';
 import 'package:another_iptv_player/utils/navigate_by_content_type.dart';
 import 'package:another_iptv_player/utils/responsive_helper.dart';
 import 'package:another_iptv_player/widgets/category_section.dart';
+import 'package:another_iptv_player/widgets/global_search_delegate.dart';
 
 /// Home screen for combined/unified mode showing content from multiple playlists
 class UnifiedHomeScreen extends StatefulWidget {
@@ -137,7 +139,7 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
     final items = _getNavigationItems(context);
     return Container(
       width: 80,
-      color: Theme.of(context).colorScheme.surface,
+      color: AppThemes.netflixBlack,
       child: Column(
         children: [
           const SizedBox(height: 16),
@@ -145,36 +147,11 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
             final index = entry.key;
             final item = entry.value;
             final isSelected = controller.currentIndex == index;
-            return InkWell(
+            return _DesktopNavItem(
+              icon: item['icon'] as IconData,
+              label: item['label'] as String,
+              isSelected: isSelected,
               onTap: () => controller.onNavigationTap(index),
-              child: Container(
-                height: 60,
-                width: double.infinity,
-                color: isSelected
-                    ? Theme.of(context).colorScheme.primaryContainer
-                    : Colors.transparent,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      item['icon'] as IconData,
-                      color: isSelected
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.onSurface,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item['label'] as String,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: isSelected
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             );
           }).toList(),
         ],
@@ -195,19 +172,33 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
   }
 
   Widget _buildBottomNavigationBar(BuildContext context, UnifiedHomeController controller) {
-    return BottomNavigationBar(
-      currentIndex: controller.currentIndex,
-      onTap: controller.onNavigationTap,
-      type: BottomNavigationBarType.fixed,
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
-        BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'Favorites'),
-        BottomNavigationBarItem(icon: Icon(Icons.live_tv), label: 'Live'),
-        BottomNavigationBarItem(icon: Icon(Icons.calendar_view_day), label: 'TV Guide'),
-        BottomNavigationBarItem(icon: Icon(Icons.movie), label: 'Movies'),
-        BottomNavigationBarItem(icon: Icon(Icons.tv), label: 'Series'),
-        BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
-      ],
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppThemes.netflixBlack,
+        border: Border(
+          top: BorderSide(color: AppThemes.dividerGrey, width: 0.5),
+        ),
+      ),
+      child: BottomNavigationBar(
+        currentIndex: controller.currentIndex,
+        onTap: controller.onNavigationTap,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        selectedItemColor: AppThemes.textWhite,
+        unselectedItemColor: AppThemes.iconGrey,
+        selectedFontSize: 11,
+        unselectedFontSize: 11,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
+          BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'Favorites'),
+          BottomNavigationBarItem(icon: Icon(Icons.live_tv), label: 'Live'),
+          BottomNavigationBarItem(icon: Icon(Icons.calendar_view_day), label: 'TV Guide'),
+          BottomNavigationBarItem(icon: Icon(Icons.movie), label: 'Movies'),
+          BottomNavigationBarItem(icon: Icon(Icons.tv), label: 'Series'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
+        ],
+      ),
     );
   }
 
@@ -301,6 +292,12 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
         title: Text(title),
         elevation: 0,
         actions: [
+          // Global search button
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () => _showGlobalSearch(context, controller),
+            tooltip: 'Search',
+          ),
           // Source filter button
           IconButton(
             icon: Badge(
@@ -493,6 +490,25 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
     return ContentType.toCategoryType(contentType);
   }
 
+  /// Show global search dialog
+  void _showGlobalSearch(BuildContext context, UnifiedHomeController controller) {
+    showSearch(
+      context: context,
+      delegate: GlobalSearchDelegate(
+        onResultSelected: (result) {
+          // Navigate to the appropriate panel
+          controller.onNavigationTap(result.panelIndex);
+          // Play the selected content
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (context.mounted) {
+              navigateByContentType(context, result.item);
+            }
+          });
+        },
+      ),
+    );
+  }
+
   /// Show bottom sheet for source filtering
   void _showSourceFilterSheet(
     BuildContext context,
@@ -582,6 +598,76 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
           },
         );
       },
+    );
+  }
+}
+
+/// Desktop navigation item with hover effects
+class _DesktopNavItem extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _DesktopNavItem({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  State<_DesktopNavItem> createState() => _DesktopNavItemState();
+}
+
+class _DesktopNavItemState extends State<_DesktopNavItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: InkWell(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          height: 64,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: widget.isSelected
+                ? Colors.white.withOpacity(0.1)
+                : _isHovered
+                    ? Colors.white.withOpacity(0.05)
+                    : Colors.transparent,
+            border: Border(
+              left: BorderSide(
+                color: widget.isSelected ? AppThemes.accentRed : Colors.transparent,
+                width: 3,
+              ),
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                widget.icon,
+                color: widget.isSelected ? AppThemes.textWhite : AppThemes.iconGrey,
+                size: 22,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: widget.isSelected ? FontWeight.w600 : FontWeight.w400,
+                  color: widget.isSelected ? AppThemes.textWhite : AppThemes.iconGrey,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

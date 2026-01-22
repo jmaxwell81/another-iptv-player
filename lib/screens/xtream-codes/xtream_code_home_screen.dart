@@ -1,5 +1,6 @@
 import 'package:another_iptv_player/l10n/localization_extension.dart';
 import 'package:another_iptv_player/screens/search_screen.dart';
+import 'package:another_iptv_player/utils/app_themes.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:another_iptv_player/controllers/xtream_code_home_controller.dart';
@@ -13,15 +14,20 @@ import 'package:another_iptv_player/screens/watch_history_screen.dart';
 import 'package:another_iptv_player/screens/favorites/favorites_screen.dart';
 import 'package:another_iptv_player/screens/tv_guide/tv_guide_screen.dart';
 import 'package:another_iptv_player/services/app_state.dart';
+import 'package:another_iptv_player/services/pip_manager.dart';
 import 'package:another_iptv_player/utils/navigate_by_content_type.dart';
 import 'package:another_iptv_player/utils/responsive_helper.dart';
 import 'package:another_iptv_player/widgets/category_section.dart';
+import 'package:another_iptv_player/widgets/global_search_delegate.dart';
+import 'package:another_iptv_player/widgets/live_stream_preview_widget.dart';
+import 'package:another_iptv_player/widgets/pip_overlay_widget.dart';
 import 'package:another_iptv_player/controllers/favorites_controller.dart';
 import 'package:another_iptv_player/controllers/hidden_items_controller.dart';
 import 'package:another_iptv_player/models/favorite.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
 import 'package:uuid/uuid.dart';
 import '../../models/content_type.dart';
+import '../../services/event_bus.dart';
 
 class XtreamCodeHomeScreen extends StatefulWidget {
   final Playlist playlist;
@@ -48,6 +54,11 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
   static const double _largeFontSize = 11.0;
   int? _hoveredIndex;
 
+  // Preview state
+  ContentItem? _previewItem;
+  final PipManager _pipManager = PipManager();
+  int _lastIndex = 2; // Track last index for navigation events
+
   @override
   void initState() {
     super.initState();
@@ -56,10 +67,42 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
     _favoritesController.loadFavorites();
     _hiddenItemsController = HiddenItemsController();
     _hiddenItemsController.loadHiddenItems();
+    // Listen for controller changes to emit navigation events
+    _controller.addListener(_onControllerChanged);
+  }
+
+  void _onControllerChanged() {
+    if (_controller.currentIndex != _lastIndex) {
+      _lastIndex = _controller.currentIndex;
+      // Emit navigation event for PiP handling
+      EventBus().emit('navigation_change', _indexToScreenName(_controller.currentIndex));
+    }
+  }
+
+  String _indexToScreenName(int index) {
+    switch (index) {
+      case 0:
+        return 'history';
+      case 1:
+        return 'favorites';
+      case 2:
+        return 'live_streams';
+      case 3:
+        return 'tv_guide';
+      case 4:
+        return 'movies';
+      case 5:
+        return 'series';
+      case 6:
+        return 'settings';
+      default:
+        return 'unknown';
+    }
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_onControllerChanged);
     _controller.dispose();
     _favoritesController.dispose();
     _hiddenItemsController.dispose();
@@ -228,17 +271,57 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
     FavoritesController favoritesController,
     HiddenItemsController hiddenItemsController,
   ) {
+    final isLiveStreamPage = contentType == ContentType.liveStream;
+
     return Scaffold(
       appBar: _buildAppBar(context, controller, contentType),
-      body: _buildCategoryList(
-        categories,
-        contentType,
-        favoriteStreamIds,
-        hiddenStreamIds,
-        favoritesController,
-        hiddenItemsController,
+      body: Stack(
+        children: [
+          Column(
+            children: [
+              // Live stream preview panel (only for live streams page on desktop)
+              if (isLiveStreamPage && ResponsiveHelper.isDesktopOrTV(context))
+                LiveStreamPreviewWidget(
+                  height: 220,
+                  onPreviewStarted: () {
+                    // Preview started
+                  },
+                  onPreviewClosed: () {
+                    setState(() => _previewItem = null);
+                  },
+                ),
+              // Main category list
+              Expanded(
+                child: _buildCategoryList(
+                  categories,
+                  contentType,
+                  favoriteStreamIds,
+                  hiddenStreamIds,
+                  favoritesController,
+                  hiddenItemsController,
+                ),
+              ),
+            ],
+          ),
+          // PiP overlay (shows when navigating away from preview source)
+          if (!isLiveStreamPage)
+            PipOverlayWidget(
+              currentScreen: _getScreenName(contentType),
+            ),
+        ],
       ),
     );
+  }
+
+  String _getScreenName(ContentType contentType) {
+    switch (contentType) {
+      case ContentType.liveStream:
+        return 'live_streams';
+      case ContentType.vod:
+        return 'movies';
+      case ContentType.series:
+        return 'series';
+    }
   }
 
   AppBar _buildAppBar(
@@ -262,7 +345,8 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
       actions: [
         IconButton(
           icon: const Icon(Icons.search),
-          onPressed: () => _navigateToSearch(context, contentType),
+          tooltip: 'Search',
+          onPressed: () => _showGlobalSearch(context),
         ),
       ],
     );
@@ -293,7 +377,8 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
       actions: [
         IconButton(
           icon: const Icon(Icons.search),
-          onPressed: () => _navigateToSearch(context, contentType),
+          tooltip: 'Search',
+          onPressed: () => _showGlobalSearch(context),
         ),
       ],
     );
@@ -304,6 +389,24 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
       context,
       MaterialPageRoute(
         builder: (context) => SearchScreen(contentType: contentType),
+      ),
+    );
+  }
+
+  void _showGlobalSearch(BuildContext context) {
+    showSearch(
+      context: context,
+      delegate: GlobalSearchDelegate(
+        onResultSelected: (result) {
+          // Navigate to the appropriate panel
+          _controller.onNavigationTap(result.panelIndex);
+          // Play the selected content
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (context.mounted) {
+              navigateByContentType(context, result.item);
+            }
+          });
+        },
       ),
     );
   }
@@ -452,15 +555,29 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
     );
   }
 
-  BottomNavigationBar _buildBottomNavigationBar(
+  Widget _buildBottomNavigationBar(
     BuildContext context,
     XtreamCodeHomeController controller,
   ) {
-    return BottomNavigationBar(
-      currentIndex: controller.currentIndex,
-      onTap: controller.onNavigationTap,
-      type: BottomNavigationBarType.fixed,
-      items: _buildBottomNavigationItems(context),
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppThemes.netflixBlack,
+        border: Border(
+          top: BorderSide(color: AppThemes.dividerGrey, width: 0.5),
+        ),
+      ),
+      child: BottomNavigationBar(
+        currentIndex: controller.currentIndex,
+        onTap: controller.onNavigationTap,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        selectedItemColor: AppThemes.textWhite,
+        unselectedItemColor: AppThemes.iconGrey,
+        selectedFontSize: 11,
+        unselectedFontSize: 11,
+        items: _buildBottomNavigationItems(context),
+      ),
     );
   }
 
@@ -518,53 +635,20 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
     NavigationSizes sizes,
     VoidCallback onTap,
   ) {
-    return Focus(
-      onFocusChange: (hasFocus) {
-        setState(() => _hoveredIndex = hasFocus ? item.index : null);
-      },
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: double.infinity,
-          height: sizes.itemHeight,
-          margin: const EdgeInsets.symmetric(vertical: 2),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? Theme.of(context).colorScheme.primaryContainer
-                : (_hoveredIndex == item.index
-                      ? Colors.grey.withOpacity(0.2)
-                      : Colors.transparent),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                item.icon,
-                color: _getIconColor(context, isSelected),
-                size: sizes.iconSize,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                item.label,
-                style: TextStyle(
-                  color: _getTextColor(context, isSelected),
-                  fontSize: sizes.fontSize,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
+    return _XtreamDesktopNavItem(
+      icon: item.icon,
+      label: item.label,
+      isSelected: isSelected,
+      sizes: sizes,
+      onTap: onTap,
     );
   }
 
   BoxDecoration _getNavigationBarDecoration(BuildContext context) {
-    return BoxDecoration(
-      color: Theme.of(context).colorScheme.surface,
+    return const BoxDecoration(
+      color: AppThemes.netflixBlack,
       border: Border(
-        right: BorderSide(color: Theme.of(context).dividerColor, width: 0.5),
+        right: BorderSide(color: AppThemes.dividerGrey, width: 0.5),
       ),
     );
   }
@@ -585,15 +669,11 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
   }
 
   Color _getIconColor(BuildContext context, bool isSelected) {
-    return isSelected
-        ? Theme.of(context).colorScheme.primary
-        : Theme.of(context).colorScheme.onSurface;
+    return isSelected ? AppThemes.textWhite : AppThemes.iconGrey;
   }
 
   Color _getTextColor(BuildContext context, bool isSelected) {
-    return isSelected
-        ? Theme.of(context).colorScheme.primary
-        : Theme.of(context).colorScheme.onSurface;
+    return isSelected ? AppThemes.textWhite : AppThemes.iconGrey;
   }
 
   List<NavigationItem> _getNavigationItems(BuildContext context) {
@@ -643,4 +723,78 @@ class NavigationSizes {
     required this.iconSize,
     required this.fontSize,
   });
+}
+
+/// Desktop navigation item with hover effects
+class _XtreamDesktopNavItem extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final NavigationSizes sizes;
+  final VoidCallback onTap;
+
+  const _XtreamDesktopNavItem({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.sizes,
+    required this.onTap,
+  });
+
+  @override
+  State<_XtreamDesktopNavItem> createState() => _XtreamDesktopNavItemState();
+}
+
+class _XtreamDesktopNavItemState extends State<_XtreamDesktopNavItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: InkWell(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: double.infinity,
+          height: widget.sizes.itemHeight,
+          margin: const EdgeInsets.symmetric(vertical: 2),
+          decoration: BoxDecoration(
+            color: widget.isSelected
+                ? Colors.white.withOpacity(0.1)
+                : _isHovered
+                    ? Colors.white.withOpacity(0.05)
+                    : Colors.transparent,
+            border: Border(
+              left: BorderSide(
+                color: widget.isSelected ? AppThemes.accentRed : Colors.transparent,
+                width: 3,
+              ),
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                widget.icon,
+                color: widget.isSelected ? AppThemes.textWhite : AppThemes.iconGrey,
+                size: widget.sizes.iconSize,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  color: widget.isSelected ? AppThemes.textWhite : AppThemes.iconGrey,
+                  fontSize: widget.sizes.fontSize,
+                  fontWeight: widget.isSelected ? FontWeight.w600 : FontWeight.w400,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

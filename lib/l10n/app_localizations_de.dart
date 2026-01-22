@@ -936,4 +936,323 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get epg_fetch_error => 'Failed to fetch EPG data';
+
+  @override
+  String get votes => 'votes';
+
+  @override
+  String get similar_content => 'Similar Content';
+
+  @override
+  String similar_content_available(Object count) {
+    return '$count similar titles found';
+  }
+
+  @override
+  String get keywords => 'Keywords';
+
+  @override
+  String get tmdb_rating => 'TMDB Rating';
+
+  @override
+  String get external_services => 'External Services';
+
+  @override
+  String get opensubtitles_api_key => 'OpenSubtitles API Key';
+
+  @override
+  String get tmdb_api_key => 'TMDB API Key';
+
+  @override
+  String get api_key_not_set => 'Not configured';
+
+  @override
+  String get api_key_configured => 'Configured';
+
+  @override
+  String get enter_api_key => 'Enter API Key';
+
+  @override
+  String get api_key_saved => 'API key saved';
+
+  @override
+  String get preferred_subtitle_language => 'Preferred Subtitle Language';
+
+  @override
+  String get auto_download_subtitles => 'Auto-download Subtitles';
+
+  @override
+  String get auto_download_subtitles_desc =>
+      'Automatically download subtitles when playing content';
+
+  @override
+  String get available_sources => 'Available Sources';
+
+  @override
+  String get recommended => 'Recommended';
+
+  @override
+  String source_count(int count) {
+    return '$count sources';
+  }
+
+  @override
+  String get consolidation_settings => 'Content Consolidation';
+
+  @override
+  String get enable_consolidation => 'Enable Consolidation';
+
+  @override
+  String get enable_consolidation_desc =>
+      'Merge duplicate content from multiple sources';
+
+  @override
+  String get preferred_quality => 'Preferred Quality';
+
+  @override
+  String get preferred_language => 'Preferred Language';
+
+  @override
+  String get quality_4k => '4K / UHD';
+
+  @override
+  String get quality_1080p => '1080p / Full HD';
+
+  @override
+  String get quality_720p => '720p / HD';
+
+  @override
+  String get quality_sd => 'SD';
+
+  @override
+  String get content_filters => 'Content Filters';
+
+  @override
+  String get language_filter => 'Language';
+
+  @override
+  String get filter_rules => 'Rules';
+
+  @override
+  String get tag_mappings => 'Mappings';
+
+  @override
+  String get enable_language_filter => 'Enable Language Filter';
+
+  @override
+  String get enable_language_filter_desc =>
+      'Show only content matching your preferred languages';
+
+  @override
+  String get hide_unknown_language => 'Hide Unknown Language';
+
+  @override
+  String get hide_unknown_language_desc =>
+      'Hide content with no detected language tag';
+
+  @override
+  String get preferred_languages => 'Preferred Languages';
+
+  @override
+  String get preferred_languages_desc => 'Select the languages you want to see';
+
+  @override
+  String get matching_tags => 'Matching Tags';
+
+  @override
+  String get add_filter_rule => 'Add Filter Rule';
+
+  @override
+  String get edit_filter_rule => 'Edit Filter Rule';
+
+  @override
+  String get no_filter_rules => 'No Filter Rules';
+
+  @override
+  String get no_filter_rules_desc =>
+      'Add rules to hide or show content based on name patterns';
+
+  @override
+  String get pattern => 'Pattern';
+
+  @override
+  String get pattern_regex_help =>
+      'Use regular expressions for advanced matching';
+
+  @override
+  String get pattern_wildcard_help => 'Use * as wildcard (e.g., *spanish*)';
+
+  @override
+  String get use_regex => 'Use Regular Expression';
+
+  @override
+  String get use_regex_desc => 'Enable regex pattern matching';
+
+  @override
+  String get hide_matching => 'Hide Matching';
+
+  @override
+  String get hide_matching_desc => 'Hide items that match this pattern';
+
+  @override
+  String get show_only_matching_desc =>
+      'Show only items that match this pattern';
+
+  @override
+  String get apply_to => 'Apply To';
+
+  @override
+  String get content_items => 'Content Items';
+
+  @override
+  String get category_names => 'Category Names';
+
+  @override
+  String get save => 'Save';
+
+  @override
+  String get edit => 'Edit';
+
+  @override
+  String get search_mappings => 'Search mappings...';
+
+  @override
+  String get add => 'Add';
+
+  @override
+  String get add_tag_mapping => 'Add Tag Mapping';
+
+  @override
+  String get tag => 'Tag';
+
+  @override
+  String get language => 'Language';
+
+  @override
+  String get bulk_hide_content => 'Bulk Hide Content';
+
+  @override
+  String get hide_selected => 'Hide Selected';
+
+  @override
+  String get show_only_selected => 'Show Only Selected';
+
+  @override
+  String get apply_to_all_categories => 'Apply to All Categories';
+
+  @override
+  String get items_matching => 'items matching';
+
+  @override
+  String get enter_pattern_to_search => 'Enter a pattern to search';
+
+  @override
+  String get no_matches_found => 'No matches found';
+
+  @override
+  String hide_count(int count) {
+    return 'Hide $count';
+  }
+
+  @override
+  String get create_filter => 'Create Filter';
+
+  @override
+  String get quick_hide_pattern => 'Quick Hide by Pattern';
+
+  @override
+  String get hide => 'Hide';
+
+  @override
+  String get custom_categories => 'Custom Categories';
+
+  @override
+  String get custom_categories_desc =>
+      'Create your own categories to organize content';
+
+  @override
+  String get no_custom_categories => 'No Custom Categories';
+
+  @override
+  String get create_category => 'Create Category';
+
+  @override
+  String get edit_category => 'Edit Category';
+
+  @override
+  String get delete_category => 'Delete Category';
+
+  @override
+  String delete_category_confirm(String name, int count) {
+    return 'Delete \"$name\"? This will remove $count items from this category.';
+  }
+
+  @override
+  String get category_name => 'Category Name';
+
+  @override
+  String get icon => 'Icon';
+
+  @override
+  String get content_type_filter => 'Content Type';
+
+  @override
+  String get view_items => 'View Items';
+
+  @override
+  String get items => 'items';
+
+  @override
+  String get no_items_in_category => 'No items in this category';
+
+  @override
+  String get create => 'Create';
+
+  @override
+  String get bulk_move_items => 'Bulk Move Items';
+
+  @override
+  String get search_pattern => 'Search Pattern';
+
+  @override
+  String get search_hint => 'Search by category or item name...';
+
+  @override
+  String get search_by_category => 'Search by Category';
+
+  @override
+  String get search_by_name => 'Search by Name';
+
+  @override
+  String get items_found => 'items found';
+
+  @override
+  String get enter_search_pattern => 'Enter a search pattern to find items';
+
+  @override
+  String get name_matches => 'Name Matches';
+
+  @override
+  String get move_to_category => 'Move to Category';
+
+  @override
+  String get new_category => 'New Category';
+
+  @override
+  String get new_category_name => 'New Category Name';
+
+  @override
+  String get select_category => 'Select a category';
+
+  @override
+  String move_count(int count) {
+    return 'Move $count items';
+  }
+
+  @override
+  String get bulk_add_items => 'Bulk Add Items';
+
+  @override
+  String get no_content_loaded =>
+      'No content available. Please load a playlist first.';
 }

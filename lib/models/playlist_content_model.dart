@@ -29,6 +29,9 @@ class ContentItem {
   final String? sourcePlaylistId;
   final PlaylistType? sourceType;
 
+  // Catch up support
+  final bool isCatchUp;
+
   ContentItem(
     this.id,
     this.name,
@@ -47,7 +50,15 @@ class ContentItem {
     this.m3uItem,
     this.sourcePlaylistId,
     this.sourceType,
+    this.isCatchUp = false,
+    String? overrideUrl,
   }) {
+    // If override URL is provided, use it directly (for catch up content)
+    if (overrideUrl != null && overrideUrl.isNotEmpty) {
+      url = overrideUrl;
+      return;
+    }
+
     // Determine if this is Xtream content:
     // 1. If sourceType is set, use that
     // 2. Otherwise, check if we have Xtream-specific stream objects

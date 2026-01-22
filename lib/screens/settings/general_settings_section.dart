@@ -1,16 +1,23 @@
+import 'dart:io';
 import 'package:another_iptv_player/database/database.dart';
 import 'package:another_iptv_player/screens/settings/subtitle_settings_section.dart';
+import 'package:another_iptv_player/services/failed_domain_cache.dart';
 import 'package:another_iptv_player/services/service_locator.dart';
+import 'package:another_iptv_player/services/timeshift_service.dart';
 import 'package:another_iptv_player/services/vpn_detection_service.dart';
+import 'package:another_iptv_player/services/opensubtitles_service.dart';
+import 'package:another_iptv_player/services/tmdb_service.dart';
 import 'package:another_iptv_player/utils/get_playlist_type.dart';
 import 'package:another_iptv_player/utils/show_loading_dialog.dart';
 import 'package:another_iptv_player/widgets/vpn_status_widget.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:another_iptv_player/l10n/localization_extension.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../controllers/locale_provider.dart';
 import '../../controllers/unified_home_controller.dart';
@@ -31,6 +38,8 @@ import 'renaming_rules_screen.dart';
 import 'category_config_screen.dart';
 import 'active_sources_screen.dart';
 import 'unified_category_settings_screen.dart';
+import 'content_filter_settings_screen.dart';
+import 'custom_category_settings_screen.dart';
 
 final controller = XtreamCodeHomeController(true);
 
@@ -60,6 +69,13 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
   int _sourceErrorWindowMinutes = 2;
   bool _showStreamErrors = true;
 
+  // Timeshift settings
+  bool _timeshiftEnabled = true;
+  int _timeshiftMaxBuffer = 30;
+
+  // Default panel setting
+  String _defaultPanel = 'live';
+
   // VPN settings
   final VpnDetectionService _vpnService = VpnDetectionService();
   bool _vpnCheckEnabled = false;
@@ -68,6 +84,7 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
   VpnStatusPosition _vpnStatusPosition = VpnStatusPosition.bottomLeft;
   double _vpnStatusOpacity = 0.5;
   bool _vpnShowOnlyWhenDisconnected = false;
+  String? _vpnTargetCountry;
 
   @override
   void initState() {
@@ -95,7 +112,14 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
       final vpnStatusPosition = await UserPreferences.getVpnStatusPosition();
       final vpnStatusOpacity = await UserPreferences.getVpnStatusOpacity();
       final vpnShowOnlyWhenDisconnected = await UserPreferences.getVpnShowOnlyWhenDisconnected();
+      final vpnTargetCountry = await UserPreferences.getVpnTargetCountry();
+      final defaultPanel = await UserPreferences.getDefaultPanel();
+      final timeshiftEnabled = await UserPreferences.getTimeshiftEnabled();
+      final timeshiftMaxBuffer = await UserPreferences.getTimeshiftMaxBuffer();
       setState(() {
+        _defaultPanel = defaultPanel;
+        _timeshiftEnabled = timeshiftEnabled;
+        _timeshiftMaxBuffer = timeshiftMaxBuffer;
         _backgroundPlayEnabled = backgroundPlay;
         _selectedTheme = _themeModeToString(themeMode);
         _brightnessGesture = brightnessGesture;
@@ -113,6 +137,7 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
         _vpnStatusPosition = VpnStatusPosition.fromInt(vpnStatusPosition);
         _vpnStatusOpacity = vpnStatusOpacity;
         _vpnShowOnlyWhenDisconnected = vpnShowOnlyWhenDisconnected;
+        _vpnTargetCountry = vpnTargetCountry;
         _isLoading = false;
       });
     } catch (e) {
@@ -249,6 +274,49 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
                   );
                 },
               ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.filter_list),
+                title: Text(context.loc.content_filters),
+                subtitle: Text(context.loc.enable_language_filter_desc),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ContentFilterSettingsScreen(),
+                    ),
+                  );
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.folder_special),
+                title: Text(context.loc.custom_categories),
+                subtitle: Text(context.loc.custom_categories_desc),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CustomCategorySettingsScreen(),
+                    ),
+                  );
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.favorite),
+                title: const Text('Favorites Category Name'),
+                subtitle: FutureBuilder<String>(
+                  future: UserPreferences.getHiddenFavoritesCategoryName(),
+                  builder: (context, snapshot) {
+                    return Text(snapshot.data ?? 'Favorites');
+                  },
+                ),
+                trailing: const Icon(Icons.edit, size: 18),
+                onTap: () => _showFavoritesCategoryNameDialog(context),
+              ),
               // Show category configuration for any playlist
               if (AppState.currentPlaylist != null || AppState.isCombinedMode)
                 const Divider(height: 1),
@@ -338,6 +406,46 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
                     await themeProvider.setTheme(themeMode);
                     setState(() {
                       _selectedTheme = value;
+                    });
+                  }
+                },
+              ),
+              const Divider(height: 1),
+              DropdownTileWidget<String>(
+                icon: Icons.home_outlined,
+                label: 'Default Panel',
+                value: _defaultPanel,
+                items: const [
+                  DropdownMenuItem(
+                    value: 'live',
+                    child: Text('Live Streams'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'history',
+                    child: Text('History'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'favorites',
+                    child: Text('Favorites'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'guide',
+                    child: Text('TV Guide'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'movies',
+                    child: Text('Movies'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'series',
+                    child: Text('Series'),
+                  ),
+                ],
+                onChanged: (value) async {
+                  if (value != null) {
+                    await UserPreferences.setDefaultPanel(value);
+                    setState(() {
+                      _defaultPanel = value;
                     });
                   }
                 },
@@ -442,6 +550,155 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
                       _seekOnDoubleTap = value;
                     });
                   },
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        const SectionTitleWidget(title: 'Timeshift'),
+        Card(
+          child: Column(
+            children: [
+              // Only show on desktop platforms (timeshift requires FFmpeg)
+              if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) ...[
+                ListenableBuilder(
+                  listenable: TimeshiftService(),
+                  builder: (context, _) {
+                    final service = TimeshiftService();
+                    return ListTile(
+                      leading: Icon(
+                        service.isFfmpegAvailable ? Icons.check_circle : Icons.error_outline,
+                        color: service.isFfmpegAvailable ? Colors.green : Colors.orange,
+                      ),
+                      title: Text(
+                        service.isFfmpegAvailable
+                            ? 'FFmpeg Available'
+                            : _getFfmpegStatusText(service.ffmpegStatus),
+                      ),
+                      subtitle: Text(
+                        service.isFfmpegAvailable
+                            ? 'Path: ${service.ffmpegPath ?? "default"}'
+                            : service.ffmpegError ?? 'Required for timeshift recording',
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.refresh),
+                            tooltip: 'Re-check FFmpeg',
+                            onPressed: () async {
+                              await service.checkFfmpegAvailability();
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.help_outline),
+                            tooltip: 'Installation Instructions',
+                            onPressed: () => _showFfmpegInstallDialog(context),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.folder_open),
+                  title: const Text('Custom FFmpeg Path'),
+                  subtitle: FutureBuilder<String?>(
+                    future: UserPreferences.getCustomFfmpegPath(),
+                    builder: (context, snapshot) {
+                      return Text(snapshot.data ?? 'Use system default');
+                    },
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.edit),
+                    onPressed: () => _showFfmpegPathDialog(context),
+                  ),
+                ),
+                const Divider(height: 1),
+              ],
+              SwitchListTile(
+                secondary: const Icon(Icons.pause_circle_outline),
+                title: const Text('Enable Timeshift'),
+                subtitle: Text(
+                  Platform.isAndroid || Platform.isIOS
+                      ? 'Not available on mobile platforms'
+                      : 'Pause and rewind live TV streams',
+                ),
+                value: _timeshiftEnabled,
+                onChanged: (Platform.isAndroid || Platform.isIOS)
+                    ? null
+                    : (value) async {
+                        await UserPreferences.setTimeshiftEnabled(value);
+                        setState(() {
+                          _timeshiftEnabled = value;
+                        });
+                      },
+              ),
+              if (_timeshiftEnabled && (Platform.isMacOS || Platform.isWindows || Platform.isLinux)) ...[
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.timer),
+                  title: const Text('Max Buffer Duration'),
+                  subtitle: Text('Keep up to $_timeshiftMaxBuffer minutes'),
+                  trailing: DropdownButton<int>(
+                    value: _timeshiftMaxBuffer,
+                    underline: const SizedBox(),
+                    items: [15, 30, 45, 60].map((value) {
+                      return DropdownMenuItem<int>(
+                        value: value,
+                        child: Text('$value min'),
+                      );
+                    }).toList(),
+                    onChanged: (value) async {
+                      if (value != null) {
+                        await UserPreferences.setTimeshiftMaxBuffer(value);
+                        setState(() {
+                          _timeshiftMaxBuffer = value;
+                        });
+                      }
+                    },
+                  ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.folder),
+                  title: const Text('Recordings Location'),
+                  subtitle: FutureBuilder<Directory>(
+                    future: getApplicationDocumentsDirectory(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasData) {
+                        final path = '${snapshot.data!.path}/timeshift_recordings';
+                        return Text(
+                          path,
+                          style: const TextStyle(fontSize: 11),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        );
+                      }
+                      return const Text('Loading...');
+                    },
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.folder_open),
+                    tooltip: 'Open Folder',
+                    onPressed: () async {
+                      final docsDir = await getApplicationDocumentsDirectory();
+                      final recordingsDir = Directory('${docsDir.path}/timeshift_recordings');
+                      if (!await recordingsDir.exists()) {
+                        await recordingsDir.create(recursive: true);
+                      }
+                      // Open the folder in system file browser
+                      if (Platform.isMacOS) {
+                        Process.run('open', [recordingsDir.path]);
+                      } else if (Platform.isWindows) {
+                        Process.run('explorer', [recordingsDir.path]);
+                      } else if (Platform.isLinux) {
+                        Process.run('xdg-open', [recordingsDir.path]);
+                      }
+                    },
+                  ),
                 ),
               ],
             ],
@@ -554,6 +811,39 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
                 ),
                 const Divider(height: 1),
                 ListTile(
+                  leading: const Icon(Icons.public),
+                  title: const Text('Target Country'),
+                  subtitle: Text(
+                    _vpnTargetCountry != null
+                        ? 'VPN required when not in ${_getCountryName(_vpnTargetCountry!)}'
+                        : 'Not set - only IP-based VPN detection',
+                  ),
+                  trailing: DropdownButton<String?>(
+                    value: _vpnTargetCountry,
+                    underline: const SizedBox(),
+                    hint: const Text('Select'),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('None'),
+                      ),
+                      ...['US', 'GB', 'CA', 'AU', 'DE', 'FR', 'NL', 'IT', 'ES', 'SE', 'CH', 'JP', 'SG', 'BR', 'IN'].map((code) {
+                        return DropdownMenuItem<String?>(
+                          value: code,
+                          child: Text('$code - ${_getCountryName(code)}'),
+                        );
+                      }),
+                    ],
+                    onChanged: (value) async {
+                      await _vpnService.setTargetCountry(value);
+                      setState(() {
+                        _vpnTargetCountry = value;
+                      });
+                    },
+                  ),
+                ),
+                const Divider(height: 1),
+                ListTile(
                   leading: const Icon(Icons.timer),
                   title: const Text('Check Interval'),
                   subtitle: Text('Check every $_vpnCheckIntervalMinutes minutes'),
@@ -656,6 +946,128 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
                   ),
                 ),
               ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        const SectionTitleWidget(title: 'External Services (Subtitles & Details)'),
+        Card(
+          child: Column(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.subtitles),
+                title: const Text('OpenSubtitles API Key'),
+                subtitle: FutureBuilder<String?>(
+                  future: UserPreferences.getOpenSubtitlesApiKey(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty) {
+                      return const Text('Configured - Subtitle search enabled');
+                    }
+                    return const Text('Not configured - Get free key at opensubtitles.com');
+                  },
+                ),
+                trailing: const Icon(Icons.edit, size: 18),
+                onTap: () => _showApiKeyDialog(
+                  context,
+                  title: 'OpenSubtitles API Key',
+                  description: 'Enter your OpenSubtitles API key.\n\nGet a free API key at: https://opensubtitles.com/api-key',
+                  getCurrentValue: UserPreferences.getOpenSubtitlesApiKey,
+                  onSave: (value) async {
+                    await UserPreferences.setOpenSubtitlesApiKey(value);
+                    await getIt<OpenSubtitlesService>().setApiKey(value);
+                  },
+                ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.movie_filter),
+                title: const Text('TMDB API Key'),
+                subtitle: FutureBuilder<String?>(
+                  future: UserPreferences.getTmdbApiKey(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty) {
+                      return const Text('Configured - Movie/series details enabled');
+                    }
+                    return const Text('Not configured - Get free key at themoviedb.org');
+                  },
+                ),
+                trailing: const Icon(Icons.edit, size: 18),
+                onTap: () => _showApiKeyDialog(
+                  context,
+                  title: 'TMDB API Key',
+                  description: 'Enter your TMDB API key for movie and series details.\n\nGet a free API key at: https://www.themoviedb.org/settings/api',
+                  getCurrentValue: UserPreferences.getTmdbApiKey,
+                  onSave: (value) async {
+                    await UserPreferences.setTmdbApiKey(value);
+                    await getIt<TmdbService>().setApiKey(value);
+                  },
+                ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.language),
+                title: const Text('Preferred Subtitle Language'),
+                subtitle: FutureBuilder<String>(
+                  future: UserPreferences.getPreferredSubtitleLanguage(),
+                  builder: (context, snapshot) {
+                    final lang = snapshot.data ?? 'en';
+                    return Text(_getLanguageName(lang));
+                  },
+                ),
+                trailing: const Icon(Icons.arrow_drop_down),
+                onTap: () => _showSubtitleLanguageDialog(context),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.auto_awesome),
+                title: const Text('Auto-download Subtitles'),
+                subtitle: const Text('Automatically search and download matching subtitles'),
+                trailing: FutureBuilder<bool>(
+                  future: UserPreferences.getAutoDownloadSubtitles(),
+                  builder: (context, snapshot) {
+                    return Switch(
+                      value: snapshot.data ?? false,
+                      onChanged: (value) async {
+                        await UserPreferences.setAutoDownloadSubtitles(value);
+                        setState(() {});
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        const SectionTitleWidget(title: 'Image Cache'),
+        Card(
+          child: Column(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.block),
+                title: const Text('Blocked Domains'),
+                subtitle: Text(
+                  '${FailedDomainCache().blockedDomainCount} domains blocked for 24 hours',
+                ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.refresh),
+                title: const Text('Clear Blocked Domains'),
+                subtitle: const Text('Reset blocked domains and retry image loading'),
+                onTap: () async {
+                  await FailedDomainCache().clearCache();
+                  if (context.mounted) {
+                    setState(() {}); // Refresh UI
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Blocked domains cache cleared'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                },
+              ),
             ],
           ),
         ),
@@ -861,5 +1273,438 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
     }
 
     return updatedItems;
+  }
+
+  String _getFfmpegStatusText(FfmpegStatus status) {
+    switch (status) {
+      case FfmpegStatus.available:
+        return 'FFmpeg Available';
+      case FfmpegStatus.notFound:
+        return 'FFmpeg Not Found';
+      case FfmpegStatus.sandboxRestricted:
+        return 'Sandbox Restricted';
+      case FfmpegStatus.permissionDenied:
+        return 'Permission Denied';
+      case FfmpegStatus.error:
+        return 'FFmpeg Error';
+      case FfmpegStatus.unknown:
+        return 'Checking FFmpeg...';
+    }
+  }
+
+  void _showFfmpegInstallDialog(BuildContext context) {
+    final instructions = TimeshiftService.getInstallInstructions();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('FFmpeg Installation'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Timeshift requires FFmpeg to be installed on your system.',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: SelectableText(
+                  instructions,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              if (Platform.isMacOS) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.warning, color: Colors.orange),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Note: macOS App Store apps run in a sandbox that may prevent running external binaries like FFmpeg. '
+                          'For timeshift to work, you may need to run a non-sandboxed version of the app.',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: instructions));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Instructions copied to clipboard')),
+              );
+            },
+            child: const Text('Copy'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFfmpegPathDialog(BuildContext context) {
+    final controller = TextEditingController();
+    UserPreferences.getCustomFfmpegPath().then((path) {
+      controller.text = path ?? '';
+    });
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Custom FFmpeg Path'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Enter the full path to your FFmpeg executable, or leave empty to use the system default.',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                labelText: 'FFmpeg Path',
+                hintText: Platform.isMacOS || Platform.isLinux
+                    ? '/usr/local/bin/ffmpeg'
+                    : 'C:\\ffmpeg\\bin\\ffmpeg.exe',
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.folder_open),
+                  onPressed: () async {
+                    final result = await FilePicker.platform.pickFiles(
+                      type: FileType.any,
+                      allowMultiple: false,
+                    );
+                    if (result != null && result.files.single.path != null) {
+                      controller.text = result.files.single.path!;
+                    }
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Example paths:\n'
+              '• macOS (Homebrew): /opt/homebrew/bin/ffmpeg\n'
+              '• macOS (Intel): /usr/local/bin/ffmpeg\n'
+              '• Linux: /usr/bin/ffmpeg\n'
+              '• Windows: C:\\ffmpeg\\bin\\ffmpeg.exe',
+              style: TextStyle(
+                fontSize: 11,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await TimeshiftService().setCustomFfmpegPath(null);
+              if (context.mounted) {
+                Navigator.pop(context);
+                setState(() {});
+              }
+            },
+            child: const Text('Use Default'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final path = controller.text.trim();
+              await TimeshiftService().setCustomFfmpegPath(
+                path.isEmpty ? null : path,
+              );
+              if (context.mounted) {
+                Navigator.pop(context);
+                setState(() {});
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showApiKeyDialog(
+    BuildContext context, {
+    required String title,
+    required String description,
+    required Future<String?> Function() getCurrentValue,
+    required Future<void> Function(String) onSave,
+  }) async {
+    final controller = TextEditingController();
+    final currentValue = await getCurrentValue();
+    controller.text = currentValue ?? '';
+
+    if (!context.mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(description),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                labelText: 'API Key',
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () => controller.clear(),
+                ),
+              ),
+              obscureText: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final value = controller.text.trim();
+              await onSave(value);
+              if (context.mounted) {
+                Navigator.pop(context);
+                setState(() {});
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(value.isEmpty ? 'API key removed' : 'API key saved'),
+                    backgroundColor: value.isEmpty ? Colors.orange : Colors.green,
+                  ),
+                );
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSubtitleLanguageDialog(BuildContext context) async {
+    final currentLang = await UserPreferences.getPreferredSubtitleLanguage();
+
+    final languages = [
+      ('en', 'English'),
+      ('es', 'Spanish'),
+      ('fr', 'French'),
+      ('de', 'German'),
+      ('it', 'Italian'),
+      ('pt', 'Portuguese'),
+      ('ru', 'Russian'),
+      ('zh', 'Chinese'),
+      ('ja', 'Japanese'),
+      ('ko', 'Korean'),
+      ('ar', 'Arabic'),
+      ('tr', 'Turkish'),
+      ('nl', 'Dutch'),
+      ('pl', 'Polish'),
+      ('sv', 'Swedish'),
+      ('da', 'Danish'),
+      ('fi', 'Finnish'),
+      ('no', 'Norwegian'),
+      ('el', 'Greek'),
+      ('he', 'Hebrew'),
+      ('hi', 'Hindi'),
+      ('th', 'Thai'),
+      ('vi', 'Vietnamese'),
+      ('id', 'Indonesian'),
+      ('cs', 'Czech'),
+      ('hu', 'Hungarian'),
+      ('ro', 'Romanian'),
+      ('uk', 'Ukrainian'),
+    ];
+
+    if (!context.mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Preferred Subtitle Language'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 400,
+          child: ListView.builder(
+            itemCount: languages.length,
+            itemBuilder: (context, index) {
+              final (code, name) = languages[index];
+              return RadioListTile<String>(
+                title: Text(name),
+                subtitle: Text(code.toUpperCase()),
+                value: code,
+                groupValue: currentLang,
+                onChanged: (value) async {
+                  if (value != null) {
+                    await UserPreferences.setPreferredSubtitleLanguage(value);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      setState(() {});
+                    }
+                  }
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getLanguageName(String code) {
+    const languageNames = {
+      'en': 'English',
+      'es': 'Spanish',
+      'fr': 'French',
+      'de': 'German',
+      'it': 'Italian',
+      'pt': 'Portuguese',
+      'ru': 'Russian',
+      'zh': 'Chinese',
+      'ja': 'Japanese',
+      'ko': 'Korean',
+      'ar': 'Arabic',
+      'tr': 'Turkish',
+      'nl': 'Dutch',
+      'pl': 'Polish',
+      'sv': 'Swedish',
+      'da': 'Danish',
+      'fi': 'Finnish',
+      'no': 'Norwegian',
+      'el': 'Greek',
+      'he': 'Hebrew',
+      'hi': 'Hindi',
+      'th': 'Thai',
+      'vi': 'Vietnamese',
+      'id': 'Indonesian',
+      'cs': 'Czech',
+      'hu': 'Hungarian',
+      'ro': 'Romanian',
+      'uk': 'Ukrainian',
+    };
+    return languageNames[code] ?? code.toUpperCase();
+  }
+
+  String _getCountryName(String code) {
+    const countryNames = {
+      'US': 'United States',
+      'GB': 'United Kingdom',
+      'CA': 'Canada',
+      'AU': 'Australia',
+      'DE': 'Germany',
+      'FR': 'France',
+      'NL': 'Netherlands',
+      'IT': 'Italy',
+      'ES': 'Spain',
+      'SE': 'Sweden',
+      'CH': 'Switzerland',
+      'JP': 'Japan',
+      'SG': 'Singapore',
+      'BR': 'Brazil',
+      'IN': 'India',
+    };
+    return countryNames[code.toUpperCase()] ?? code.toUpperCase();
+  }
+
+  void _showFavoritesCategoryNameDialog(BuildContext context) async {
+    final controller = TextEditingController();
+    final currentName = await UserPreferences.getHiddenFavoritesCategoryName();
+    controller.text = currentName;
+
+    if (!context.mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Favorites Category Name'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This category shows favorites from hidden categories.',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'Category Name',
+                hintText: 'Favorites',
+                border: OutlineInputBorder(),
+              ),
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final name = controller.text.trim();
+              if (name.isNotEmpty) {
+                await UserPreferences.setHiddenFavoritesCategoryName(name);
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  setState(() {});
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Category renamed to "$name"'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
   }
 }

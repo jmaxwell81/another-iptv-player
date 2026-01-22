@@ -65,8 +65,45 @@ class UnifiedHomeController extends ChangeNotifier {
   }
 
   Future<void> _initializeData() async {
+    await _loadDefaultPanel();
     await loadHiddenCategories();
     await loadAllContent();
+  }
+
+  Future<void> _loadDefaultPanel() async {
+    final defaultPanel = await UserPreferences.getDefaultPanel();
+    _currentIndex = _panelNameToIndex(defaultPanel);
+
+    // Jump PageController to the correct page after loading preference
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(_currentIndex);
+    } else {
+      // If PageController doesn't have clients yet, recreate it with initial page
+      _pageController = PageController(initialPage: _currentIndex);
+    }
+
+    notifyListeners();
+  }
+
+  int _panelNameToIndex(String panelName) {
+    switch (panelName.toLowerCase()) {
+      case 'history':
+        return 0;
+      case 'favorites':
+        return 1;
+      case 'live':
+        return 2;
+      case 'guide':
+        return 3;
+      case 'movies':
+        return 4;
+      case 'series':
+        return 5;
+      case 'settings':
+        return 6;
+      default:
+        return 2; // Default to Live Streams
+    }
   }
 
   @override

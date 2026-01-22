@@ -61,7 +61,9 @@ class _WatchHistoryScreenState extends State<WatchHistoryScreen> {
       child: Scaffold(
         body: Consumer2<WatchHistoryController, FavoritesController>(
           builder: (context, historyController, favoritesController, child) {
-            if (historyController.isLoading || favoritesController.isLoading) {
+            // Show loading if either is loading OR if history hasn't loaded yet
+            if (historyController.isLoading || favoritesController.isLoading ||
+                !historyController.hasLoadedOnce) {
               return const Center(child: CircularProgressIndicator());
             }
 

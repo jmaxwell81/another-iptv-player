@@ -4,6 +4,7 @@ import 'package:another_iptv_player/models/category_configuration.dart';
 import 'package:another_iptv_player/models/category_type.dart';
 import 'package:another_iptv_player/models/category_view_model.dart';
 import 'package:another_iptv_player/repositories/user_preferences.dart';
+import 'package:another_iptv_player/services/event_bus.dart';
 
 /// Service for managing category configuration (merging and ordering)
 class CategoryConfigService {
@@ -53,6 +54,8 @@ class CategoryConfigService {
     await UserPreferences.setCategoryConfig(config);
     invalidateCache();
     await loadConfigs();
+    // Notify listeners that category config has changed
+    EventBus().emit('category_config_changed', config.playlistId);
   }
 
   /// Merge multiple categories into one

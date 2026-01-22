@@ -21,7 +21,8 @@ class WatchHistoryController extends ChangeNotifier {
   List<WatchHistory> _liveHistory = [];
   List<WatchHistory> _movieHistory = [];
   List<WatchHistory> _seriesHistory = [];
-  bool _isLoading = true;
+  bool _isLoading = false;  // Start as false so loadWatchHistory can run
+  bool _hasLoadedOnce = false;  // Track if initial load happened
   String? _errorMessage;
   bool _isDisposed = false;
 
@@ -37,6 +38,7 @@ class WatchHistoryController extends ChangeNotifier {
   List<WatchHistory> get seriesHistory => _seriesHistory;
 
   bool get isLoading => _isLoading;
+  bool get hasLoadedOnce => _hasLoadedOnce;
 
   String? get errorMessage => _errorMessage;
 
@@ -112,6 +114,7 @@ class WatchHistoryController extends ChangeNotifier {
       _errorMessage = 'Error loading watch history: $e';
     } finally {
       _isLoading = false;
+      _hasLoadedOnce = true;
       if (!_isDisposed) notifyListeners();
     }
   }

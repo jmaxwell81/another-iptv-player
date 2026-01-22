@@ -85,6 +85,7 @@ class VpnDetectionService {
   Duration _checkInterval = const Duration(minutes: 5);
   bool _killSwitchEnabled = false;
   bool _vpnCheckEnabled = false;
+  String? _targetCountryCode; // User's expected country (e.g., "US")
 
   // State
   VpnStatus _currentStatus = VpnStatus.initial();
@@ -96,12 +97,39 @@ class VpnDetectionService {
   Stream<VpnStatus> get statusStream => _statusController.stream;
 
   VpnStatus get currentStatus => _currentStatus;
-  bool get isVpnConnected => _currentStatus.isVpn;
+  String? get targetCountryCode => _targetCountryCode;
+
+  /// Check if VPN is connected.
+  /// VPN is considered "connected/enabled" if:
+  /// 1. The IP is detected as VPN/proxy/datacenter, OR
+  /// 2. A target country is set and the detected country doesn't match
+  bool get isVpnConnected {
+    // If VPN detected by IP analysis
+    if (_currentStatus.isVpn) return true;
+
+    // If target country is set and current country doesn't match
+    if (_targetCountryCode != null &&
+        _targetCountryCode!.isNotEmpty &&
+        _currentStatus.countryCode != '--') {
+      // VPN is "enabled" if we're NOT in the target country
+      return _currentStatus.countryCode.toUpperCase() != _targetCountryCode!.toUpperCase();
+    }
+
+    return false;
+  }
+
   bool get killSwitchEnabled => _killSwitchEnabled;
   bool get vpnCheckEnabled => _vpnCheckEnabled;
 
+  /// Check if country matches target (for display purposes)
+  bool get isCountryMismatch {
+    if (_targetCountryCode == null || _targetCountryCode!.isEmpty) return false;
+    if (_currentStatus.countryCode == '--') return false;
+    return _currentStatus.countryCode.toUpperCase() != _targetCountryCode!.toUpperCase();
+  }
+
   /// Check if network access should be blocked
-  bool get shouldBlockNetwork => _vpnCheckEnabled && _killSwitchEnabled && !_currentStatus.isVpn;
+  bool get shouldBlockNetwork => _vpnCheckEnabled && _killSwitchEnabled && !isVpnConnected;
 
   /// Initialize the service and load configuration
   Future<void> initialize() async {
@@ -109,6 +137,7 @@ class VpnDetectionService {
     _killSwitchEnabled = await UserPreferences.getVpnKillSwitchEnabled();
     final intervalMinutes = await UserPreferences.getVpnCheckIntervalMinutes();
     _checkInterval = Duration(minutes: intervalMinutes);
+    _targetCountryCode = await UserPreferences.getVpnTargetCountry();
 
     if (_vpnCheckEnabled) {
       await checkVpnStatus();
@@ -260,6 +289,22 @@ class VpnDetectionService {
 
     if (_vpnCheckEnabled) {
       _startPeriodicCheck();
+    }
+  }
+
+  /// Set the target country for VPN detection
+  /// When set, VPN is considered "enabled" if detected country doesn't match target
+  Future<void> setTargetCountry(String? countryCode) async {
+    _targetCountryCode = countryCode?.toUpperCase();
+    await UserPreferences.setVpnTargetCountry(countryCode);
+
+    // Emit event to update UI
+    EventBus().emit('vpn_target_country_changed', _targetCountryCode);
+
+    // Re-emit VPN status as the "connected" state may have changed
+    if (_vpnCheckEnabled) {
+      _statusController.add(_currentStatus);
+      EventBus().emit('vpn_status_changed', _currentStatus);
     }
   }
 

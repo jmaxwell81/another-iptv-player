@@ -5,7 +5,10 @@ import 'package:another_iptv_player/models/category_view_model.dart';
 import 'package:another_iptv_player/models/content_type.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
 import 'package:another_iptv_player/models/playlist_model.dart';
+import 'package:another_iptv_player/repositories/user_preferences.dart';
 import 'package:another_iptv_player/services/app_state.dart';
+import 'package:another_iptv_player/services/content_consolidation_service.dart';
+import 'package:another_iptv_player/services/content_preference_service.dart';
 
 /// Repository for aggregating content from multiple IPTV sources
 class UnifiedContentRepository {
@@ -76,7 +79,60 @@ class UnifiedContentRepository {
     // Merge categories by normalized name
     final merged = _mergeByName(allCategories, type);
     debugPrint('UnifiedContentRepository: Total $type categories after merge: ${merged.length}');
+
+    // Apply content consolidation if enabled
+    final consolidationEnabled = await UserPreferences.getConsolidationEnabled();
+    if (consolidationEnabled) {
+      final consolidated = await _consolidateCategories(merged);
+      debugPrint('UnifiedContentRepository: Applied content consolidation');
+      return consolidated;
+    }
+
     return merged;
+  }
+
+  /// Apply content consolidation to merge duplicate items within categories
+  Future<List<CategoryViewModel>> _consolidateCategories(
+    List<CategoryViewModel> categories,
+  ) async {
+    final consolidationService = ContentConsolidationService();
+    final preferenceService = ContentPreferenceService();
+    await preferenceService.loadPreferences();
+
+    final result = <CategoryViewModel>[];
+
+    for (final category in categories) {
+      if (category.contentItems.isEmpty) {
+        result.add(category);
+        continue;
+      }
+
+      try {
+        // Consolidate content items within this category
+        final consolidated = consolidationService.consolidateWithPreferences(
+          category.contentItems,
+          preferredQuality: preferenceService.preferredQuality,
+          preferredLanguage: preferenceService.preferredLanguage,
+        );
+
+        // Create new CategoryViewModel with consolidated items
+        result.add(category.withConsolidatedItems(consolidated));
+
+        // Log consolidation stats for debugging
+        if (consolidated.length < category.contentItems.length) {
+          final stats = consolidationService.getConsolidationStats(consolidated);
+          debugPrint('  ${category.category.categoryName}: '
+              '${category.contentItems.length} -> ${consolidated.length} items '
+              '(${stats.itemsWithMultipleSources} with multiple sources)');
+        }
+      } catch (e) {
+        debugPrint('UnifiedContentRepository: Error consolidating category '
+            '${category.category.categoryName}: $e');
+        result.add(category);
+      }
+    }
+
+    return result;
   }
 
   /// Load categories from an Xtream repository

@@ -3,13 +3,19 @@ import 'dart:io' show Platform;
 import 'package:another_iptv_player/models/playlist_content_model.dart';
 import 'package:another_iptv_player/models/playlist_model.dart' show PlaylistType;
 import 'package:another_iptv_player/models/watch_history.dart';
+import 'package:another_iptv_player/repositories/hidden_items_repository.dart';
 import 'package:another_iptv_player/repositories/user_preferences.dart';
 import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/services/event_bus.dart';
 import 'package:another_iptv_player/services/source_health_service.dart';
+import 'package:another_iptv_player/services/timeshift_service.dart';
 import 'package:another_iptv_player/services/vpn_detection_service.dart';
 import 'package:another_iptv_player/services/watch_history_service.dart';
 import 'package:another_iptv_player/utils/subtitle_configuration.dart';
+import 'package:another_iptv_player/services/failed_domain_cache.dart';
+import 'package:another_iptv_player/widgets/epg_info_overlay.dart';
+import 'package:another_iptv_player/widgets/live_stream_controls.dart';
+import 'package:another_iptv_player/widgets/timeshift_controls.dart';
 import 'package:another_iptv_player/widgets/video_widget.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -82,6 +88,14 @@ class _PlayerWidgetState extends State<PlayerWidget>
   StreamSubscription? _vpnStatusSubscription;
   bool _isVpnBlocked = false;
 
+  // Timeshift support for live streams
+  final TimeshiftService _timeshiftService = TimeshiftService();
+  bool _timeshiftEnabled = false;
+
+  // Hidden items
+  final HiddenItemsRepository _hiddenItemsRepository = HiddenItemsRepository();
+  Set<String> _hiddenStreamIds = {};
+
   @override
   void initState() {
     WidgetsBinding.instance.addObserver(this);
@@ -139,11 +153,17 @@ class _PlayerWidgetState extends State<PlayerWidget>
       if (mounted) {
         final shouldBlock = _vpnService.shouldBlockNetwork;
         if (shouldBlock != _isVpnBlocked) {
+          final wasBlocked = _isVpnBlocked;
           setState(() {
             _isVpnBlocked = shouldBlock;
           });
-          if (shouldBlock && _player.state.playing) {
-            _player.pause();
+          if (shouldBlock) {
+            // Stop playback completely when VPN disconnects (kill switch)
+            _player.stop();
+          }
+          // Re-initialize player if VPN reconnected and was previously blocked
+          if (wasBlocked && !shouldBlock) {
+            _initializePlayer();
           }
         }
       }
@@ -152,11 +172,63 @@ class _PlayerWidgetState extends State<PlayerWidget>
     // Check initial VPN state
     _isVpnBlocked = _vpnService.shouldBlockNetwork;
 
+    // Load timeshift preference
+    _loadTimeshiftPreference();
+
+    // Load hidden items
+    _loadHiddenItems();
+
     _initializePlayer();
+  }
+
+  Future<void> _loadHiddenItems() async {
+    final playlistId = AppState.currentPlaylist?.id;
+    if (playlistId != null) {
+      final hiddenIds = await _hiddenItemsRepository.getHiddenStreamIds(playlistId);
+      if (mounted) {
+        setState(() {
+          _hiddenStreamIds = hiddenIds;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadTimeshiftPreference() async {
+    final enabled = await UserPreferences.getTimeshiftEnabled();
+    if (mounted) {
+      setState(() {
+        _timeshiftEnabled = enabled;
+      });
+    }
+  }
+
+  Future<bool> _startTimeshift() async {
+    if (contentItem.contentType != ContentType.liveStream) return false;
+    if (contentItem.isCatchUp) return false; // Don't timeshift catch-up content
+
+    final playlistId = contentItem.sourcePlaylistId ??
+        AppState.currentPlaylist?.id ??
+        'unknown';
+
+    return await _timeshiftService.startTimeshift(
+      streamUrl: contentItem.url,
+      contentId: contentItem.id,
+      contentName: contentItem.name,
+      playlistId: playlistId,
+    );
+  }
+
+  Future<void> _stopTimeshift() async {
+    if (_timeshiftService.isTimeshiftActive) {
+      await _timeshiftService.stopTimeshift();
+    }
   }
 
   @override
   void dispose() {
+    // Stop timeshift when player is disposed
+    _stopTimeshift();
+
     // Cancel timer and save watch history one last time before disposing
     _watchHistoryTimer?.cancel();
     if (_pendingWatchDuration != null) {
@@ -229,19 +301,41 @@ class _PlayerWidgetState extends State<PlayerWidget>
     }
 
     try {
-      // Access the native player platform and set the MPV option
+      // Access the native player platform and set MPV options
       final platform = _player.platform;
       if (platform is NativePlayer) {
+        // Allow loading URLs from HLS playlists
         await platform.setProperty('load-unsafe-playlists', 'yes');
+
+        // Enable seeking in live streams (for timeshift/pause functionality)
+        await platform.setProperty('force-seekable', 'yes');
+
+        // Increase demuxer cache for better timeshift support
+        // 150MB forward cache, 150MB back cache (allows ~2-5 min of seeking depending on bitrate)
+        await platform.setProperty('demuxer-max-bytes', '150MiB');
+        await platform.setProperty('demuxer-max-back-bytes', '150MiB');
+
+        // Keep the stream open even when paused
+        await platform.setProperty('demuxer-readahead-secs', '120');
       }
     } catch (e) {
       // Silently ignore errors - this is a best-effort optimization
-      print('Could not set load-unsafe-playlists option: $e');
+      print('Could not set MPV options: $e');
     }
   }
 
   Future<void> _initializePlayer() async {
     if (!mounted) return;
+
+    // Check VPN status - don't start playback if VPN should be blocked
+    final shouldBlockPlayback = _vpnService.shouldBlockNetwork;
+    if (shouldBlockPlayback) {
+      setState(() {
+        _isVpnBlocked = true;
+        isLoading = false;
+      });
+      return;
+    }
 
     // Check for invalid error:// URLs before trying to play
     if (contentItem.url.startsWith('error://')) {
@@ -308,7 +402,8 @@ class _PlayerWidgetState extends State<PlayerWidget>
           currentItemIndex = i;
           _currentItemIndex = i;
 
-          if (contentItem.contentType == ContentType.liveStream) {
+          // For live streams (except catch up), reset index and add extra media item
+          if (contentItem.contentType == ContentType.liveStream && !contentItem.isCatchUp) {
             currentItemIndex = 0;
             _currentItemIndex = 0;
             contentItem = item;
@@ -333,7 +428,11 @@ class _PlayerWidgetState extends State<PlayerWidget>
 
       await _audioHandler.setQueue(mediaItems, initialIndex: currentItemIndex);
 
-      if (contentItem.contentType != ContentType.liveStream) {
+      // Catch up content should be treated as seekable (like VOD), not live stream
+      final isSeekableContent = contentItem.contentType != ContentType.liveStream ||
+                                contentItem.isCatchUp;
+
+      if (isSeekableContent) {
         var playlist = mediaItems.map((mediaItem) {
           final url = mediaItem.extras!['url'] as String;
           final startMs = mediaItem.extras!['startPosition'] as int;
@@ -398,6 +497,7 @@ class _PlayerWidgetState extends State<PlayerWidget>
       }
 
       if (hasConnection) {
+        // Reconnect only for live streams (including catch up since they may resume)
         if (_wasDisconnected &&
             contentItem.contentType == ContentType.liveStream &&
             contentItem.url.isNotEmpty) {
@@ -410,8 +510,13 @@ class _PlayerWidgetState extends State<PlayerWidget>
               ),
             );
 
-            // TODO: Implement watch history duration for vod and series
-            await _player.open(Media(contentItem.url));
+            // For catch up content, preserve playback position when reconnecting
+            if (contentItem.isCatchUp) {
+              final currentPosition = _player.state.position;
+              await _player.open(Media(contentItem.url, start: currentPosition));
+            } else {
+              await _player.open(Media(contentItem.url));
+            }
           } catch (e) {
             print('Error opening media: $e');
           }
@@ -494,14 +599,17 @@ class _PlayerWidgetState extends State<PlayerWidget>
           });
           _errorDisplayTimer?.cancel();
         }
+      } else if (!playing && mounted) {
+        // When paused on live stream, mark as behind live in timeshift
+        if (_timeshiftService.isTimeshiftActive) {
+          _timeshiftService.pause();
+        }
       }
     });
 
     _player.stream.position.listen((position) {
-      _player.state.playlist.medias[currentItemIndex] = Media(
-        contentItem.url,
-        start: position,
-      );
+      // Note: We previously tried to update _player.state.playlist.medias[currentItemIndex]
+      // but that list is immutable, so we just track the position via watch history instead
 
       // Debounce: Save watch history every 5 seconds instead of on every position update
       _pendingWatchDuration = position;
@@ -565,7 +673,8 @@ class _PlayerWidgetState extends State<PlayerWidget>
     _player.stream.playlist.listen((playlist) {
       if (!mounted) return;
 
-      if (contentItem.contentType == ContentType.liveStream) {
+      // For live streams (except catch up), don't handle playlist changes
+      if (contentItem.contentType == ContentType.liveStream && !contentItem.isCatchUp) {
         return;
       }
 
@@ -592,7 +701,8 @@ class _PlayerWidgetState extends State<PlayerWidget>
     });
 
     _player.stream.completed.listen((playlist) async {
-      if (contentItem.contentType == ContentType.liveStream) {
+      // Only auto-restart for live streams (not catch up content)
+      if (contentItem.contentType == ContentType.liveStream && !contentItem.isCatchUp) {
         await _player.open(Media(contentItem.url));
       }
     });
@@ -600,7 +710,8 @@ class _PlayerWidgetState extends State<PlayerWidget>
     contentItemIndexChangedSubscription = EventBus()
         .on<int>('player_content_item_index_changed')
         .listen((int index) async {
-          if (contentItem.contentType == ContentType.liveStream) {
+          // Channel switching only for live streams (not catch up)
+          if (contentItem.contentType == ContentType.liveStream && !contentItem.isCatchUp) {
             // Queue'yu PlayerState'ten al (kategori değiştiğinde güncellenmiş olabilir)
             final updatedQueue = PlayerState.queue ?? _queue;
             if (updatedQueue == null || index >= updatedQueue.length) return;
@@ -633,12 +744,17 @@ class _PlayerWidgetState extends State<PlayerWidget>
           }
         });
 
-    // Kanal listesi göster/gizle event'i
-    EventBus().on<bool>('toggle_channel_list').listen((bool show) {
+    // Kanal listesi göster/gizle event'i (null = toggle, true = show, false = hide)
+    EventBus().on<bool?>('toggle_channel_list').listen((bool? show) {
       if (mounted) {
         setState(() {
-          _showChannelList = show;
-          PlayerState.showChannelList = show;
+          if (show == null) {
+            // Toggle
+            _showChannelList = !_showChannelList;
+          } else {
+            _showChannelList = show;
+          }
+          PlayerState.showChannelList = _showChannelList;
         });
       }
     });
@@ -691,13 +807,14 @@ class _PlayerWidgetState extends State<PlayerWidget>
   }
 
   Widget _buildChannelListOverlay(BuildContext context) {
-    final items = _queue!;
+    // Filter out hidden items from the channel list
+    final items = _queue!.where((item) => !_hiddenStreamIds.contains(item.id)).toList();
     final currentContent = PlayerState.currentContent;
     final screenWidth = MediaQuery.of(context).size.width;
     final panelWidth = (screenWidth / 3).clamp(200.0, 400.0);
 
     // Mevcut index'i bul
-    int selectedIndex = _currentItemIndex;
+    int selectedIndex = 0;
     if (currentContent != null) {
       final foundIndex = items.indexWhere(
         (item) => item.id == currentContent.id,
@@ -827,7 +944,9 @@ class _PlayerWidgetState extends State<PlayerWidget>
   ) {
     return InkWell(
       onTap: () {
-        EventBus().emit('player_content_item_index_changed', index);
+        // Find the actual index in the original queue (not the filtered list)
+        final originalIndex = _queue?.indexWhere((q) => q.id == item.id) ?? index;
+        EventBus().emit('player_content_item_index_changed', originalIndex);
         // Panel kapanmasın, sadece kanal değişsin
       },
       child: Container(
@@ -983,12 +1102,17 @@ class _PlayerWidgetState extends State<PlayerWidget>
   }
 
   /// Parse artUri safely, returning null for empty or invalid URLs
+  /// Also checks domain cache to avoid loading from known-failed domains
   Uri? _parseArtUri(String? imagePath) {
     if (imagePath == null || imagePath.isEmpty) {
       return null;
     }
     // Check if it looks like a valid URL (has a scheme/host)
     if (!imagePath.startsWith('http://') && !imagePath.startsWith('https://')) {
+      return null;
+    }
+    // Check if domain is known to be down
+    if (FailedDomainCache().isDomainBlocked(imagePath)) {
       return null;
     }
     try {
@@ -1021,7 +1145,8 @@ class _PlayerWidgetState extends State<PlayerWidget>
     final isLiveStream =
         widget.contentItem.contentType == ContentType.liveStream;
     final isVod = widget.contentItem.contentType == ContentType.vod;
-    final isFullScreen = isSeries || isLiveStream || isVod;
+    final isCatchUp = widget.contentItem.isCatchUp;
+    final isFullScreen = isSeries || isLiveStream || isVod || isCatchUp;
 
     double calculateAspectRatio() {
       if (widget.aspectRatio != null) return widget.aspectRatio!;
@@ -1122,6 +1247,21 @@ class _PlayerWidgetState extends State<PlayerWidget>
               ElevatedButton.icon(
                 onPressed: () async {
                   await _vpnService.forceCheck();
+                  // Explicitly update state after check completes
+                  if (mounted) {
+                    final shouldBlock = _vpnService.shouldBlockNetwork;
+                    final wasBlocked = _isVpnBlocked;
+                    setState(() {
+                      _isVpnBlocked = shouldBlock;
+                    });
+                    // Re-initialize player if VPN is now connected
+                    if (wasBlocked && !shouldBlock) {
+                      setState(() {
+                        isLoading = true;
+                      });
+                      _initializePlayer();
+                    }
+                  }
                 },
                 icon: const Icon(Icons.refresh),
                 label: const Text('Check Again'),
@@ -1210,6 +1350,158 @@ class _PlayerWidgetState extends State<PlayerWidget>
               bottom: 60, // Above the video controls
               child: _buildErrorOverlay(),
             ),
+
+          // Live stream controls overlay (shows on hover/tap for live streams)
+          if (contentItem.contentType == ContentType.liveStream &&
+              !contentItem.isCatchUp)
+            Positioned.fill(
+              child: LiveStreamControls(
+                player: _player,
+                queue: _queue,
+                currentIndex: _currentItemIndex,
+                onGoLive: () {
+                  _timeshiftService.goLive();
+                },
+                onBack: () {
+                  Navigator.of(context).maybePop();
+                },
+              ),
+            ),
+
+          // EPG info overlay with channel navigation and subtitle toggle
+          if (contentItem.contentType == ContentType.liveStream &&
+              !contentItem.isCatchUp)
+            Positioned.fill(
+              child: EPGInfoOverlay(
+                player: _player,
+                contentItem: contentItem,
+                queue: _queue,
+                currentIndex: _currentItemIndex,
+                onChannelChange: () {
+                  // Refresh EPG data when channel changes
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _showSaveBufferDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => SaveTimeshiftDialog(
+        state: _timeshiftService.state,
+        onSave: (additionalDuration) async {
+          final recording = await _timeshiftService.saveBuffer(
+            additionalDuration: additionalDuration,
+          );
+          if (recording != null && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Recording saved: ${recording.contentName}'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  void _showRecordingDialog(BuildContext context) {
+    final isRecording = _timeshiftService.isTimeshiftActive;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(isRecording ? 'Recording Active' : 'Start Recording'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (isRecording) ...[
+              Text(
+                'Currently buffering: ${_timeshiftService.state.bufferDurationText}',
+                style: Theme.of(dialogContext).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'You can save the current buffer or stop recording.',
+              ),
+            ] else ...[
+              const Text(
+                'Start recording this live stream?\n\n'
+                'The stream will be buffered for up to 30 minutes, '
+                'allowing you to pause, rewind, and save the recording.',
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Note: Requires FFmpeg to be installed.',
+                style: TextStyle(
+                  fontStyle: FontStyle.italic,
+                  color: Colors.grey,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          if (isRecording) ...[
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(dialogContext);
+                await _timeshiftService.stopTimeshift();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Recording stopped'),
+                    ),
+                  );
+                }
+              },
+              child: const Text('Stop'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                _showSaveBufferDialog(context);
+              },
+              child: const Text('Save Buffer'),
+            ),
+          ] else ...[
+            FilledButton(
+              onPressed: () async {
+                Navigator.pop(dialogContext);
+                final success = await _startTimeshift();
+                if (mounted) {
+                  if (success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Recording started'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Failed to start recording. Make sure FFmpeg is installed.',
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Start Recording'),
+            ),
+          ],
         ],
       ),
     );

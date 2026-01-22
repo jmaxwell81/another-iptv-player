@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:another_iptv_player/services/event_bus.dart';
 import 'package:another_iptv_player/services/player_state.dart';
 import 'package:another_iptv_player/l10n/localization_extension.dart';
+import 'package:another_iptv_player/widgets/subtitle_search_widget.dart';
 import 'package:media_kit/media_kit.dart' hide PlayerState;
 
 class VideoSettingsWidget extends StatefulWidget {
@@ -272,27 +273,123 @@ class _VideoSettingsOverlayState extends State<_VideoSettingsOverlay> {
                   },
                 ),
                 const SizedBox(height: 16),
-                _buildTrackSectionGeneric<SubtitleTrack>(
-                  context,
-                  icon: Icons.subtitles,
-                  title: context.loc.subtitle_track,
-                  tracks: subtitleTracks,
-                  labelBuilder: _formatSubtitleTrack,
-                  isSelected: (track) => track.id == selectedSubtitleTrack,
-                  onTrackSelected: (track) {
-                    EventBus().emit('subtitle_track_changed', track);
-                    if (mounted) {
-                      setState(() {
-                        selectedSubtitleTrack = track.id;
-                      });
-                    }
-                  },
-                ),
+                _buildSubtitleSection(context),
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSubtitleSection(BuildContext context) {
+    const textColor = Colors.white;
+    const secondaryTextColor = Colors.grey;
+    final dividerColor = Colors.grey[800]!;
+    const primaryColor = Colors.blue;
+    final cardBackground = Colors.white.withOpacity(0.05);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cardBackground,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: dividerColor,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.subtitles, size: 20, color: primaryColor),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  context.loc.subtitle_track,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: textColor,
+                  ),
+                ),
+              ),
+              // Download subtitles button
+              TextButton.icon(
+                onPressed: () => _showSubtitleSearch(context),
+                icon: const Icon(Icons.download, size: 16),
+                label: const Text('Download'),
+                style: TextButton.styleFrom(
+                  foregroundColor: primaryColor,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ],
+          ),
+          if (subtitleTracks.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ...subtitleTracks.map((track) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _buildTrackItem(
+                    context,
+                    title: _formatSubtitleTrack(track),
+                    isSelected: track.id == selectedSubtitleTrack,
+                    onTap: () {
+                      EventBus().emit('subtitle_track_changed', track);
+                      if (mounted) {
+                        setState(() {
+                          selectedSubtitleTrack = track.id;
+                        });
+                      }
+                    },
+                  ),
+                )),
+          ] else
+            Padding(
+              padding: const EdgeInsets.only(left: 32, top: 8),
+              child: Text(
+                context.loc.no_tracks_available,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: secondaryTextColor,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _showSubtitleSearch(BuildContext context) {
+    // Get content info from current playing item
+    final currentContent = PlayerState.currentContent;
+    String contentName = 'Unknown';
+    String contentId = '';
+    String contentType = 'vod';
+
+    if (currentContent != null) {
+      contentName = currentContent.name;
+      contentId = currentContent.id;
+      contentType = currentContent.contentType.name;
+    }
+
+    showSubtitleSearchDialog(
+      context,
+      contentName: contentName,
+      contentId: contentId,
+      contentType: contentType,
+      onSubtitleLoaded: () {
+        // Refresh subtitle tracks
+        if (mounted) {
+          setState(() {
+            subtitleTracks = PlayerState.subtitles;
+          });
+        }
+      },
     );
   }
 

@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:another_iptv_player/l10n/localization_extension.dart';
 import 'package:another_iptv_player/models/api_configuration_model.dart';
+import 'package:another_iptv_player/models/consolidated_content_item.dart';
+import 'package:another_iptv_player/models/content_source_link.dart';
 import 'package:another_iptv_player/models/content_type.dart';
 import 'package:another_iptv_player/models/favorite.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
@@ -11,6 +13,7 @@ import 'package:another_iptv_player/repositories/favorites_repository.dart';
 import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/services/watch_history_service.dart';
 import 'package:another_iptv_player/models/playlist_model.dart';
+import 'package:another_iptv_player/widgets/source_selection_widget.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -20,11 +23,19 @@ import 'package:uuid/uuid.dart';
 
 import '../../../widgets/player_widget.dart';
 import 'package:another_iptv_player/utils/renaming_extension.dart';
+import 'package:another_iptv_player/widgets/tmdb_details_widget.dart';
 
 class MovieScreen extends StatefulWidget {
   final ContentItem contentItem;
 
-  const MovieScreen({super.key, required this.contentItem});
+  /// Optional consolidated item for multi-source content
+  final ConsolidatedContentItem? consolidatedItem;
+
+  const MovieScreen({
+    super.key,
+    required this.contentItem,
+    this.consolidatedItem,
+  });
 
   @override
   State<MovieScreen> createState() => _MovieScreenState();
@@ -41,6 +52,12 @@ class _MovieScreenState extends State<MovieScreen> {
   bool _isLoadingVodInfo = true;
   List<ContentItem> _categoryMovies = [];
   bool _isFavorite = false;
+
+  /// Currently selected source for multi-source content
+  ContentSourceLink? _selectedSource;
+
+  /// The actual content item to use for playback (may change when source changes)
+  late ContentItem _activeContentItem;
 
   // Helper to determine if this is Xtream content
   bool get _contentIsXtream =>
@@ -67,11 +84,29 @@ class _MovieScreenState extends State<MovieScreen> {
         playlistId: _playlistId,
       );
 
+  /// Whether this item has multiple sources available
+  bool get _hasMultipleSources =>
+      widget.consolidatedItem != null &&
+      widget.consolidatedItem!.hasMultipleSources;
+
+  /// Get available sources
+  List<ContentSourceLink> get _availableSources =>
+      widget.consolidatedItem?.sourceLinks ?? [];
+
   @override
   void initState() {
     super.initState();
     _watchHistoryService = WatchHistoryService();
     _favoritesRepository = FavoritesRepository();
+
+    // Initialize active content item and selected source
+    _activeContentItem = widget.contentItem;
+    if (widget.consolidatedItem != null) {
+      _selectedSource = widget.consolidatedItem!.preferredSource;
+      if (_selectedSource != null) {
+        _activeContentItem = widget.consolidatedItem!.toContentItemWithSource(_selectedSource!);
+      }
+    }
 
     // Determine if this is Xtream content and get the right repository
     final sourcePlaylistId = widget.contentItem.sourcePlaylistId;
@@ -120,6 +155,21 @@ class _MovieScreenState extends State<MovieScreen> {
     } catch (e) {
       debugPrint('Error checking favorite status: $e');
     }
+  }
+
+  /// Handle source selection change
+  void _onSourceSelected(ContentSourceLink source) {
+    if (source == _selectedSource) return;
+
+    setState(() {
+      _selectedSource = source;
+      if (widget.consolidatedItem != null) {
+        _activeContentItem = widget.consolidatedItem!.toContentItemWithSource(source);
+      }
+    });
+
+    // Optionally reload VOD info from new source
+    _loadVodInfo();
   }
 
   Future<void> _toggleFavorite() async {
@@ -514,12 +564,68 @@ class _MovieScreenState extends State<MovieScreen> {
           _buildExtraDetails(context)!,
           const SizedBox(height: 24),
         ],
+        // TMDB Enhanced Details
+        TmdbDetailsWidget(
+          contentId: widget.contentItem.id,
+          playlistId: _playlistId,
+          contentType: 'vod',
+          title: _displayName,
+          imdbId: _extractImdbId(),
+          year: _extractYear(),
+        ),
+        // Source Selection (for multi-source content)
+        if (_hasMultipleSources) ...[
+          const SizedBox(height: 24),
+          _buildSourceSelectionSection(context),
+        ],
         if (_buildTrailerButton(context) != null) ...[
           _buildTrailerButton(context)!,
           const SizedBox(height: 24),
         ],
       ],
     );
+  }
+
+  /// Build the source selection section for multi-source content
+  Widget _buildSourceSelectionSection(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: SourceSelectionWidget(
+        sources: _availableSources,
+        selectedSource: _selectedSource,
+        onSourceSelected: _onSourceSelected,
+      ),
+    );
+  }
+
+  int? _extractYear() {
+    // Try to extract year from release date or vodInfo
+    if (_vodInfo != null) {
+      final releaseDate = _vodInfo!['releaseDate'] ?? _vodInfo!['release_date'] ?? _vodInfo!['year'];
+      if (releaseDate is String && releaseDate.isNotEmpty) {
+        final yearMatch = RegExp(r'(\d{4})').firstMatch(releaseDate);
+        if (yearMatch != null) {
+          return int.tryParse(yearMatch.group(1)!);
+        }
+      }
+    }
+    return null;
+  }
+
+  String? _extractImdbId() {
+    // Try to extract IMDB ID from vodInfo if available
+    if (_vodInfo != null) {
+      final imdbId = _vodInfo!['imdb_id'] ?? _vodInfo!['imdb'];
+      if (imdbId is String && imdbId.isNotEmpty) {
+        return imdbId;
+      }
+    }
+    return null;
   }
 
   Widget _buildDesktopLayout(BuildContext context) {
@@ -549,6 +655,20 @@ class _MovieScreenState extends State<MovieScreen> {
               if (_buildExtraDetails(context) != null) ...[
                 _buildExtraDetails(context)!,
                 const SizedBox(height: 24),
+              ],
+              // TMDB Enhanced Details
+              TmdbDetailsWidget(
+                contentId: widget.contentItem.id,
+                playlistId: _playlistId,
+                contentType: 'vod',
+                title: _displayName,
+                imdbId: _extractImdbId(),
+                year: _extractYear(),
+              ),
+              // Source Selection (for multi-source content)
+              if (_hasMultipleSources) ...[
+                const SizedBox(height: 24),
+                _buildSourceSelectionSection(context),
               ],
               if (_buildTrailerButton(context) != null) ...[
                 Align(
@@ -970,11 +1090,11 @@ class _MovieScreenState extends State<MovieScreen> {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => _MoviePlayerPage(
-          contentItem: widget.contentItem,
+          contentItem: _activeContentItem,
           queue:
               _categoryMovies.isNotEmpty
                   ? _categoryMovies
-                  : [widget.contentItem],
+                  : [_activeContentItem],
         ),
       ),
     );
