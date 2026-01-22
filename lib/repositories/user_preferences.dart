@@ -647,6 +647,7 @@ class UserPreferences {
   static const String _keyVpnStatusPosition = 'vpn_status_position';
   static const String _keyVpnStatusOpacity = 'vpn_status_opacity';
   static const String _keyVpnShowOnlyWhenDisconnected = 'vpn_show_only_when_disconnected';
+  static const String _keyVpnTargetCountry = 'vpn_target_country';
 
   static Future<void> setVpnCheckEnabled(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
@@ -707,6 +708,23 @@ class UserPreferences {
   static Future<bool> getVpnShowOnlyWhenDisconnected() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_keyVpnShowOnlyWhenDisconnected) ?? false; // Default false
+  }
+
+  /// Set the target country for VPN detection (ISO 3166-1 alpha-2 code, e.g., 'US', 'GB', 'DE')
+  /// When set, VPN is considered "enabled" if the detected country doesn't match this target.
+  static Future<void> setVpnTargetCountry(String? countryCode) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (countryCode == null || countryCode.isEmpty) {
+      await prefs.remove(_keyVpnTargetCountry);
+    } else {
+      await prefs.setString(_keyVpnTargetCountry, countryCode.toUpperCase());
+    }
+  }
+
+  /// Get the target country for VPN detection (null means no country-based check)
+  static Future<String?> getVpnTargetCountry() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyVpnTargetCountry);
   }
 
   // Download settings
@@ -1008,4 +1026,121 @@ class UserPreferences {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_keySubtitleDownloadPath);
   }
+
+  // Content Consolidation/Deduplication settings
+  static const String _keyConsolidationEnabled = 'consolidation_enabled';
+  static const String _keyPreferredContentQuality = 'preferred_content_quality';
+  static const String _keyPreferredContentLanguage = 'preferred_content_language';
+
+  /// Enable/disable content consolidation (default: true)
+  static Future<void> setConsolidationEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyConsolidationEnabled, enabled);
+  }
+
+  static Future<bool> getConsolidationEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyConsolidationEnabled) ?? true;
+  }
+
+  /// Set preferred content quality for source selection
+  /// Stored as index of ContentQuality enum
+  static Future<void> setPreferredContentQuality(dynamic quality) async {
+    final prefs = await SharedPreferences.getInstance();
+    // Store as string name for safety across enum changes
+    await prefs.setString(_keyPreferredContentQuality, quality.toString().split('.').last);
+  }
+
+  /// Get preferred content quality (returns null if not set)
+  /// Returns a ContentQuality value
+  static Future<dynamic> getPreferredContentQuality() async {
+    final prefs = await SharedPreferences.getInstance();
+    final value = prefs.getString(_keyPreferredContentQuality);
+    if (value == null) return null;
+
+    // Map string back to quality - imported dynamically to avoid circular imports
+    switch (value) {
+      case 'uhd4k':
+        return _ContentQualityHelper.uhd4k;
+      case 'hd1080p':
+        return _ContentQualityHelper.hd1080p;
+      case 'hd720p':
+        return _ContentQualityHelper.hd720p;
+      case 'sd':
+        return _ContentQualityHelper.sd;
+      default:
+        return _ContentQualityHelper.hd1080p; // Default fallback
+    }
+  }
+
+  /// Set preferred content language (ISO 639-1 code, e.g., 'en', 'tr', 'es')
+  static Future<void> setPreferredContentLanguage(String language) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyPreferredContentLanguage, language.toLowerCase());
+  }
+
+  /// Get preferred content language (default: 'en')
+  static Future<String> getPreferredContentLanguage() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyPreferredContentLanguage) ?? 'en';
+  }
+
+  // Favorites from Hidden Categories settings
+  static const String _keyHiddenFavoritesCategoryName = 'hidden_favorites_category_name';
+  static const String _keyShowHiddenFavoritesCategory = 'show_hidden_favorites_category';
+
+  /// Get the name of the "Favorites from Hidden Categories" category
+  static Future<String> getHiddenFavoritesCategoryName() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyHiddenFavoritesCategoryName) ?? 'Favorites';
+  }
+
+  /// Set the name of the "Favorites from Hidden Categories" category
+  static Future<void> setHiddenFavoritesCategoryName(String name) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyHiddenFavoritesCategoryName, name);
+  }
+
+  /// Get whether to show the hidden favorites category
+  static Future<bool> getShowHiddenFavoritesCategory() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyShowHiddenFavoritesCategory) ?? true;
+  }
+
+  /// Set whether to show the hidden favorites category
+  static Future<void> setShowHiddenFavoritesCategory(bool show) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyShowHiddenFavoritesCategory, show);
+  }
+
+  // Live Recording Jobs storage
+  static const String _keyRecordingJobs = 'recording_jobs';
+
+  static Future<void> setRecordingJobs(List<Map<String, dynamic>> jobs) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyRecordingJobs, jsonEncode(jobs));
+  }
+
+  static Future<List<Map<String, dynamic>>> getRecordingJobs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_keyRecordingJobs);
+    if (jsonString == null || jsonString.isEmpty) {
+      return [];
+    }
+    try {
+      final List<dynamic> list = jsonDecode(jsonString);
+      return list.cast<Map<String, dynamic>>();
+    } catch (e) {
+      return [];
+    }
+  }
+}
+
+/// Helper class to avoid importing content_source_link.dart
+/// which could cause circular dependencies
+class _ContentQualityHelper {
+  static const int uhd4k = 0;
+  static const int hd1080p = 1;
+  static const int hd720p = 2;
+  static const int sd = 3;
 }

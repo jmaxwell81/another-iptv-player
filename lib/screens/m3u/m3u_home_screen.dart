@@ -2,6 +2,7 @@ import 'package:another_iptv_player/l10n/localization_extension.dart';
 import 'package:another_iptv_player/screens/m3u/m3u_items_screen.dart';
 import 'package:another_iptv_player/screens/m3u/m3u_playlist_settings_screen.dart';
 import 'package:another_iptv_player/screens/tv_guide/tv_guide_screen.dart';
+import 'package:another_iptv_player/utils/app_themes.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:another_iptv_player/controllers/m3u_home_controller.dart';
@@ -268,15 +269,29 @@ class _M3UHomeScreenState extends State<M3UHomeScreen> {
     );
   }
 
-  BottomNavigationBar _buildBottomNavigationBar(
+  Widget _buildBottomNavigationBar(
     BuildContext context,
     M3UHomeController controller,
   ) {
-    return BottomNavigationBar(
-      currentIndex: controller.currentIndex,
-      onTap: controller.onNavigationTap,
-      type: BottomNavigationBarType.fixed,
-      items: _buildBottomNavigationItems(context),
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppThemes.netflixBlack,
+        border: Border(
+          top: BorderSide(color: AppThemes.dividerGrey, width: 0.5),
+        ),
+      ),
+      child: BottomNavigationBar(
+        currentIndex: controller.currentIndex,
+        onTap: controller.onNavigationTap,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        selectedItemColor: AppThemes.textWhite,
+        unselectedItemColor: AppThemes.iconGrey,
+        selectedFontSize: 11,
+        unselectedFontSize: 11,
+        items: _buildBottomNavigationItems(context),
+      ),
     );
   }
 
@@ -336,46 +351,20 @@ class _M3UHomeScreenState extends State<M3UHomeScreen> {
     NavigationSizes sizes,
     VoidCallback onTap,
   ) {
-    return Container(
-      width: double.infinity,
-      height: sizes.itemHeight,
-      margin: const EdgeInsets.symmetric(vertical: 2),
-      decoration: BoxDecoration(
-        color: isSelected
-            ? Theme.of(context).colorScheme.primaryContainer
-            : Colors.transparent,
-      ),
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              item.icon,
-              color: _getIconColor(context, isSelected),
-              size: sizes.iconSize,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              item.label,
-              style: TextStyle(
-                color: _getTextColor(context, isSelected),
-                fontSize: sizes.fontSize,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
+    return _M3uDesktopNavItem(
+      icon: item.icon,
+      label: item.label,
+      isSelected: isSelected,
+      sizes: sizes,
+      onTap: onTap,
     );
   }
 
   BoxDecoration _getNavigationBarDecoration(BuildContext context) {
-    return BoxDecoration(
-      color: Theme.of(context).colorScheme.surface,
+    return const BoxDecoration(
+      color: AppThemes.netflixBlack,
       border: Border(
-        right: BorderSide(color: Theme.of(context).dividerColor, width: 0.5),
+        right: BorderSide(color: AppThemes.dividerGrey, width: 0.5),
       ),
     );
   }
@@ -397,15 +386,11 @@ class _M3UHomeScreenState extends State<M3UHomeScreen> {
   }
 
   Color _getIconColor(BuildContext context, bool isSelected) {
-    return isSelected
-        ? Theme.of(context).colorScheme.primary
-        : Theme.of(context).colorScheme.onSurface;
+    return isSelected ? AppThemes.textWhite : AppThemes.iconGrey;
   }
 
   Color _getTextColor(BuildContext context, bool isSelected) {
-    return isSelected
-        ? Theme.of(context).colorScheme.primary
-        : Theme.of(context).colorScheme.onSurface;
+    return isSelected ? AppThemes.textWhite : AppThemes.iconGrey;
   }
 
   List<NavigationItem> _getNavigationItems(BuildContext context) {
@@ -445,4 +430,78 @@ class NavigationSizes {
     required this.iconSize,
     required this.fontSize,
   });
+}
+
+/// Desktop navigation item with hover effects
+class _M3uDesktopNavItem extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final NavigationSizes sizes;
+  final VoidCallback onTap;
+
+  const _M3uDesktopNavItem({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.sizes,
+    required this.onTap,
+  });
+
+  @override
+  State<_M3uDesktopNavItem> createState() => _M3uDesktopNavItemState();
+}
+
+class _M3uDesktopNavItemState extends State<_M3uDesktopNavItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: InkWell(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: double.infinity,
+          height: widget.sizes.itemHeight,
+          margin: const EdgeInsets.symmetric(vertical: 2),
+          decoration: BoxDecoration(
+            color: widget.isSelected
+                ? Colors.white.withOpacity(0.1)
+                : _isHovered
+                    ? Colors.white.withOpacity(0.05)
+                    : Colors.transparent,
+            border: Border(
+              left: BorderSide(
+                color: widget.isSelected ? AppThemes.accentRed : Colors.transparent,
+                width: 3,
+              ),
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                widget.icon,
+                color: widget.isSelected ? AppThemes.textWhite : AppThemes.iconGrey,
+                size: widget.sizes.iconSize,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  color: widget.isSelected ? AppThemes.textWhite : AppThemes.iconGrey,
+                  fontSize: widget.sizes.fontSize,
+                  fontWeight: widget.isSelected ? FontWeight.w600 : FontWeight.w400,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

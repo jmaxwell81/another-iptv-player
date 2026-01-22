@@ -2,9 +2,14 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:another_iptv_player/database/database.dart';
+import 'package:another_iptv_player/models/content_type.dart';
+import 'package:another_iptv_player/models/playlist_content_model.dart';
+import 'package:another_iptv_player/models/playlist_model.dart';
+import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/services/tmdb_service.dart';
 import 'package:another_iptv_player/services/service_locator.dart';
 import 'package:another_iptv_player/l10n/localization_extension.dart';
+import 'package:another_iptv_player/screens/movies/movie_screen.dart';
 
 /// Widget that displays enhanced TMDB details like cast, similar content, etc.
 class TmdbDetailsWidget extends StatefulWidget {
@@ -266,73 +271,318 @@ class _TmdbDetailsWidgetState extends State<TmdbDetailsWidget> {
         ? TmdbService.getProfileUrl(profilePath)
         : null;
 
-    return Container(
-      width: 100,
-      margin: const EdgeInsets.only(right: 12),
-      child: Column(
-        children: [
-          // Profile image
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.grey.withOpacity(0.2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: ClipOval(
-              child: imageUrl != null
-                  ? CachedNetworkImage(
-                      imageUrl: imageUrl,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(
+    return GestureDetector(
+      onTap: () => _onActorTapped(context, name),
+      child: Container(
+        width: 100,
+        margin: const EdgeInsets.only(right: 12),
+        child: Column(
+          children: [
+            // Profile image
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.grey.withOpacity(0.2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: ClipOval(
+                child: imageUrl != null
+                    ? CachedNetworkImage(
+                        imageUrl: imageUrl,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          color: Colors.grey.shade800,
+                          child: const Icon(Icons.person, color: Colors.grey, size: 40),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          color: Colors.grey.shade800,
+                          child: const Icon(Icons.person, color: Colors.grey, size: 40),
+                        ),
+                      )
+                    : Container(
                         color: Colors.grey.shade800,
                         child: const Icon(Icons.person, color: Colors.grey, size: 40),
                       ),
-                      errorWidget: (context, url, error) => Container(
-                        color: Colors.grey.shade800,
-                        child: const Icon(Icons.person, color: Colors.grey, size: 40),
-                      ),
-                    )
-                  : Container(
-                      color: Colors.grey.shade800,
-                      child: const Icon(Icons.person, color: Colors.grey, size: 40),
-                    ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          // Name
-          Text(
-            name,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
-            ),
-          ),
-          // Character name
-          if (character != null && character.isNotEmpty)
-            Text(
-              character,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 11,
-                color: Theme.of(context).textTheme.bodySmall?.color,
               ),
             ),
-        ],
+            const SizedBox(height: 8),
+            // Name with tap indicator
+            Text(
+              name,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+            // Character name
+            if (character != null && character.isNotEmpty)
+              Text(
+                character,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).textTheme.bodySmall?.color,
+                ),
+              ),
+          ],
+        ),
       ),
     );
+  }
+
+  /// Handle actor tap - search for movies with this actor
+  Future<void> _onActorTapped(BuildContext context, String actorName) async {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text('Searching for movies with $actorName...'),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    try {
+      // Search for movies by actor in cached TMDB data
+      final database = getIt<AppDatabase>();
+      final results = await database.searchContentDetailsByCast(actorName);
+
+      if (!context.mounted) return;
+      Navigator.pop(context); // Close loading dialog
+
+      if (results.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No other movies found with $actorName in your library'),
+          ),
+        );
+        return;
+      }
+
+      // Show search results
+      _showActorMoviesDialog(context, actorName, results);
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error searching: $e')),
+        );
+      }
+    }
+  }
+
+  /// Show dialog with movies featuring the actor
+  void _showActorMoviesDialog(
+    BuildContext context,
+    String actorName,
+    List<ContentDetailsData> results,
+  ) {
+    // Filter out the current movie
+    final filteredResults = results
+        .where((r) => r.contentId != widget.contentId)
+        .toList();
+
+    if (filteredResults.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No other movies found with $actorName in your library'),
+        ),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.3,
+        maxChildSize: 0.9,
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade400,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Title
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Movies with $actorName',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              // Movies list
+              Expanded(
+                child: ListView.builder(
+                  controller: scrollController,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: filteredResults.length,
+                  itemBuilder: (context, index) {
+                    final movie = filteredResults[index];
+                    return _buildMovieListTile(context, movie);
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Build a movie list tile for the actor's movies dialog
+  Widget _buildMovieListTile(BuildContext context, ContentDetailsData movie) {
+    final posterUrl = movie.posterPath != null
+        ? TmdbService.getPosterUrl(movie.posterPath!)
+        : null;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Container(
+          width: 50,
+          height: 75,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            color: Colors.grey.shade300,
+          ),
+          child: posterUrl != null
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: CachedNetworkImage(
+                    imageUrl: posterUrl,
+                    fit: BoxFit.cover,
+                    errorWidget: (_, __, ___) => const Icon(Icons.movie, size: 30),
+                  ),
+                )
+              : const Icon(Icons.movie, size: 30),
+        ),
+        title: Text(
+          movie.title ?? 'Unknown',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: movie.voteAverage != null
+            ? Row(
+                children: [
+                  Icon(Icons.star, color: Colors.amber, size: 16),
+                  const SizedBox(width: 4),
+                  Text(movie.voteAverage!.toStringAsFixed(1)),
+                ],
+              )
+            : null,
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => _navigateToMovie(context, movie),
+      ),
+    );
+  }
+
+  /// Navigate to a movie detail screen
+  Future<void> _navigateToMovie(BuildContext context, ContentDetailsData movie) async {
+    // Try to find the movie in the IPTV library
+    final contentItem = await _findMovieInLibrary(movie.contentId, movie.playlistId);
+
+    if (!context.mounted) return;
+
+    if (contentItem != null) {
+      Navigator.pop(context); // Close the bottom sheet
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => MovieScreen(contentItem: contentItem),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Movie not found in library')),
+      );
+    }
+  }
+
+  /// Find a movie in the IPTV library by content ID
+  Future<ContentItem?> _findMovieInLibrary(String contentId, String playlistId) async {
+    try {
+      // Try Xtream repositories
+      final xtreamRepo = AppState.xtreamRepositories[playlistId] ?? AppState.xtreamCodeRepository;
+      if (xtreamRepo != null) {
+        final database = getIt<AppDatabase>();
+        final movie = await database.findMovieById(contentId, playlistId);
+        if (movie != null) {
+          return ContentItem(
+            movie.streamId,
+            movie.name,
+            movie.streamIcon,
+            ContentType.vod,
+            vodStream: movie,
+            containerExtension: movie.containerExtension,
+            sourcePlaylistId: playlistId,
+            sourceType: PlaylistType.xtream,
+          );
+        }
+      }
+
+      // Try M3U repositories
+      final m3uRepo = AppState.m3uRepositories[playlistId] ?? AppState.m3uRepository;
+      if (m3uRepo != null) {
+        final m3uItem = await m3uRepo.getM3uItemById(id: contentId);
+        if (m3uItem != null) {
+          return ContentItem(
+            m3uItem.url,
+            m3uItem.name ?? '',
+            m3uItem.tvgLogo ?? '',
+            ContentType.vod,
+            m3uItem: m3uItem,
+            sourcePlaylistId: playlistId,
+            sourceType: PlaylistType.m3u,
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error finding movie in library: $e');
+    }
+    return null;
   }
 
   Widget _buildSimilarSection(BuildContext context) {
@@ -345,71 +595,183 @@ class _TmdbDetailsWidgetState extends State<TmdbDetailsWidget> {
 
     if (similarIds.isEmpty) return const SizedBox.shrink();
 
-    // For now, just show that similar content is available
-    // In a full implementation, we'd fetch details for these IDs
+    // Build section with FutureBuilder to load similar movies from library
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              context.loc.similar_content,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white70
-                    : null,
-              ),
-            ),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                '${similarIds.length}',
-                style: TextStyle(
-                  color: Theme.of(context).primaryColor,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Theme.of(context).primaryColor.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: Theme.of(context).primaryColor.withOpacity(0.1),
-            ),
+        Text(
+          context.loc.similar_content,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white70
+                : null,
           ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.movie_filter,
-                color: Theme.of(context).primaryColor,
-                size: 20,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  context.loc.similar_content_available(similarIds.length.toString()),
-                  style: TextStyle(
-                    color: Theme.of(context).textTheme.bodyMedium?.color,
-                    fontSize: 13,
+        ),
+        const SizedBox(height: 12),
+        FutureBuilder<List<ContentDetailsData>>(
+          future: _findSimilarMoviesInLibrary(similarIds.cast<int>()),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const SizedBox(
+                height: 160,
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              );
+            }
+
+            final similarMovies = snapshot.data ?? [];
+
+            if (similarMovies.isEmpty) {
+              // No similar movies found in library
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Theme.of(context).primaryColor.withOpacity(0.1),
                   ),
                 ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.movie_filter,
+                      color: Theme.of(context).primaryColor,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'No similar movies found in your library',
+                        style: TextStyle(
+                          color: Theme.of(context).textTheme.bodyMedium?.color,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return SizedBox(
+              height: 200,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: similarMovies.length,
+                itemBuilder: (context, index) {
+                  final movie = similarMovies[index];
+                  return _buildSimilarMovieCard(context, movie);
+                },
               ),
-            ],
-          ),
+            );
+          },
         ),
       ],
+    );
+  }
+
+  /// Find similar movies that exist in the user's library
+  Future<List<ContentDetailsData>> _findSimilarMoviesInLibrary(List<int> tmdbIds) async {
+    final results = <ContentDetailsData>[];
+    final database = getIt<AppDatabase>();
+
+    for (final tmdbId in tmdbIds.take(10)) {
+      try {
+        final details = await database.getContentDetailsByTmdbId(tmdbId);
+        if (details != null && details.contentId != widget.contentId) {
+          results.add(details);
+        }
+      } catch (_) {
+        // Skip if not found
+      }
+    }
+
+    return results;
+  }
+
+  /// Build a card for a similar movie
+  Widget _buildSimilarMovieCard(BuildContext context, ContentDetailsData movie) {
+    final posterUrl = movie.posterPath != null
+        ? TmdbService.getPosterUrl(movie.posterPath!)
+        : null;
+
+    return GestureDetector(
+      onTap: () => _navigateToMovie(context, movie),
+      child: Container(
+        width: 120,
+        margin: const EdgeInsets.only(right: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Poster image
+            Container(
+              height: 140,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                color: Colors.grey.withOpacity(0.2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: posterUrl != null
+                    ? CachedNetworkImage(
+                        imageUrl: posterUrl,
+                        fit: BoxFit.cover,
+                        width: 120,
+                        placeholder: (context, url) => Container(
+                          color: Colors.grey.shade800,
+                          child: const Icon(Icons.movie, color: Colors.grey, size: 40),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          color: Colors.grey.shade800,
+                          child: const Icon(Icons.movie, color: Colors.grey, size: 40),
+                        ),
+                      )
+                    : Container(
+                        color: Colors.grey.shade800,
+                        child: const Icon(Icons.movie, color: Colors.grey, size: 40),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Movie title
+            Text(
+              movie.title ?? 'Unknown',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+            ),
+            // Rating
+            if (movie.voteAverage != null && movie.voteAverage! > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(
+                  children: [
+                    Icon(Icons.star, color: Colors.amber, size: 14),
+                    const SizedBox(width: 4),
+                    Text(
+                      movie.voteAverage!.toStringAsFixed(1),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Theme.of(context).textTheme.bodySmall?.color,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 

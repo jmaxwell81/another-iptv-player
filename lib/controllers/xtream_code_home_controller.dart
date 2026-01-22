@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:another_iptv_player/l10n/localization_extension.dart';
 import 'package:flutter/material.dart';
 import 'package:another_iptv_player/models/category_type.dart';
@@ -9,7 +10,12 @@ import 'package:another_iptv_player/models/view_state.dart';
 import 'package:another_iptv_player/repositories/iptv_repository.dart';
 import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/services/category_config_service.dart';
+import 'package:another_iptv_player/services/content_filter_service.dart';
+import 'package:another_iptv_player/services/event_bus.dart';
 import 'package:another_iptv_player/services/parental_control_service.dart';
+import 'package:another_iptv_player/services/content_consolidation_service.dart';
+import 'package:another_iptv_player/services/content_preference_service.dart';
+import 'package:another_iptv_player/services/hidden_favorites_service.dart';
 import '../repositories/user_preferences.dart';
 import '../screens/xtream-codes/xtream_code_data_loader_screen.dart';
 
@@ -25,6 +31,9 @@ class XtreamCodeHomeController extends ChangeNotifier {
   final List<CategoryViewModel> _liveCategories = [];
   final List<CategoryViewModel> _movieCategories = [];
   final List<CategoryViewModel> _seriesCategories = [];
+
+  // Event subscriptions
+  StreamSubscription? _configChangedSubscription;
 
   // --- Category hidden ---
   Set<String> _hiddenCategoryIds = {};
@@ -64,12 +73,21 @@ class XtreamCodeHomeController extends ChangeNotifier {
             c.category.categoryId, c.category.categoryName))
         .toList();
     final playlistId = AppState.currentPlaylist?.id;
-    if (playlistId == null) return _applyContentFiltering(filtered);
-    return _applyContentFiltering(CategoryConfigService().applyConfig(
-      playlistId: playlistId,
-      type: CategoryType.live,
-      categories: filtered,
-    ));
+    List<CategoryViewModel> result;
+    if (playlistId == null) {
+      result = _applyContentFiltering(filtered);
+    } else {
+      result = _applyContentFiltering(CategoryConfigService().applyConfig(
+        playlistId: playlistId,
+        type: CategoryType.live,
+        categories: filtered,
+      ));
+    }
+    // Add hidden favorites category at the top if available
+    if (_hiddenFavoritesLive != null) {
+      return [_hiddenFavoritesLive!, ...result];
+    }
+    return result;
   }
 
   List<CategoryViewModel> get visibleMovieCategories {
@@ -79,12 +97,21 @@ class XtreamCodeHomeController extends ChangeNotifier {
             c.category.categoryId, c.category.categoryName))
         .toList();
     final playlistId = AppState.currentPlaylist?.id;
-    if (playlistId == null) return _applyContentFiltering(filtered);
-    return _applyContentFiltering(CategoryConfigService().applyConfig(
-      playlistId: playlistId,
-      type: CategoryType.vod,
-      categories: filtered,
-    ));
+    List<CategoryViewModel> result;
+    if (playlistId == null) {
+      result = _applyContentFiltering(filtered);
+    } else {
+      result = _applyContentFiltering(CategoryConfigService().applyConfig(
+        playlistId: playlistId,
+        type: CategoryType.vod,
+        categories: filtered,
+      ));
+    }
+    // Add hidden favorites category at the top if available
+    if (_hiddenFavoritesVod != null) {
+      return [_hiddenFavoritesVod!, ...result];
+    }
+    return result;
   }
 
   List<CategoryViewModel> get visibleSeriesCategories {
@@ -94,29 +121,81 @@ class XtreamCodeHomeController extends ChangeNotifier {
             c.category.categoryId, c.category.categoryName))
         .toList();
     final playlistId = AppState.currentPlaylist?.id;
-    if (playlistId == null) return _applyContentFiltering(filtered);
-    return _applyContentFiltering(CategoryConfigService().applyConfig(
-      playlistId: playlistId,
-      type: CategoryType.series,
-      categories: filtered,
-    ));
+    List<CategoryViewModel> result;
+    if (playlistId == null) {
+      result = _applyContentFiltering(filtered);
+    } else {
+      result = _applyContentFiltering(CategoryConfigService().applyConfig(
+        playlistId: playlistId,
+        type: CategoryType.series,
+        categories: filtered,
+      ));
+    }
+    // Add hidden favorites category at the top if available
+    if (_hiddenFavoritesSeries != null) {
+      return [_hiddenFavoritesSeries!, ...result];
+    }
+    return result;
   }
 
-  // Filter content items within categories based on parental controls
+  // Consolidation service for merging duplicates
+  final ContentConsolidationService _consolidationService = ContentConsolidationService();
+  final ContentPreferenceService _preferenceService = ContentPreferenceService();
+  final HiddenFavoritesService _hiddenFavoritesService = HiddenFavoritesService();
+  final ContentFilterService _contentFilterService = ContentFilterService();
+  bool _consolidationEnabled = true;
+
+  // Hidden favorites category cache (built once per session)
+  CategoryViewModel? _hiddenFavoritesLive;
+  CategoryViewModel? _hiddenFavoritesVod;
+  CategoryViewModel? _hiddenFavoritesSeries;
+
+  // Filter content items within categories based on parental controls, content filters, and consolidate
   List<CategoryViewModel> _applyContentFiltering(List<CategoryViewModel> categories) {
     return categories.map((category) {
-      final filteredItems = _parentalService.filterContent<ContentItem>(
+      // First apply parental controls
+      var filteredItems = _parentalService.filterContent<ContentItem>(
         category.contentItems,
         getId: (item) => item.id,
         getName: (item) => item.name,
         getCategoryId: (item) => category.category.categoryId,
         getCategoryName: (item) => category.category.categoryName,
       );
+
+      // Then apply content filter rules (like ## pattern)
+      filteredItems = filteredItems.where((item) {
+        return !_contentFilterService.shouldHideContent(
+          item.name,
+          categoryId: category.category.categoryId,
+        );
+      }).toList();
+
+      // Apply consolidation if enabled
+      if (_consolidationEnabled && filteredItems.length > 1) {
+        try {
+          final consolidated = _consolidationService.consolidateWithPreferences(
+            filteredItems,
+            preferredQuality: _preferenceService.preferredQuality,
+            preferredLanguage: _preferenceService.preferredLanguage,
+          );
+
+          if (consolidated.length < filteredItems.length) {
+            debugPrint('Consolidated ${category.category.categoryName}: '
+                '${filteredItems.length} -> ${consolidated.length} items');
+          }
+
+          return category.withConsolidatedItems(consolidated);
+        } catch (e) {
+          debugPrint('Error consolidating ${category.category.categoryName}: $e');
+        }
+      }
+
       return CategoryViewModel(
         category: category.category,
         contentItems: filteredItems,
       );
-    }).where((category) => category.contentItems.isNotEmpty).toList();
+    }).where((category) => category.contentItems.isNotEmpty ||
+        (category.consolidatedItems?.isNotEmpty ?? false)).toList();
   }
 
   // Getters
@@ -135,6 +214,17 @@ class XtreamCodeHomeController extends ChangeNotifier {
   XtreamCodeHomeController(bool all) {
     _pageController = PageController();
     _initializeData(all);
+    _setupEventListeners();
+  }
+
+  void _setupEventListeners() {
+    // Listen for category config changes to refresh the view
+    _configChangedSubscription = EventBus().on<String>('category_config_changed').listen((playlistId) {
+      if (playlistId == AppState.currentPlaylist?.id) {
+        // Config changed for current playlist, refresh the view
+        notifyListeners();
+      }
+    });
   }
 
   Future<void> _initializeData(bool all) async {
@@ -142,8 +232,19 @@ class XtreamCodeHomeController extends ChangeNotifier {
     await _loadDefaultPanel();
     // Initialize parental controls
     await _parentalService.initialize();
+    // Initialize content filter service
+    await _contentFilterService.initialize();
+    // Load consolidation preferences
+    await _preferenceService.loadPreferences();
+    _consolidationEnabled = await UserPreferences.getConsolidationEnabled();
+    // Initialize hidden favorites service
+    await _hiddenFavoritesService.initialize();
+    // Load category configuration (ordering, merging)
+    await CategoryConfigService().loadConfigs();
     await loadHiddenCategories();
     await _loadCategories(all);
+    // Build hidden favorites categories after loading all categories
+    await _buildHiddenFavoritesCategories();
   }
 
   Future<void> _loadDefaultPanel() async {
@@ -184,6 +285,7 @@ class XtreamCodeHomeController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _configChangedSubscription?.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -377,5 +479,37 @@ class XtreamCodeHomeController extends ChangeNotifier {
         ),
       ),
     );
+  }
+
+  /// Build hidden favorites categories for each content type
+  Future<void> _buildHiddenFavoritesCategories() async {
+    try {
+      final hiddenNames = await UserPreferences.getHiddenCategoryNames();
+
+      _hiddenFavoritesLive = await _hiddenFavoritesService.buildHiddenFavoritesCategory(
+        type: CategoryType.live,
+        hiddenCategoryIds: _hiddenCategoryIds,
+        hiddenCategoryNames: hiddenNames.toSet(),
+        allCategories: _liveCategories,
+      );
+
+      _hiddenFavoritesVod = await _hiddenFavoritesService.buildHiddenFavoritesCategory(
+        type: CategoryType.vod,
+        hiddenCategoryIds: _hiddenCategoryIds,
+        hiddenCategoryNames: hiddenNames.toSet(),
+        allCategories: _movieCategories,
+      );
+
+      _hiddenFavoritesSeries = await _hiddenFavoritesService.buildHiddenFavoritesCategory(
+        type: CategoryType.series,
+        hiddenCategoryIds: _hiddenCategoryIds,
+        hiddenCategoryNames: hiddenNames.toSet(),
+        allCategories: _seriesCategories,
+      );
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error building hidden favorites categories: $e');
+    }
   }
 }

@@ -1,12 +1,17 @@
+import 'dart:ui' as ui;
 import 'package:another_iptv_player/l10n/localization_extension.dart';
+import 'package:another_iptv_player/models/content_source_link.dart';
 import 'package:another_iptv_player/models/custom_rename.dart';
 import 'package:another_iptv_player/models/epg_program.dart';
 import 'package:another_iptv_player/screens/catch_up/catch_up_screen.dart';
+import 'package:another_iptv_player/services/event_bus.dart';
 import 'package:another_iptv_player/services/parental_control_service.dart';
 import 'package:another_iptv_player/services/source_health_service.dart';
+import 'package:another_iptv_player/utils/app_themes.dart';
 import 'package:another_iptv_player/utils/renaming_extension.dart';
 import 'package:another_iptv_player/widgets/rename_dialog.dart';
 import 'package:another_iptv_player/widgets/smart_cached_image.dart';
+import 'package:another_iptv_player/widgets/source_selection_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
 import 'package:another_iptv_player/models/content_type.dart';
@@ -29,6 +34,12 @@ class ContentCard extends StatefulWidget {
   final Function(String categoryId, String categoryName)? onHideCategory;
   final EpgProgram? currentProgram;
 
+  /// Quality indicator for consolidated content
+  final ContentQuality? quality;
+
+  /// Number of sources available (for multi-source badge)
+  final int sourceCount;
+
   const ContentCard({
     super.key,
     required this.content,
@@ -47,6 +58,8 @@ class ContentCard extends StatefulWidget {
     this.sourceId,
     this.onHideCategory,
     this.currentProgram,
+    this.quality,
+    this.sourceCount = 1,
   });
 
   @override
@@ -95,13 +108,49 @@ class _ContentCardState extends State<ContentCard> {
     final double cardOpacity = widget.isHidden ? 0.4 : (isSourceDown ? 0.5 : 1.0);
 
     Widget cardWidget = MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
+      onEnter: (_) {
+        setState(() => _isHovered = true);
+        // Emit hover event for live stream preview
+        if (widget.content.contentType == ContentType.liveStream) {
+          EventBus().emit('live_stream_hover', widget.content);
+        }
+      },
       onExit: (_) => setState(() => _isHovered = false),
-      child: Card(
-        clipBehavior: Clip.antiAlias,
-        margin: const EdgeInsets.fromLTRB(0, 0, 0, 1),
-        color: widget.isSelected ? Theme.of(context).colorScheme.primaryContainer : null,
-        child: ColorFiltered(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        transform: Matrix4.identity()..scale(_isHovered ? 1.05 : 1.0),
+        transformAlignment: Alignment.center,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: (_isHovered || widget.isSelected)
+                  ? Colors.white.withOpacity(0.4)
+                  : Colors.transparent,
+              width: 2,
+            ),
+            boxShadow: _isHovered
+                ? [
+                    BoxShadow(
+                      color: Colors.white.withOpacity(0.15),
+                      blurRadius: 16,
+                      spreadRadius: 2,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Card(
+            clipBehavior: Clip.antiAlias,
+            margin: EdgeInsets.zero,
+            color: widget.isSelected
+                ? AppThemes.surfaceGreyLight
+                : AppThemes.surfaceGrey,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: ColorFiltered(
           colorFilter: isSourceDown
               ? const ColorFilter.matrix(<double>[
                   0.2126, 0.7152, 0.0722, 0, 0,
@@ -146,6 +195,22 @@ class _ContentCardState extends State<ContentCard> {
                         : _buildTitleCard(context),
                   ),
                   if (ratingBadge != null) ratingBadge,
+                  // Quality badge for consolidated content (bottom-left, above name)
+                  if (widget.quality != null &&
+                      widget.quality != ContentQuality.unknown &&
+                      !isLiveStream)
+                    Positioned(
+                      bottom: 40, // Above the name overlay
+                      left: 4,
+                      child: QualityBadgeSmall(quality: widget.quality!),
+                    ),
+                  // Multi-source indicator (bottom-right, above name)
+                  if (widget.sourceCount > 1)
+                    Positioned(
+                      bottom: 40, // Above the name overlay
+                      right: 4,
+                      child: MultiSourceBadge(sourceCount: widget.sourceCount),
+                    ),
                   if (isRecent)
                     Positioned(
                       top: 4,
@@ -169,16 +234,14 @@ class _ContentCardState extends State<ContentCard> {
                         ),
                       ),
                     ),
+                  // Golden corner badge for favorites
                   if (widget.isFavorite)
                     Positioned(
-                      top: 4,
-                      left: isRecent ? null : 4,
-                      right: isRecent ? 4 : null,
-                      child: Icon(
-                        Icons.star,
-                        color: Colors.amber,
-                        size: 20,
-                        shadows: [Shadow(color: Colors.black54, blurRadius: 2)],
+                      top: 0,
+                      right: 0,
+                      child: CustomPaint(
+                        size: const Size(28, 28),
+                        painter: _GoldenCornerBadgePainter(),
                       ),
                     ),
                   // EPG overlay for live streams
@@ -194,11 +257,19 @@ class _ContentCardState extends State<ContentCard> {
                     right: 0,
                     bottom: 0,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 4,
+                      padding: const EdgeInsets.fromLTRB(8, 20, 8, 8),
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Color(0xCC000000),
+                            Color(0xF0000000),
+                          ],
+                          stops: [0.0, 0.5, 1.0],
+                        ),
                       ),
-                      color: Colors.black.withOpacity(0.7),
                       child: Text(
                         widget.content.name.applyRenamingRules(
                           contentType: widget.content.contentType,
@@ -206,9 +277,10 @@ class _ContentCardState extends State<ContentCard> {
                           playlistId: widget.playlistId,
                         ),
                         style: const TextStyle(
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w600,
                           fontSize: 12,
                           color: Colors.white,
+                          letterSpacing: 0.2,
                         ),
                         textAlign: TextAlign.center,
                         maxLines: 2,
@@ -258,6 +330,8 @@ class _ContentCardState extends State<ContentCard> {
         ),
         ),
         ),
+      ),
+      ),
       ),
       ),
     );
@@ -492,24 +566,33 @@ class _ContentCardState extends State<ContentCard> {
 
   Widget _buildTitleCard(BuildContext context) {
     return Container(
-      color: widget.isSelected
-          ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3)
-          : Theme.of(context).colorScheme.surfaceContainerHighest,
+      decoration: BoxDecoration(
+        color: widget.isSelected
+            ? AppThemes.surfaceGreyLight
+            : AppThemes.surfaceGrey,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppThemes.surfaceGrey,
+            AppThemes.surfaceGreyMedium,
+          ],
+        ),
+      ),
       child: Center(
         child: Padding(
-          padding: const EdgeInsets.all(6),
+          padding: const EdgeInsets.all(8),
           child: Text(
             widget.content.name.applyRenamingRules(
               contentType: widget.content.contentType,
               itemId: widget.content.id,
               playlistId: widget.playlistId,
             ),
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
               fontSize: 11,
-              color: widget.isSelected
-                  ? Theme.of(context).colorScheme.onPrimaryContainer
-                  : null,
+              color: AppThemes.textWhite,
+              letterSpacing: 0.2,
             ),
             textAlign: TextAlign.center,
             maxLines: 3,
@@ -541,7 +624,6 @@ class _ContentCardState extends State<ContentCard> {
       return null;
     }
 
-    final colorScheme = Theme.of(context).colorScheme;
     final formattedRating = rating % 1 == 0
         ? rating.toStringAsFixed(0)
         : rating.toStringAsFixed(1);
@@ -552,44 +634,26 @@ class _ContentCardState extends State<ContentCard> {
       child: Semantics(
         label: 'Rating $formattedRating',
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                colorScheme.secondaryContainer.withOpacity(0.93),
-                colorScheme.secondary.withOpacity(0.8),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: colorScheme.onSecondaryContainer.withOpacity(0.16),
-              width: 0.8,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: colorScheme.shadow.withOpacity(0.22),
-                offset: const Offset(0, 1),
-                blurRadius: 4,
-              ),
-            ],
+            color: const Color(0xE0000000),
+            borderRadius: BorderRadius.circular(4),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
+              const Icon(
                 Icons.star_rounded,
-                size: 14,
-                color: colorScheme.onSecondaryContainer.withOpacity(0.9),
+                size: 12,
+                color: AppThemes.accentRed,
               ),
               const SizedBox(width: 3),
               Text(
                 formattedRating,
-                style: TextStyle(
+                style: const TextStyle(
                   fontWeight: FontWeight.w600,
-                  fontSize: 11.5,
-                  color: colorScheme.onSecondaryContainer,
+                  fontSize: 11,
+                  color: AppThemes.textWhite,
                   letterSpacing: 0.1,
                 ),
               ),
@@ -674,4 +738,59 @@ class _ContentCardState extends State<ContentCard> {
       ),
     );
   }
+}
+
+/// Custom painter for the golden corner favorite badge
+class _GoldenCornerBadgePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Create a golden gradient for the corner triangle
+    final gradient = ui.Gradient.linear(
+      Offset(size.width, 0),
+      Offset(size.width * 0.3, size.height * 0.7),
+      [
+        const Color(0xFFFFD700), // Gold
+        const Color(0xFFFFA500), // Orange-gold
+        const Color(0xFFFFD700), // Gold
+      ],
+      [0.0, 0.5, 1.0],
+    );
+
+    final paint = Paint()
+      ..shader = gradient
+      ..style = PaintingStyle.fill;
+
+    // Draw the corner triangle
+    final path = Path()
+      ..moveTo(size.width * 0.3, 0) // Start from top, slightly left
+      ..lineTo(size.width, 0) // Top right
+      ..lineTo(size.width, size.height * 0.7) // Down the right side
+      ..close();
+
+    canvas.drawPath(path, paint);
+
+    // Add a subtle shine/highlight
+    final highlightPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+
+    final highlightPath = Path()
+      ..moveTo(size.width * 0.5, 0)
+      ..lineTo(size.width, size.height * 0.5);
+
+    canvas.drawPath(highlightPath, highlightPaint);
+
+    // Add a subtle edge glow
+    final glowPaint = Paint()
+      ..color = const Color(0xFFFFD700).withValues(alpha: 0.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 3);
+
+    canvas.drawPath(path, glowPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

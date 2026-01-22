@@ -332,5 +332,122 @@
   "api_key_saved": "API key saved",
   "preferred_subtitle_language": "Preferred Subtitle Language",
   "auto_download_subtitles": "Auto-download Subtitles",
-  "auto_download_subtitles_desc": "Automatically download subtitles when playing content"
+  "auto_download_subtitles_desc": "Automatically download subtitles when playing content",
+  "available_sources": "Available Sources",
+  "recommended": "Recommended",
+  "source_count": "{count} sources",
+  "@source_count": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "consolidation_settings": "Content Consolidation",
+  "enable_consolidation": "Enable Consolidation",
+  "enable_consolidation_desc": "Merge duplicate content from multiple sources",
+  "preferred_quality": "Preferred Quality",
+  "preferred_language": "Preferred Language",
+  "quality_4k": "4K / UHD",
+  "quality_1080p": "1080p / Full HD",
+  "quality_720p": "720p / HD",
+  "quality_sd": "SD",
+
+  "content_filters": "Content Filters",
+  "language_filter": "Language",
+  "filter_rules": "Rules",
+  "tag_mappings": "Mappings",
+
+  "enable_language_filter": "Enable Language Filter",
+  "enable_language_filter_desc": "Show only content matching your preferred languages",
+  "hide_unknown_language": "Hide Unknown Language",
+  "hide_unknown_language_desc": "Hide content with no detected language tag",
+  "preferred_languages": "Preferred Languages",
+  "preferred_languages_desc": "Select the languages you want to see",
+  "matching_tags": "Matching Tags",
+
+  "add_filter_rule": "Add Filter Rule",
+  "edit_filter_rule": "Edit Filter Rule",
+  "no_filter_rules": "No Filter Rules",
+  "no_filter_rules_desc": "Add rules to hide or show content based on name patterns",
+  "pattern": "Pattern",
+  "pattern_regex_help": "Use regular expressions for advanced matching",
+  "pattern_wildcard_help": "Use * as wildcard (e.g., *spanish*)",
+  "use_regex": "Use Regular Expression",
+  "use_regex_desc": "Enable regex pattern matching",
+  "hide_matching": "Hide Matching",
+  "hide_matching_desc": "Hide items that match this pattern",
+  "show_only_matching_desc": "Show only items that match this pattern",
+  "apply_to": "Apply To",
+  "content_items": "Content Items",
+  "category_names": "Category Names",
+  "save": "Save",
+  "edit": "Edit",
+
+  "search_mappings": "Search mappings...",
+  "add": "Add",
+  "add_tag_mapping": "Add Tag Mapping",
+  "tag": "Tag",
+  "language": "Language",
+
+  "bulk_hide_content": "Bulk Hide Content",
+  "hide_selected": "Hide Selected",
+  "show_only_selected": "Show Only Selected",
+  "apply_to_all_categories": "Apply to All Categories",
+  "items_matching": "items matching",
+  "enter_pattern_to_search": "Enter a pattern to search",
+  "no_matches_found": "No matches found",
+  "hide_count": "Hide {count}",
+  "@hide_count": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "create_filter": "Create Filter",
+  "quick_hide_pattern": "Quick Hide by Pattern",
+  "hide": "Hide",
+
+  "custom_categories": "Custom Categories",
+  "custom_categories_desc": "Create your own categories to organize content",
+  "no_custom_categories": "No Custom Categories",
+  "create_category": "Create Category",
+  "edit_category": "Edit Category",
+  "delete_category": "Delete Category",
+  "delete_category_confirm": "Delete \"{name}\"? This will remove {count} items from this category.",
+  "@delete_category_confirm": {
+    "placeholders": {
+      "name": { "type": "String" },
+      "count": { "type": "int" }
+    }
+  },
+  "category_name": "Category Name",
+  "icon": "Icon",
+  "content_type_filter": "Content Type",
+  "view_items": "View Items",
+  "items": "items",
+  "no_items_in_category": "No items in this category",
+  "create": "Create",
+
+  "bulk_move_items": "Bulk Move Items",
+  "search_pattern": "Search Pattern",
+  "search_hint": "Search by category or item name...",
+  "search_by_category": "Search by Category",
+  "search_by_name": "Search by Name",
+  "items_found": "items found",
+  "enter_search_pattern": "Enter a search pattern to find items",
+  "name_matches": "Name Matches",
+  "move_to_category": "Move to Category",
+  "new_category": "New Category",
+  "new_category_name": "New Category Name",
+  "select_category": "Select a category",
+  "move_count": "Move {count} items",
+  "@move_count": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "bulk_add_items": "Bulk Add Items",
+  "no_content_loaded": "No content available. Please load a playlist first."
 }

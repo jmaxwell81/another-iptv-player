@@ -38,6 +38,8 @@ import 'renaming_rules_screen.dart';
 import 'category_config_screen.dart';
 import 'active_sources_screen.dart';
 import 'unified_category_settings_screen.dart';
+import 'content_filter_settings_screen.dart';
+import 'custom_category_settings_screen.dart';
 
 final controller = XtreamCodeHomeController(true);
 
@@ -82,6 +84,7 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
   VpnStatusPosition _vpnStatusPosition = VpnStatusPosition.bottomLeft;
   double _vpnStatusOpacity = 0.5;
   bool _vpnShowOnlyWhenDisconnected = false;
+  String? _vpnTargetCountry;
 
   @override
   void initState() {
@@ -109,6 +112,7 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
       final vpnStatusPosition = await UserPreferences.getVpnStatusPosition();
       final vpnStatusOpacity = await UserPreferences.getVpnStatusOpacity();
       final vpnShowOnlyWhenDisconnected = await UserPreferences.getVpnShowOnlyWhenDisconnected();
+      final vpnTargetCountry = await UserPreferences.getVpnTargetCountry();
       final defaultPanel = await UserPreferences.getDefaultPanel();
       final timeshiftEnabled = await UserPreferences.getTimeshiftEnabled();
       final timeshiftMaxBuffer = await UserPreferences.getTimeshiftMaxBuffer();
@@ -133,6 +137,7 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
         _vpnStatusPosition = VpnStatusPosition.fromInt(vpnStatusPosition);
         _vpnStatusOpacity = vpnStatusOpacity;
         _vpnShowOnlyWhenDisconnected = vpnShowOnlyWhenDisconnected;
+        _vpnTargetCountry = vpnTargetCountry;
         _isLoading = false;
       });
     } catch (e) {
@@ -268,6 +273,49 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
                     ),
                   );
                 },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.filter_list),
+                title: Text(context.loc.content_filters),
+                subtitle: Text(context.loc.enable_language_filter_desc),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ContentFilterSettingsScreen(),
+                    ),
+                  );
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.folder_special),
+                title: Text(context.loc.custom_categories),
+                subtitle: Text(context.loc.custom_categories_desc),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CustomCategorySettingsScreen(),
+                    ),
+                  );
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.favorite),
+                title: const Text('Favorites Category Name'),
+                subtitle: FutureBuilder<String>(
+                  future: UserPreferences.getHiddenFavoritesCategoryName(),
+                  builder: (context, snapshot) {
+                    return Text(snapshot.data ?? 'Favorites');
+                  },
+                ),
+                trailing: const Icon(Icons.edit, size: 18),
+                onTap: () => _showFavoritesCategoryNameDialog(context),
               ),
               // Show category configuration for any playlist
               if (AppState.currentPlaylist != null || AppState.isCombinedMode)
@@ -760,6 +808,39 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
                       _vpnKillSwitchEnabled = value;
                     });
                   },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.public),
+                  title: const Text('Target Country'),
+                  subtitle: Text(
+                    _vpnTargetCountry != null
+                        ? 'VPN required when not in ${_getCountryName(_vpnTargetCountry!)}'
+                        : 'Not set - only IP-based VPN detection',
+                  ),
+                  trailing: DropdownButton<String?>(
+                    value: _vpnTargetCountry,
+                    underline: const SizedBox(),
+                    hint: const Text('Select'),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('None'),
+                      ),
+                      ...['US', 'GB', 'CA', 'AU', 'DE', 'FR', 'NL', 'IT', 'ES', 'SE', 'CH', 'JP', 'SG', 'BR', 'IN'].map((code) {
+                        return DropdownMenuItem<String?>(
+                          value: code,
+                          child: Text('$code - ${_getCountryName(code)}'),
+                        );
+                      }),
+                    ],
+                    onChanged: (value) async {
+                      await _vpnService.setTargetCountry(value);
+                      setState(() {
+                        _vpnTargetCountry = value;
+                      });
+                    },
+                  ),
                 ),
                 const Divider(height: 1),
                 ListTile(
@@ -1545,5 +1626,85 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
       'uk': 'Ukrainian',
     };
     return languageNames[code] ?? code.toUpperCase();
+  }
+
+  String _getCountryName(String code) {
+    const countryNames = {
+      'US': 'United States',
+      'GB': 'United Kingdom',
+      'CA': 'Canada',
+      'AU': 'Australia',
+      'DE': 'Germany',
+      'FR': 'France',
+      'NL': 'Netherlands',
+      'IT': 'Italy',
+      'ES': 'Spain',
+      'SE': 'Sweden',
+      'CH': 'Switzerland',
+      'JP': 'Japan',
+      'SG': 'Singapore',
+      'BR': 'Brazil',
+      'IN': 'India',
+    };
+    return countryNames[code.toUpperCase()] ?? code.toUpperCase();
+  }
+
+  void _showFavoritesCategoryNameDialog(BuildContext context) async {
+    final controller = TextEditingController();
+    final currentName = await UserPreferences.getHiddenFavoritesCategoryName();
+    controller.text = currentName;
+
+    if (!context.mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Favorites Category Name'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This category shows favorites from hidden categories.',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'Category Name',
+                hintText: 'Favorites',
+                border: OutlineInputBorder(),
+              ),
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final name = controller.text.trim();
+              if (name.isNotEmpty) {
+                await UserPreferences.setHiddenFavoritesCategoryName(name);
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  setState(() {});
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Category renamed to "$name"'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -2324,4 +2324,19 @@ class AppDatabase extends _$AppDatabase {
   Future<int> clearAllContentDetails() async {
     return delete(contentDetails).go();
   }
+
+  /// Get all content details
+  Future<List<ContentDetailsData>> getAllContentDetails() async {
+    return select(contentDetails).get();
+  }
+
+  /// Search content details by cast (for finding movies by actor)
+  Future<List<ContentDetailsData>> searchContentDetailsByCast(
+    String actorName,
+  ) async {
+    final query = '%${actorName.toLowerCase()}%';
+    return (select(contentDetails)
+          ..where((d) => d.cast.lower().like(query)))
+        .get();
+  }
 }
