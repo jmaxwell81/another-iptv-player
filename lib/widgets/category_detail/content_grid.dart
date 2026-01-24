@@ -10,6 +10,7 @@ class ContentGrid extends StatelessWidget {
   final Function(ContentItem) onItemTap;
   final Set<String>? favoriteStreamIds;
   final Set<String>? hiddenStreamIds;
+  final Set<String>? offlineStreamIds;
   final Function(ContentItem)? onToggleFavorite;
   final Function(ContentItem)? onToggleHidden;
   final bool showContextMenu;
@@ -21,6 +22,7 @@ class ContentGrid extends StatelessWidget {
     required this.onItemTap,
     this.favoriteStreamIds,
     this.hiddenStreamIds,
+    this.offlineStreamIds,
     this.onToggleFavorite,
     this.onToggleHidden,
     this.showContextMenu = true,
@@ -54,6 +56,7 @@ class ContentGrid extends StatelessWidget {
           onTap: () => onItemTap(item),
           isFavorite: favoriteStreamIds?.contains(item.id) ?? false,
           isHidden: hiddenStreamIds?.contains(item.id) ?? false,
+          isOffline: offlineStreamIds?.contains(item.id) ?? false,
           showContextMenu: showContextMenu,
           onToggleFavorite: onToggleFavorite,
           onToggleHidden: onToggleHidden,

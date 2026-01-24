@@ -14,6 +14,14 @@ class TvGuideChannel {
   final LiveStream? liveStream;
   final M3uItem? m3uItem;
 
+  /// The display name after applying renaming rules (tag cleaning, etc.)
+  /// Falls back to [name] if not set
+  final String? _displayName;
+
+  /// List of source channels that were combined into this one
+  /// Used when multiple channels with the same display name are merged
+  final List<TvGuideChannel> combinedSources;
+
   TvGuideChannel({
     required this.streamId,
     required this.name,
@@ -24,7 +32,12 @@ class TvGuideChannel {
     this.programs = const [],
     this.liveStream,
     this.m3uItem,
-  });
+    String? displayName,
+    this.combinedSources = const [],
+  }) : _displayName = displayName;
+
+  /// Get the display name (cleaned name) or fall back to raw name
+  String get displayName => _displayName ?? name;
 
   bool get hasEpgData => programs.isNotEmpty;
 
@@ -83,6 +96,12 @@ class TvGuideChannel {
     );
   }
 
+  /// Whether this channel is a combined channel (has multiple sources)
+  bool get isCombined => combinedSources.isNotEmpty;
+
+  /// Get the number of sources if combined, otherwise 1
+  int get sourceCount => isCombined ? combinedSources.length : 1;
+
   TvGuideChannel copyWith({
     String? streamId,
     String? name,
@@ -93,6 +112,8 @@ class TvGuideChannel {
     List<EpgProgram>? programs,
     LiveStream? liveStream,
     M3uItem? m3uItem,
+    String? displayName,
+    List<TvGuideChannel>? combinedSources,
   }) {
     return TvGuideChannel(
       streamId: streamId ?? this.streamId,
@@ -104,6 +125,8 @@ class TvGuideChannel {
       programs: programs ?? this.programs,
       liveStream: liveStream ?? this.liveStream,
       m3uItem: m3uItem ?? this.m3uItem,
+      displayName: displayName ?? _displayName,
+      combinedSources: combinedSources ?? this.combinedSources,
     );
   }
 

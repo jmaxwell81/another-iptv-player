@@ -319,6 +319,8 @@ class TmdbService {
       similarContent: Value(jsonEncode(details.similar.take(10).map((s) => s.id).toList())),
       keywords: Value(jsonEncode(details.keywords.map((k) => k.name).toList())),
       certifications: Value(jsonEncode(details.certifications)),
+      budget: Value(isMovie ? details.budget : null),
+      revenue: Value(isMovie ? details.revenue : null),
       fetchedAt: Value(now),
       updatedAt: Value(now),
     );
@@ -523,6 +525,8 @@ class TmdbMovieDetails {
   final String? releaseDate;
   final int? runtime;
   final String? imdbId;
+  final int? budget; // Production budget in USD
+  final int? revenue; // Box office revenue in USD
   final List<TmdbGenre> genres;
   final List<TmdbCastMember> cast;
   final List<TmdbCrewMember> crew;
@@ -543,6 +547,8 @@ class TmdbMovieDetails {
     this.releaseDate,
     this.runtime,
     this.imdbId,
+    this.budget,
+    this.revenue,
     required this.genres,
     required this.cast,
     required this.crew,
@@ -616,6 +622,8 @@ class TmdbMovieDetails {
       releaseDate: json['release_date'],
       runtime: json['runtime'],
       imdbId: json['imdb_id'],
+      budget: json['budget'] as int?,
+      revenue: json['revenue'] as int?,
       genres: (json['genres'] as List?)?.map((g) => TmdbGenre.fromJson(g)).toList() ?? [],
       cast: castList,
       crew: crewList,

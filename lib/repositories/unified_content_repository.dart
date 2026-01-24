@@ -15,7 +15,7 @@ class UnifiedContentRepository {
   /// Get unified categories for a specific type, merged by name
   Future<List<CategoryViewModel>> getUnifiedCategories({
     required CategoryType type,
-    int previewLimit = 10,
+    int previewLimit = 15,
   }) async {
     final allCategories = <CategoryViewModel>[];
 

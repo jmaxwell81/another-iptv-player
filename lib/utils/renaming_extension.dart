@@ -2,6 +2,7 @@ import 'package:another_iptv_player/models/content_type.dart';
 import 'package:another_iptv_player/models/custom_rename.dart';
 import 'package:another_iptv_player/services/custom_rename_service.dart';
 import 'package:another_iptv_player/services/renaming_service.dart';
+import 'package:another_iptv_player/services/name_tag_cleaner_service.dart';
 
 extension RenamingExtension on String {
   /// Apply renaming rules to this string
@@ -28,16 +29,22 @@ extension RenamingExtension on String {
       );
 
       if (customName != null) {
+        // Don't clean custom names - user set them intentionally
         return customName;
       }
     }
 
-    // Fall back to renaming rules
-    return RenamingService().applyRulesSync(
+    // Apply renaming rules
+    var result = RenamingService().applyRulesSync(
       this,
       contentType: contentType,
       isCategory: isCategory,
     );
+
+    // Apply tag cleaning if enabled
+    result = NameTagCleanerService().cleanNameSync(result);
+
+    return result;
   }
 
   /// Convert ContentType to CustomRenameType

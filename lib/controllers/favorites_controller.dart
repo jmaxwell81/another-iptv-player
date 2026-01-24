@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:another_iptv_player/models/content_type.dart';
 import 'package:another_iptv_player/models/favorite.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
 import 'package:another_iptv_player/repositories/favorites_repository.dart';
+import 'package:another_iptv_player/services/event_bus.dart';
 
 class FavoritesController extends ChangeNotifier {
   final FavoritesRepository _repository = FavoritesRepository();
@@ -11,6 +13,7 @@ class FavoritesController extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   bool _isDisposed = false;
+  StreamSubscription? _favoritesChangedSubscription;
 
   List<Favorite> get favorites => _favorites;
   bool get isLoading => _isLoading;
@@ -29,6 +32,15 @@ class FavoritesController extends ChangeNotifier {
   int get liveStreamFavoriteCount => liveStreamFavorites.length;
   int get movieFavoriteCount => movieFavorites.length;
   int get seriesFavoriteCount => seriesFavorites.length;
+
+  FavoritesController() {
+    // Listen for favorites changed events from other parts of the app
+    _favoritesChangedSubscription = EventBus().on<dynamic>('favorites_changed').listen((_) {
+      if (!_isDisposed) {
+        loadFavorites();
+      }
+    });
+  }
 
   Future<void> loadFavorites() async {
     // Guard against calling while already loading
@@ -111,10 +123,13 @@ class FavoritesController extends ChangeNotifier {
   Future<bool> toggleFavorite(ContentItem contentItem) async {
     try {
       _setError(null);
-      
+
       final result = await _repository.toggleFavorite(contentItem);
       await loadFavorites();
-      
+
+      // Notify all other FavoritesController instances to reload
+      EventBus().emit('favorites_changed', null);
+
       return result;
     } catch (e) {
       _setError('Error toggling favorite: $e');
@@ -122,9 +137,9 @@ class FavoritesController extends ChangeNotifier {
     }
   }
 
-  Future<bool> isFavorite(String streamId, ContentType contentType, {String? episodeId}) async {
+  Future<bool> isFavorite(String streamId, ContentType contentType, {String? episodeId, ContentItem? contentItem}) async {
     try {
-      return await _repository.isFavorite(streamId, contentType, episodeId: episodeId);
+      return await _repository.isFavorite(streamId, contentType, episodeId: episodeId, contentItem: contentItem);
     } catch (e) {
       _setError('Error checking favorite status: $e');
       return false;
@@ -217,6 +232,7 @@ class FavoritesController extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    _favoritesChangedSubscription?.cancel();
     super.dispose();
   }
 } 

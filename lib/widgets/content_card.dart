@@ -27,6 +27,7 @@ class ContentCard extends StatefulWidget {
   final Function(ContentItem)? onToggleHidden;
   final Function(ContentItem)? onRename;
   final bool isHidden;
+  final bool isOffline;
   final String? categoryId;
   final String? categoryName;
   final String? playlistId;
@@ -52,6 +53,7 @@ class ContentCard extends StatefulWidget {
     this.onToggleHidden,
     this.onRename,
     this.isHidden = false,
+    this.isOffline = false,
     this.categoryId,
     this.categoryName,
     this.playlistId,
@@ -104,8 +106,8 @@ class _ContentCardState extends State<ContentCard> {
     final bool isSourceDown = sourceId != null &&
         !SourceHealthService().isSourceAvailable(sourceId);
 
-    // Combined opacity for hidden items and source down state
-    final double cardOpacity = widget.isHidden ? 0.4 : (isSourceDown ? 0.5 : 1.0);
+    // Combined opacity for hidden items, offline items, and source down state
+    final double cardOpacity = widget.isHidden ? 0.4 : (widget.isOffline ? 0.5 : (isSourceDown ? 0.5 : 1.0));
 
     Widget cardWidget = MouseRegion(
       onEnter: (_) {
@@ -231,6 +233,41 @@ class _ContentCardState extends State<ContentCard> {
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                           ),
+                        ),
+                      ),
+                    ),
+                  // Offline badge for streams marked as offline
+                  if (widget.isOffline)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade700,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.signal_wifi_off,
+                              color: Colors.white,
+                              size: 10,
+                            ),
+                            SizedBox(width: 2),
+                            Text(
+                              'OFFLINE',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -509,47 +546,50 @@ class _ContentCardState extends State<ContentCard> {
                 ],
               ),
             ),
-          // Parental lock/unlock option (only visible in parent mode)
-          if (ParentalControlService().parentModeActive)
+          // Parental block/unblock option (only visible when parental controls are enabled and unlocked)
+          if (ParentalControlService().isEnabled && ParentalControlService().isUnlocked)
             PopupMenuItem<String>(
-              value: 'parental_lock',
+              value: 'parental_block',
               onTap: () {
                 Future.delayed(Duration.zero, () async {
                   if (!mounted) return;
                   final service = ParentalControlService();
-                  final isLocked = service.isContentLocked(widget.content.id);
-                  if (isLocked) {
-                    await service.unlockContent(widget.content.id);
-                    if (popupContext.mounted) {
-                      ScaffoldMessenger.of(popupContext).showSnackBar(
-                        const SnackBar(content: Text('Content unlocked')),
+                  final isBlocked = service.isContentBlocked(widget.content);
+                  if (isBlocked) {
+                    await service.removeBlockedItem(widget.content.id, widget.content.contentType);
+                    if (outerContext.mounted) {
+                      ScaffoldMessenger.of(outerContext).showSnackBar(
+                        const SnackBar(content: Text('Removed from parental controls')),
                       );
                     }
                   } else {
-                    await service.lockContent(widget.content.id);
-                    if (popupContext.mounted) {
-                      ScaffoldMessenger.of(popupContext).showSnackBar(
-                        const SnackBar(content: Text('Content locked')),
+                    await service.addBlockedItem(widget.content);
+                    if (outerContext.mounted) {
+                      ScaffoldMessenger.of(outerContext).showSnackBar(
+                        const SnackBar(content: Text('Added to parental controls')),
                       );
                     }
                   }
                 });
               },
-              child: Row(
-                children: [
-                  Icon(
-                    ParentalControlService().isContentLocked(widget.content.id)
-                        ? Icons.lock_open
-                        : Icons.lock,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    ParentalControlService().isContentLocked(widget.content.id)
-                        ? 'Unlock for Kids'
-                        : 'Lock for Kids',
-                  ),
-                ],
+              child: Builder(
+                builder: (context) {
+                  final isBlocked = ParentalControlService().isContentBlocked(widget.content);
+                  return Row(
+                    children: [
+                      Icon(
+                        isBlocked ? Icons.lock_open : Icons.lock,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        isBlocked
+                            ? 'Remove from Parental Controls'
+                            : 'Add to Parental Controls',
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
         ];

@@ -42,7 +42,7 @@ class FavoritesRepository {
     );
 
     if (isAlreadyFavorite) {
-      throw Exception('Bu içerik zaten favorilerde');
+      throw Exception('This content is already in favorites');
     }
 
     final favorite = Favorite(
@@ -64,8 +64,9 @@ class FavoritesRepository {
     String streamId,
     ContentType contentType, {
     String? episodeId,
+    ContentItem? contentItem,
   }) async {
-    final playlistId = _getPlaylistId();
+    final playlistId = _getPlaylistId(contentItem);
 
     final favorites = await _database.getFavoritesByPlaylist(playlistId);
     final favorite = favorites.firstWhere(
@@ -73,7 +74,7 @@ class FavoritesRepository {
           f.streamId == streamId &&
           f.contentType == contentType &&
           f.episodeId == episodeId,
-      orElse: () => throw Exception('Favori bulunamadı'),
+      orElse: () => throw Exception('Favorite not found'),
     );
 
     await _database.deleteFavorite(favorite.id);
@@ -83,8 +84,9 @@ class FavoritesRepository {
     String streamId,
     ContentType contentType, {
     String? episodeId,
+    ContentItem? contentItem,
   }) async {
-    final playlistId = _getPlaylistId();
+    final playlistId = _getPlaylistId(contentItem);
     return await _database.isFavorite(
       playlistId,
       streamId,
@@ -176,7 +178,8 @@ class FavoritesRepository {
     if (isCurrentlyFavorite) {
       await removeFavorite(
         contentItem.id,
-        contentItem.contentType
+        contentItem.contentType,
+        contentItem: contentItem,
       );
       return false;
     } else {

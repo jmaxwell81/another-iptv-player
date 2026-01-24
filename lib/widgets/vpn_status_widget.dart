@@ -51,6 +51,8 @@ class _VpnStatusWidgetState extends State<VpnStatusWidget> {
   double _opacity = 0.5;
   bool _showOnlyWhenDisconnected = false;
   bool _vpnCheckEnabled = false;
+  double _offsetX = 16.0;
+  double _offsetY = 16.0;
 
   @override
   void initState() {
@@ -76,6 +78,8 @@ class _VpnStatusWidgetState extends State<VpnStatusWidget> {
     final position = await UserPreferences.getVpnStatusPosition();
     final opacity = await UserPreferences.getVpnStatusOpacity();
     final showOnlyWhenDisconnected = await UserPreferences.getVpnShowOnlyWhenDisconnected();
+    final offsetX = await UserPreferences.getVpnStatusOffsetX();
+    final offsetY = await UserPreferences.getVpnStatusOffsetY();
 
     if (mounted) {
       setState(() {
@@ -83,6 +87,8 @@ class _VpnStatusWidgetState extends State<VpnStatusWidget> {
         _position = VpnStatusPosition.fromInt(position);
         _opacity = opacity;
         _showOnlyWhenDisconnected = showOnlyWhenDisconnected;
+        _offsetX = offsetX;
+        _offsetY = offsetY;
         _status = _vpnService.currentStatus;
       });
     }
@@ -101,10 +107,10 @@ class _VpnStatusWidgetState extends State<VpnStatusWidget> {
     }
 
     return Positioned(
-      left: _position == VpnStatusPosition.bottomLeft || _position == VpnStatusPosition.topLeft ? 16 : null,
-      right: _position == VpnStatusPosition.bottomRight || _position == VpnStatusPosition.topRight ? 16 : null,
-      top: _position == VpnStatusPosition.topLeft || _position == VpnStatusPosition.topRight ? 16 : null,
-      bottom: _position == VpnStatusPosition.bottomLeft || _position == VpnStatusPosition.bottomRight ? 16 : null,
+      left: _position == VpnStatusPosition.bottomLeft || _position == VpnStatusPosition.topLeft ? _offsetX : null,
+      right: _position == VpnStatusPosition.bottomRight || _position == VpnStatusPosition.topRight ? _offsetX : null,
+      top: _position == VpnStatusPosition.topLeft || _position == VpnStatusPosition.topRight ? _offsetY : null,
+      bottom: _position == VpnStatusPosition.bottomLeft || _position == VpnStatusPosition.bottomRight ? _offsetY : null,
       child: Opacity(
         opacity: _opacity,
         child: _buildStatusBadge(context),

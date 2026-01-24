@@ -1,5 +1,6 @@
 import 'package:another_iptv_player/repositories/user_preferences.dart';
 import 'package:another_iptv_player/services/app_state.dart';
+import 'package:another_iptv_player/services/playlist_service.dart';
 import 'package:flutter/material.dart';
 import 'package:another_iptv_player/controllers/iptv_controller.dart';
 import 'package:another_iptv_player/models/api_configuration_model.dart';
@@ -14,11 +15,13 @@ import '../playlist_screen.dart';
 class XtreamCodeDataLoaderScreen extends StatefulWidget {
   final Playlist playlist;
   bool refreshAll = false;
+  bool returnToPlaylistScreen = false;
 
   XtreamCodeDataLoaderScreen({
     super.key,
     required this.playlist,
     this.refreshAll = false,
+    this.returnToPlaylistScreen = false,
   });
 
   @override
@@ -35,6 +38,8 @@ class XtreamCodeDataLoaderScreenState extends State<XtreamCodeDataLoaderScreen>
   late Animation<double> _pulseAnimation;
   late Animation<double> _waveAnimation;
   late IptvController _controller;
+  int _currentUrlIndex = 0;
+  String? _activeUrl;
 
   Map<ProgressStep, String> get stepTitles => {
     ProgressStep.userInfo: context.loc.connecting,
@@ -86,17 +91,26 @@ class XtreamCodeDataLoaderScreenState extends State<XtreamCodeDataLoaderScreen>
       CurvedAnimation(parent: _waveAnimationController, curve: Curves.linear),
     );
 
+    // Use active URL index if set, otherwise start with first URL
+    _currentUrlIndex = widget.playlist.activeUrlIndex ?? 0;
+    _activeUrl = widget.playlist.allUrls.isNotEmpty
+        ? widget.playlist.allUrls[_currentUrlIndex.clamp(0, widget.playlist.allUrls.length - 1)]
+        : widget.playlist.url;
+
+    _initializeController();
+    _startLoading();
+  }
+
+  void _initializeController() {
     final repository = IptvRepository(
       ApiConfig(
-        baseUrl: widget.playlist.url!,
+        baseUrl: _activeUrl!,
         username: widget.playlist.username!,
         password: widget.playlist.password!,
       ),
       widget.playlist.id,
     );
     _controller = IptvController(repository, widget.refreshAll);
-
-    _startLoading();
   }
 
   @override
@@ -117,19 +131,83 @@ class XtreamCodeDataLoaderScreenState extends State<XtreamCodeDataLoaderScreen>
       _waveAnimationController.stop();
       await Future.delayed(Duration(milliseconds: 800));
 
-      AppState.currentPlaylist = widget.playlist;
-      await UserPreferences.setLastPlaylist(widget.playlist.id);
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ChangeNotifierProvider.value(
-            value: _controller,
-            child: XtreamCodeHomeScreen(playlist: widget.playlist),
+      // Update last refresh time
+      await UserPreferences.setLastRefreshTime(widget.playlist.id, DateTime.now());
+
+      // Update active URL index if we switched URLs
+      if (_currentUrlIndex != (widget.playlist.activeUrlIndex ?? 0)) {
+        final updatedPlaylist = widget.playlist.copyWith(
+          activeUrlIndex: _currentUrlIndex,
+        );
+        await PlaylistService.updatePlaylist(updatedPlaylist);
+      }
+
+      if (widget.returnToPlaylistScreen) {
+        // Just pop back to the playlist screen
+        if (mounted) {
+          Navigator.pop(context);
+        }
+      } else {
+        AppState.currentPlaylist = widget.playlist;
+        await UserPreferences.setLastPlaylist(widget.playlist.id);
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChangeNotifierProvider.value(
+              value: _controller,
+              child: XtreamCodeHomeScreen(playlist: widget.playlist),
+            ),
           ),
+          (route) => false,
+        );
+      }
+    } else {
+      // Loading failed - try failover to next URL if available
+      await _tryFailoverUrl();
+    }
+  }
+
+  Future<void> _tryFailoverUrl() async {
+    final allUrls = widget.playlist.allUrls;
+    if (allUrls.length <= 1) {
+      // No backup URLs available
+      return;
+    }
+
+    // Try next URL in the list
+    final nextIndex = (_currentUrlIndex + 1) % allUrls.length;
+
+    // If we've tried all URLs, stop
+    if (nextIndex == (widget.playlist.activeUrlIndex ?? 0)) {
+      // We've come full circle, all URLs failed
+      return;
+    }
+
+    _currentUrlIndex = nextIndex;
+    _activeUrl = allUrls[_currentUrlIndex];
+
+    // Dispose old controller
+    _controller.dispose();
+
+    // Show message about trying backup URL
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Primary URL offline. Trying backup URL ${_currentUrlIndex + 1}...'),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 2),
         ),
-        (route) => false,
       );
     }
+
+    // Wait a moment before retrying
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // Initialize new controller with backup URL
+    _initializeController();
+
+    // Retry loading
+    await _startLoading();
   }
 
   double _getProgressValue(ProgressStep step) {

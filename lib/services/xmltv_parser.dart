@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
@@ -79,16 +80,44 @@ class XmltvParser {
     }
   }
 
-  /// Parse from URL (handles gzip)
-  static Future<XmltvParseResult> parseFromUrl(String url, String playlistId) async {
+  /// Parse from URL (handles gzip) with progress and cancellation support
+  ///
+  /// [connectionTimeout] - Max time to wait for initial connection (default: 15s)
+  /// [downloadTimeout] - Max time for the entire download (default: 2min)
+  /// [onProgress] - Callback for download progress (bytesDownloaded, totalBytes)
+  /// [isCancelled] - Function that returns true if operation should be cancelled
+  static Future<XmltvParseResult> parseFromUrl(
+    String url,
+    String playlistId, {
+    Duration connectionTimeout = const Duration(seconds: 15),
+    Duration downloadTimeout = const Duration(minutes: 2),
+    void Function(int downloaded, int? total)? onProgress,
+    bool Function()? isCancelled,
+  }) async {
+    final client = http.Client();
     try {
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Accept-Encoding': 'gzip, deflate',
-          'User-Agent': 'IPTV Player',
-        },
-      ).timeout(const Duration(minutes: 2));
+      // Build request
+      final request = http.Request('GET', Uri.parse(url));
+      request.headers['Accept-Encoding'] = 'gzip, deflate';
+      request.headers['User-Agent'] = 'IPTV Player';
+
+      // Send request with connection timeout
+      final http.StreamedResponse response;
+      try {
+        response = await client.send(request).timeout(connectionTimeout);
+      } on TimeoutException {
+        return XmltvParseResult(
+          channels: [],
+          programs: [],
+          errorMessage: 'Connection timeout - server not responding',
+        );
+      } on SocketException catch (e) {
+        return XmltvParseResult(
+          channels: [],
+          programs: [],
+          errorMessage: 'Connection failed: ${e.message}',
+        );
+      }
 
       if (response.statusCode != 200) {
         return XmltvParseResult(
@@ -98,41 +127,83 @@ class XmltvParser {
         );
       }
 
-      String content;
+      // Get content length for progress tracking
+      final contentLength = response.contentLength;
+      final bytes = <int>[];
+      int downloaded = 0;
 
-      // Check if response is gzip compressed
-      final contentEncoding = response.headers['content-encoding'];
-      if (contentEncoding == 'gzip') {
+      // Report initial progress
+      onProgress?.call(0, contentLength);
+
+      // Stream download with progress reporting
+      try {
+        await for (final chunk in response.stream.timeout(downloadTimeout)) {
+          // Check for cancellation
+          if (isCancelled?.call() == true) {
+            return XmltvParseResult(
+              channels: [],
+              programs: [],
+              errorMessage: 'Cancelled',
+            );
+          }
+
+          bytes.addAll(chunk);
+          downloaded += chunk.length;
+          onProgress?.call(downloaded, contentLength);
+        }
+      } on TimeoutException {
+        return XmltvParseResult(
+          channels: [],
+          programs: [],
+          errorMessage: 'Download timeout - transfer too slow',
+        );
+      }
+
+      // Check for cancellation before parsing
+      if (isCancelled?.call() == true) {
+        return XmltvParseResult(
+          channels: [],
+          programs: [],
+          errorMessage: 'Cancelled',
+        );
+      }
+
+      // Decompress if needed
+      String content;
+      final bodyBytes = bytes;
+
+      // Check for gzip magic bytes
+      if (bodyBytes.length >= 2 &&
+          bodyBytes[0] == 0x1f &&
+          bodyBytes[1] == 0x8b) {
         try {
-          final decompressed = gzip.decode(response.bodyBytes);
+          final decompressed = gzip.decode(bodyBytes);
           content = utf8.decode(decompressed);
         } catch (e) {
-          // Try to decode as plain text if gzip fails
-          content = utf8.decode(response.bodyBytes, allowMalformed: true);
+          content = utf8.decode(bodyBytes, allowMalformed: true);
         }
       } else {
-        // Check if content starts with gzip magic bytes
-        if (response.bodyBytes.length >= 2 &&
-            response.bodyBytes[0] == 0x1f &&
-            response.bodyBytes[1] == 0x8b) {
-          try {
-            final decompressed = gzip.decode(response.bodyBytes);
-            content = utf8.decode(decompressed);
-          } catch (e) {
-            content = utf8.decode(response.bodyBytes, allowMalformed: true);
-          }
-        } else {
-          content = utf8.decode(response.bodyBytes, allowMalformed: true);
-        }
+        content = utf8.decode(bodyBytes, allowMalformed: true);
       }
 
       return await parse(content, playlistId);
     } catch (e) {
+      // Check if this looks like a connection/network error
+      final errorMessage = e.toString().toLowerCase();
+      final isOffline = errorMessage.contains('socket') ||
+          errorMessage.contains('connection') ||
+          errorMessage.contains('timeout') ||
+          errorMessage.contains('network');
+
       return XmltvParseResult(
         channels: [],
         programs: [],
-        errorMessage: 'Failed to fetch XMLTV: $e',
+        errorMessage: isOffline
+            ? 'Connection failed: Server offline or unreachable'
+            : 'Failed to fetch XMLTV: $e',
       );
+    } finally {
+      client.close();
     }
   }
 

@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:another_iptv_player/controllers/m3u_home_controller.dart';
 import 'package:another_iptv_player/models/playlist_model.dart';
+import 'package:another_iptv_player/models/category.dart';
+import 'package:another_iptv_player/models/category_type.dart';
 import 'package:another_iptv_player/models/category_view_model.dart';
 import 'package:another_iptv_player/repositories/m3u_repository.dart';
 import 'package:another_iptv_player/screens/category_detail_screen.dart';
@@ -17,6 +19,7 @@ import 'package:another_iptv_player/utils/navigate_by_content_type.dart';
 
 import '../../services/app_state.dart';
 import '../../controllers/favorites_controller.dart';
+import '../../repositories/user_preferences.dart';
 import '../watch_history_screen.dart';
 import '../favorites/favorites_screen.dart';
 
@@ -44,12 +47,130 @@ class _M3UHomeScreenState extends State<M3UHomeScreen> {
   static const double _defaultFontSize = 10.0;
   static const double _largeFontSize = 11.0;
 
+  // Categories that should show only favorites
+  Set<String> _favoritesOnlyCategories = {};
+
+  // Pinned categories (appear at top)
+  List<String> _pinnedCategories = [];
+
+  // Demoted categories (appear at bottom)
+  List<String> _demotedCategories = [];
+
   @override
   void initState() {
     super.initState();
     _initializeController();
     _favoritesController = FavoritesController();
     _favoritesController.loadFavorites();
+    _loadFavoritesOnlyCategories();
+    _loadPinnedCategories();
+    _loadDemotedCategories();
+  }
+
+  Future<void> _loadFavoritesOnlyCategories() async {
+    final categories = await UserPreferences.getFavoritesOnlyCategories();
+    if (mounted) {
+      setState(() {
+        _favoritesOnlyCategories = categories.toSet();
+      });
+    }
+  }
+
+  Future<void> _toggleFavoritesOnlyCategory(String categoryId) async {
+    await UserPreferences.toggleFavoritesOnlyCategory(categoryId);
+    if (mounted) {
+      setState(() {
+        if (_favoritesOnlyCategories.contains(categoryId)) {
+          _favoritesOnlyCategories.remove(categoryId);
+        } else {
+          _favoritesOnlyCategories.add(categoryId);
+        }
+      });
+    }
+  }
+
+  Future<void> _loadPinnedCategories() async {
+    final pinned = await UserPreferences.getPinnedCategories();
+    if (mounted) {
+      setState(() {
+        _pinnedCategories = pinned;
+      });
+    }
+  }
+
+  Future<void> _togglePinnedCategory(String categoryId) async {
+    if (_pinnedCategories.contains(categoryId)) {
+      await UserPreferences.unpinCategory(categoryId);
+    } else {
+      await UserPreferences.pinCategoryToTop(categoryId);
+    }
+    await _loadPinnedCategories();
+  }
+
+  Future<void> _loadDemotedCategories() async {
+    final demoted = await UserPreferences.getDemotedCategories();
+    if (mounted) {
+      setState(() {
+        _demotedCategories = demoted;
+      });
+    }
+  }
+
+  Future<void> _toggleDemotedCategory(String categoryId) async {
+    if (_demotedCategories.contains(categoryId)) {
+      await UserPreferences.undemoteCategory(categoryId);
+    } else {
+      await UserPreferences.demoteCategoryToBottom(categoryId);
+    }
+    await _loadDemotedCategories();
+    await _loadPinnedCategories(); // Refresh pinned too since demoting removes from pinned
+  }
+
+  /// Sort categories: pinned first, then normal, then demoted
+  List<CategoryViewModel> _sortCategoriesWithPinnedFirst(List<CategoryViewModel> categories) {
+    if (_pinnedCategories.isEmpty && _demotedCategories.isEmpty) return categories;
+
+    final pinned = <CategoryViewModel>[];
+    final normal = <CategoryViewModel>[];
+    final demoted = <CategoryViewModel>[];
+
+    // First, find all pinned categories in pinned order
+    for (final pinnedId in _pinnedCategories) {
+      final cat = categories.firstWhere(
+        (c) => c.category.categoryId == pinnedId,
+        orElse: () => CategoryViewModel(
+          category: Category(categoryId: '', categoryName: '', parentId: 0, playlistId: '', type: CategoryType.live),
+          contentItems: [],
+        ),
+      );
+      if (cat.category.categoryId.isNotEmpty) {
+        pinned.add(cat);
+      }
+    }
+
+    // Find all demoted categories in demoted order
+    for (final demotedId in _demotedCategories) {
+      final cat = categories.firstWhere(
+        (c) => c.category.categoryId == demotedId,
+        orElse: () => CategoryViewModel(
+          category: Category(categoryId: '', categoryName: '', parentId: 0, playlistId: '', type: CategoryType.live),
+          contentItems: [],
+        ),
+      );
+      if (cat.category.categoryId.isNotEmpty) {
+        demoted.add(cat);
+      }
+    }
+
+    // Add normal categories (neither pinned nor demoted)
+    for (final cat in categories) {
+      final catId = cat.category.categoryId;
+      if (!_pinnedCategories.contains(catId) && !_demotedCategories.contains(catId)) {
+        normal.add(cat);
+      }
+    }
+
+    return [...pinned, ...normal, ...demoted];
   }
 
   @override
@@ -243,20 +364,38 @@ class _M3UHomeScreenState extends State<M3UHomeScreen> {
   }
 
   Widget _buildCategoryList(List<CategoryViewModel> categories) {
+    // Sort categories with pinned ones first
+    final sortedCategories = _sortCategoriesWithPinnedFirst(categories);
+
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: categories.length,
-      itemBuilder: (context, index) => _buildCategorySection(categories[index]),
+      itemCount: sortedCategories.length,
+      itemBuilder: (context, index) => _buildCategorySection(sortedCategories[index]),
     );
   }
 
   Widget _buildCategorySection(CategoryViewModel category) {
+    final favoriteStreamIds = _favoritesController.favorites.map((f) => f.streamId).toSet();
+    final categoryId = category.category.categoryId;
+    final pinnedIndex = _pinnedCategories.indexOf(categoryId);
     return CategorySection(
       category: category,
       cardWidth: ResponsiveHelper.getCardWidth(context),
       cardHeight: ResponsiveHelper.getCardHeight(context),
       onSeeAllTap: () => _navigateToCategoryDetail(category),
       onContentTap: (content) => navigateByContentType(context, content),
+      favoriteStreamIds: favoriteStreamIds,
+      isFavoritesOnly: _favoritesOnlyCategories.contains(categoryId),
+      onToggleFavoritesOnly: _toggleFavoritesOnlyCategory,
+      isPinned: pinnedIndex >= 0,
+      pinnedIndex: pinnedIndex >= 0 ? pinnedIndex : null,
+      onTogglePinned: _togglePinnedCategory,
+      onMoveToTop: () async {
+        await UserPreferences.pinCategoryToTop(categoryId);
+        await _loadPinnedCategories();
+      },
+      isDemoted: _demotedCategories.contains(categoryId),
+      onToggleDemoted: _toggleDemotedCategory,
     );
   }
 

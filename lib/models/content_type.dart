@@ -15,4 +15,15 @@ enum ContentType {
         return CategoryType.series;
     }
   }
+
+  static ContentType fromCategoryType(CategoryType categoryType) {
+    switch (categoryType) {
+      case CategoryType.live:
+        return ContentType.liveStream;
+      case CategoryType.vod:
+        return ContentType.vod;
+      case CategoryType.series:
+        return ContentType.series;
+    }
+  }
 }

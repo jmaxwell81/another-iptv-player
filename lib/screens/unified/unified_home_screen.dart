@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:another_iptv_player/controllers/unified_home_controller.dart';
 import 'package:another_iptv_player/controllers/favorites_controller.dart';
 import 'package:another_iptv_player/controllers/hidden_items_controller.dart';
+import 'package:another_iptv_player/models/category.dart';
 import 'package:another_iptv_player/models/category_type.dart';
 import 'package:another_iptv_player/models/category_view_model.dart';
 import 'package:another_iptv_player/models/content_type.dart';
@@ -19,6 +20,7 @@ import 'package:another_iptv_player/utils/navigate_by_content_type.dart';
 import 'package:another_iptv_player/utils/responsive_helper.dart';
 import 'package:another_iptv_player/widgets/category_section.dart';
 import 'package:another_iptv_player/widgets/global_search_delegate.dart';
+import 'package:another_iptv_player/services/parental_control_service.dart';
 
 /// Home screen for combined/unified mode showing content from multiple playlists
 class UnifiedHomeScreen extends StatefulWidget {
@@ -35,6 +37,15 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
 
   static const double _desktopBreakpoint = 900.0;
 
+  // Categories that should show only favorites
+  Set<String> _favoritesOnlyCategories = {};
+
+  // Pinned categories (appear at top)
+  List<String> _pinnedCategories = [];
+
+  // Demoted categories (appear at bottom)
+  List<String> _demotedCategories = [];
+
   @override
   void initState() {
     super.initState();
@@ -43,6 +54,115 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
     _favoritesController.loadFavorites();
     _hiddenItemsController = HiddenItemsController();
     _hiddenItemsController.loadHiddenItems(); // Loads from all active playlists in combined mode
+    _loadFavoritesOnlyCategories();
+    _loadPinnedCategories();
+    _loadDemotedCategories();
+  }
+
+  Future<void> _loadFavoritesOnlyCategories() async {
+    final categories = await UserPreferences.getFavoritesOnlyCategories();
+    if (mounted) {
+      setState(() {
+        _favoritesOnlyCategories = categories.toSet();
+      });
+    }
+  }
+
+  Future<void> _toggleFavoritesOnlyCategory(String categoryId) async {
+    await UserPreferences.toggleFavoritesOnlyCategory(categoryId);
+    if (mounted) {
+      setState(() {
+        if (_favoritesOnlyCategories.contains(categoryId)) {
+          _favoritesOnlyCategories.remove(categoryId);
+        } else {
+          _favoritesOnlyCategories.add(categoryId);
+        }
+      });
+    }
+  }
+
+  Future<void> _loadPinnedCategories() async {
+    final pinned = await UserPreferences.getPinnedCategories();
+    if (mounted) {
+      setState(() {
+        _pinnedCategories = pinned;
+      });
+    }
+  }
+
+  Future<void> _togglePinnedCategory(String categoryId) async {
+    if (_pinnedCategories.contains(categoryId)) {
+      await UserPreferences.unpinCategory(categoryId);
+    } else {
+      await UserPreferences.pinCategoryToTop(categoryId);
+    }
+    await _loadPinnedCategories();
+  }
+
+  Future<void> _loadDemotedCategories() async {
+    final demoted = await UserPreferences.getDemotedCategories();
+    if (mounted) {
+      setState(() {
+        _demotedCategories = demoted;
+      });
+    }
+  }
+
+  Future<void> _toggleDemotedCategory(String categoryId) async {
+    if (_demotedCategories.contains(categoryId)) {
+      await UserPreferences.undemoteCategory(categoryId);
+    } else {
+      await UserPreferences.demoteCategoryToBottom(categoryId);
+    }
+    await _loadDemotedCategories();
+    await _loadPinnedCategories(); // Refresh pinned too since demoting removes from pinned
+  }
+
+  /// Sort categories: pinned first, then normal, then demoted
+  List<CategoryViewModel> _sortCategoriesWithPinnedFirst(List<CategoryViewModel> categories) {
+    if (_pinnedCategories.isEmpty && _demotedCategories.isEmpty) return categories;
+
+    final pinned = <CategoryViewModel>[];
+    final normal = <CategoryViewModel>[];
+    final demoted = <CategoryViewModel>[];
+
+    // First, find all pinned categories in pinned order
+    for (final pinnedId in _pinnedCategories) {
+      final cat = categories.firstWhere(
+        (c) => c.category.categoryId == pinnedId,
+        orElse: () => CategoryViewModel(
+          category: Category(categoryId: '', categoryName: '', parentId: 0, playlistId: '', type: CategoryType.live),
+          contentItems: [],
+        ),
+      );
+      if (cat.category.categoryId.isNotEmpty) {
+        pinned.add(cat);
+      }
+    }
+
+    // Find all demoted categories in demoted order
+    for (final demotedId in _demotedCategories) {
+      final cat = categories.firstWhere(
+        (c) => c.category.categoryId == demotedId,
+        orElse: () => CategoryViewModel(
+          category: Category(categoryId: '', categoryName: '', parentId: 0, playlistId: '', type: CategoryType.live),
+          contentItems: [],
+        ),
+      );
+      if (cat.category.categoryId.isNotEmpty) {
+        demoted.add(cat);
+      }
+    }
+
+    // Add normal categories (neither pinned nor demoted)
+    for (final cat in categories) {
+      final catId = cat.category.categoryId;
+      if (!_pinnedCategories.contains(catId) && !_demotedCategories.contains(catId)) {
+        normal.add(cat);
+      }
+    }
+
+    return [...pinned, ...normal, ...demoted];
   }
 
   @override
@@ -357,11 +477,38 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
     FavoritesController favoritesController,
     HiddenItemsController hiddenItemsController,
   ) {
+    // Apply parental control filtering to categories
+    final parentalService = ParentalControlService();
+    final allCategories = categories.map((c) => c.category).toList();
+    final (List<Category> regularCategories, List<Category> blockedCategories) = parentalService.separateCategories(allCategories);
+
+    List<CategoryViewModel> filteredCategories;
+    if (parentalService.isEnabled) {
+      if (parentalService.isUnlocked) {
+        // Show regular categories first, then blocked at the end
+        final regularCategoryIds = regularCategories.map((Category c) => c.categoryId).toSet();
+        final blockedCategoryIds = blockedCategories.map((Category c) => c.categoryId).toSet();
+        filteredCategories = [
+          ...categories.where((c) => regularCategoryIds.contains(c.category.categoryId)),
+          ...categories.where((c) => blockedCategoryIds.contains(c.category.categoryId)),
+        ];
+      } else {
+        // Only show regular categories when locked
+        final regularCategoryIds = regularCategories.map((Category c) => c.categoryId).toSet();
+        filteredCategories = categories.where((c) => regularCategoryIds.contains(c.category.categoryId)).toList();
+      }
+    } else {
+      filteredCategories = categories;
+    }
+
+    // Sort categories with pinned ones first
+    final sortedCategories = _sortCategoriesWithPinnedFirst(filteredCategories);
+
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: categories.length,
+      itemCount: sortedCategories.length,
       itemBuilder: (context, index) => _buildCategorySection(
-        categories[index],
+        sortedCategories[index],
         contentType,
         favoriteStreamIds,
         hiddenStreamIds,
@@ -380,16 +527,35 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
     HiddenItemsController hiddenItemsController,
   ) {
     // Filter out hidden items
+    var contentItems = category.contentItems
+        .where((item) => !hiddenStreamIds.contains(item.id))
+        .toList();
+
+    // Apply parental control filtering to content items
+    final parentalService = ParentalControlService();
+    final (regularItems, blockedItems) = parentalService.separateContent(contentItems);
+
+    if (parentalService.isEnabled) {
+      if (parentalService.isUnlocked) {
+        // Show regular items first, then blocked at the end
+        contentItems = [...regularItems, ...blockedItems];
+      } else {
+        // Only show regular items when locked
+        contentItems = regularItems;
+      }
+    }
+
     final filteredCategory = CategoryViewModel(
       category: category.category,
-      contentItems: category.contentItems
-          .where((item) => !hiddenStreamIds.contains(item.id))
-          .toList(),
+      contentItems: contentItems,
     );
 
     if (filteredCategory.contentItems.isEmpty) {
       return const SizedBox.shrink();
     }
+
+    final categoryId = category.category.categoryId;
+    final pinnedIndex = _pinnedCategories.indexOf(categoryId);
 
     return CategorySection(
       category: filteredCategory,
@@ -403,6 +569,17 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
       favoriteStreamIds: favoriteStreamIds,
       hiddenStreamIds: hiddenStreamIds,
       playlistId: 'unified',
+      isFavoritesOnly: _favoritesOnlyCategories.contains(categoryId),
+      onToggleFavoritesOnly: _toggleFavoritesOnlyCategory,
+      isPinned: pinnedIndex >= 0,
+      pinnedIndex: pinnedIndex >= 0 ? pinnedIndex : null,
+      onTogglePinned: _togglePinnedCategory,
+      onMoveToTop: () async {
+        await UserPreferences.pinCategoryToTop(categoryId);
+        await _loadPinnedCategories();
+      },
+      isDemoted: _demotedCategories.contains(categoryId),
+      onToggleDemoted: _toggleDemotedCategory,
     );
   }
 

@@ -4,6 +4,7 @@ import 'package:another_iptv_player/models/playlist_content_model.dart';
 import 'package:another_iptv_player/models/playlist_model.dart' show PlaylistType;
 import 'package:another_iptv_player/models/watch_history.dart';
 import 'package:another_iptv_player/repositories/hidden_items_repository.dart';
+import 'package:another_iptv_player/repositories/offline_items_repository.dart';
 import 'package:another_iptv_player/repositories/user_preferences.dart';
 import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/services/event_bus.dart';
@@ -96,6 +97,14 @@ class _PlayerWidgetState extends State<PlayerWidget>
   final HiddenItemsRepository _hiddenItemsRepository = HiddenItemsRepository();
   Set<String> _hiddenStreamIds = {};
 
+  // Auto-offline detection
+  final OfflineItemsRepository _offlineItemsRepository = OfflineItemsRepository();
+  Set<String> _offlineStreamIds = {};
+  bool _autoOfflineEnabled = false;
+  int _autoOfflineTimeoutSeconds = 10;
+  Timer? _autoOfflineTimer;
+  bool _hasReceivedBytes = false;
+
   @override
   void initState() {
     WidgetsBinding.instance.addObserver(this);
@@ -178,6 +187,12 @@ class _PlayerWidgetState extends State<PlayerWidget>
     // Load hidden items
     _loadHiddenItems();
 
+    // Load offline items for navigation skip
+    _loadOfflineItems();
+
+    // Load auto-offline detection settings
+    _loadAutoOfflineSettings();
+
     _initializePlayer();
   }
 
@@ -193,12 +208,90 @@ class _PlayerWidgetState extends State<PlayerWidget>
     }
   }
 
+  Future<void> _loadOfflineItems() async {
+    final playlistId = AppState.currentPlaylist?.id;
+    if (playlistId != null) {
+      final offlineIds = await _offlineItemsRepository.getOfflineStreamIds(playlistId);
+      if (mounted) {
+        setState(() {
+          _offlineStreamIds = offlineIds;
+        });
+      }
+    }
+  }
+
   Future<void> _loadTimeshiftPreference() async {
     final enabled = await UserPreferences.getTimeshiftEnabled();
     if (mounted) {
       setState(() {
         _timeshiftEnabled = enabled;
       });
+    }
+  }
+
+  Future<void> _loadAutoOfflineSettings() async {
+    _autoOfflineEnabled = await UserPreferences.getAutoOfflineEnabled();
+    _autoOfflineTimeoutSeconds = await UserPreferences.getAutoOfflineTimeoutSeconds();
+  }
+
+  /// Start auto-offline detection timer for live streams
+  void _startAutoOfflineTimer() {
+    if (!_autoOfflineEnabled) return;
+    if (contentItem.contentType != ContentType.liveStream) return;
+    if (contentItem.isCatchUp) return; // Don't auto-offline catch-up content
+
+    _autoOfflineTimer?.cancel();
+    _hasReceivedBytes = false;
+
+    _autoOfflineTimer = Timer(Duration(seconds: _autoOfflineTimeoutSeconds), () {
+      if (!_hasReceivedBytes && mounted) {
+        _markStreamAsAutoOffline();
+      }
+    });
+  }
+
+  /// Cancel auto-offline timer (called when bytes are received)
+  void _cancelAutoOfflineTimer() {
+    _hasReceivedBytes = true;
+    _autoOfflineTimer?.cancel();
+  }
+
+  /// Mark the current stream as auto-offline due to no data received
+  Future<void> _markStreamAsAutoOffline() async {
+    if (!mounted) return;
+    if (contentItem.contentType != ContentType.liveStream) return;
+
+    try {
+      final tempHideHours = await UserPreferences.getOfflineStreamTempHideHours();
+
+      await _offlineItemsRepository.markOffline(
+        contentItem,
+        temporary: true,
+        autoDetected: true,
+        tempHours: tempHideHours,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${contentItem.name} auto-detected as offline (no data after $_autoOfflineTimeoutSeconds seconds)',
+            ),
+            duration: const Duration(seconds: 5),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.orange.shade700,
+            action: SnackBarAction(
+              label: 'Undo',
+              textColor: Colors.white,
+              onPressed: () async {
+                await _offlineItemsRepository.markOnline(contentItem);
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error auto-marking stream offline: $e');
     }
   }
 
@@ -249,6 +342,7 @@ class _PlayerWidgetState extends State<PlayerWidget>
     _errorHandler.reset();
     _errorDisplayTimer?.cancel();
     _vpnStatusSubscription?.cancel();
+    _autoOfflineTimer?.cancel();
     super.dispose();
   }
 
@@ -317,6 +411,34 @@ class _PlayerWidgetState extends State<PlayerWidget>
 
         // Keep the stream open even when paused
         await platform.setProperty('demuxer-readahead-secs', '120');
+
+        // Audio settings to prevent crackling/popping
+        // Increase audio buffer to prevent underruns
+        await platform.setProperty('audio-buffer', '0.5'); // 500ms audio buffer
+
+        // Use a larger cache for network streams
+        await platform.setProperty('cache', 'yes');
+        await platform.setProperty('cache-secs', '10'); // 10 seconds of cache
+
+        // Reduce audio latency issues
+        await platform.setProperty('audio-pitch-correction', 'no');
+
+        // On macOS, use coreaudio with larger buffer
+        if (Platform.isMacOS) {
+          await platform.setProperty('ao', 'coreaudio');
+          await platform.setProperty('coreaudio-buffer', '0.1'); // 100ms buffer
+        }
+
+        // Audio decoding error handling
+        // Try to continue playback even with audio errors
+        await platform.setProperty('audio-fallback-to-null', 'yes');
+        // Use software audio decoding for better compatibility
+        await platform.setProperty('ad', 'lavc');
+        // Allow audio format changes during playback
+        await platform.setProperty('audio-stream-silence', 'yes');
+        // More lenient audio sync
+        await platform.setProperty('autosync', '30');
+        await platform.setProperty('mc', '0.5');
       }
     } catch (e) {
       // Silently ignore errors - this is a best-effort optimization
@@ -445,6 +567,8 @@ class _PlayerWidgetState extends State<PlayerWidget>
         );
       } else {
         await _player.open(Media(contentItem.url));
+        // Start auto-offline detection for live streams
+        _startAutoOfflineTimer();
       }
     } else {
       final mediaItem = MediaItem(
@@ -473,6 +597,9 @@ class _PlayerWidgetState extends State<PlayerWidget>
         ]),
         play: true,
       );
+
+      // Start auto-offline detection for live streams (non-queue scenario)
+      _startAutoOfflineTimer();
     }
 
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
@@ -592,6 +719,9 @@ class _PlayerWidgetState extends State<PlayerWidget>
             'unknown';
         _healthService.reportSuccess(sourceId);
 
+        // Cancel auto-offline timer - stream is playing successfully
+        _cancelAutoOfflineTimer();
+
         // Clear any error message when playback starts
         if (_currentStreamError != null) {
           setState(() {
@@ -599,6 +729,7 @@ class _PlayerWidgetState extends State<PlayerWidget>
           });
           _errorDisplayTimer?.cancel();
         }
+
       } else if (!playing && mounted) {
         // When paused on live stream, mark as behind live in timeshift
         if (_timeshiftService.isTimeshiftActive) {
@@ -619,6 +750,13 @@ class _PlayerWidgetState extends State<PlayerWidget>
       _watchHistoryTimer = Timer(const Duration(seconds: 5), () {
         _saveWatchHistory();
       });
+    });
+
+    // Auto-offline detection: cancel timer when buffer increases (data received)
+    _player.stream.buffer.listen((buffer) {
+      if (buffer > Duration.zero) {
+        _cancelAutoOfflineTimer();
+      }
     });
 
     _player.stream.error.listen((error) async {
@@ -800,7 +938,13 @@ class _PlayerWidgetState extends State<PlayerWidget>
   void _changeChannel(int direction) {
     if (_queue == null || _queue!.length <= 1) return;
 
-    final newIndex = _currentItemIndex + direction;
+    // Find the next/previous non-offline channel
+    int newIndex = _currentItemIndex + direction;
+    while (newIndex >= 0 && newIndex < _queue!.length &&
+           _offlineStreamIds.contains(_queue![newIndex].id)) {
+      newIndex += direction;
+    }
+
     if (newIndex < 0 || newIndex >= _queue!.length) return;
 
     EventBus().emit('player_content_item_index_changed', newIndex);
@@ -1297,7 +1441,10 @@ class _PlayerWidgetState extends State<PlayerWidget>
       );
     }
 
-    return GestureDetector(
+    final isLiveStreamContent = contentItem.contentType == ContentType.liveStream &&
+        !contentItem.isCatchUp;
+
+    Widget playerContent = GestureDetector(
       onVerticalDragEnd: (details) {
         if (_queue == null || _queue!.length <= 1) return;
 
@@ -1352,8 +1499,7 @@ class _PlayerWidgetState extends State<PlayerWidget>
             ),
 
           // Live stream controls overlay (shows on hover/tap for live streams)
-          if (contentItem.contentType == ContentType.liveStream &&
-              !contentItem.isCatchUp)
+          if (isLiveStreamContent)
             Positioned.fill(
               child: LiveStreamControls(
                 player: _player,
@@ -1369,8 +1515,7 @@ class _PlayerWidgetState extends State<PlayerWidget>
             ),
 
           // EPG info overlay with channel navigation and subtitle toggle
-          if (contentItem.contentType == ContentType.liveStream &&
-              !contentItem.isCatchUp)
+          if (isLiveStreamContent)
             Positioned.fill(
               child: EPGInfoOverlay(
                 player: _player,
@@ -1385,6 +1530,8 @@ class _PlayerWidgetState extends State<PlayerWidget>
         ],
       ),
     );
+
+    return playerContent;
   }
 
   void _showSaveBufferDialog(BuildContext context) {

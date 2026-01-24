@@ -4,6 +4,7 @@ import 'package:another_iptv_player/models/content_type.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
 import 'package:another_iptv_player/models/playlist_model.dart';
 import 'package:another_iptv_player/services/app_state.dart';
+import 'package:another_iptv_player/services/parental_control_service.dart';
 import 'package:another_iptv_player/services/service_locator.dart';
 
 /// Result from global search with content type grouping
@@ -79,10 +80,16 @@ class GlobalSearchController extends ChangeNotifier {
         }
       }
 
+      // Apply parental control filtering to search results
+      final parentalService = ParentalControlService();
+      final filteredLiveStreams = parentalService.filterContent(liveStreams);
+      final filteredMovies = parentalService.filterContent(movies);
+      final filteredSeries = parentalService.filterContent(series);
+
       _results = GlobalSearchResult(
-        liveStreams: liveStreams,
-        movies: movies,
-        series: series,
+        liveStreams: filteredLiveStreams,
+        movies: filteredMovies,
+        series: filteredSeries,
       );
     } catch (e) {
       _errorMessage = 'Search failed: $e';

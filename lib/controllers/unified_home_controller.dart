@@ -1,15 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:another_iptv_player/models/category.dart';
 import 'package:another_iptv_player/models/category_type.dart';
 import 'package:another_iptv_player/models/category_view_model.dart';
+import 'package:another_iptv_player/models/content_type.dart';
+import 'package:another_iptv_player/models/playlist_content_model.dart';
+import 'package:another_iptv_player/models/playlist_model.dart';
 import 'package:another_iptv_player/models/view_state.dart';
+import 'package:another_iptv_player/repositories/offline_items_repository.dart';
 import 'package:another_iptv_player/repositories/unified_content_repository.dart';
 import 'package:another_iptv_player/repositories/user_preferences.dart';
+import 'package:another_iptv_player/database/database.dart';
 import 'package:another_iptv_player/services/app_state.dart';
+import 'package:another_iptv_player/services/auto_combine_service.dart';
+import 'package:another_iptv_player/services/service_locator.dart';
 
 /// Controller for the unified home screen (combined mode)
 class UnifiedHomeController extends ChangeNotifier {
   late PageController _pageController;
   final UnifiedContentRepository _repository = UnifiedContentRepository();
+  final AutoCombineService _autoCombineService = AutoCombineService();
+  final AppDatabase _database = getIt<AppDatabase>();
 
   String? _errorMessage;
   ViewState _viewState = ViewState.idle;
@@ -21,9 +31,19 @@ class UnifiedHomeController extends ChangeNotifier {
   final List<CategoryViewModel> _movieCategories = [];
   final List<CategoryViewModel> _seriesCategories = [];
 
+  // New Releases
+  CategoryViewModel? _newReleasesMovies;
+  CategoryViewModel? _newReleasesSeries;
+  bool _showNewReleases = true;
+  int _newReleasesLookbackDays = 7;
+
   // Hidden category IDs and names (for cross-source consistency)
   Set<String> _hiddenCategoryIds = {};
   Set<String> _hiddenCategoryNames = {};
+
+  // Offline stream IDs (filtered from category previews)
+  final OfflineItemsRepository _offlineItemsRepository = OfflineItemsRepository();
+  Set<String> _offlineStreamIds = {};
 
   // Source filtering - per content type
   // null means "All Sources", otherwise contains selected playlist IDs
@@ -67,7 +87,21 @@ class UnifiedHomeController extends ChangeNotifier {
   Future<void> _initializeData() async {
     await _loadDefaultPanel();
     await loadHiddenCategories();
+    await _loadOfflineStreamIds();
+    await _autoCombineService.initialize();
     await loadAllContent();
+    // Load new releases after all content is loaded
+    await _loadNewReleases();
+  }
+
+  Future<void> _loadOfflineStreamIds() async {
+    // In unified mode, we need to collect offline IDs from all active playlists
+    final allOfflineIds = <String>{};
+    for (final playlistId in AppState.activePlaylists.keys) {
+      final offlineIds = await _offlineItemsRepository.getOfflineStreamIds(playlistId);
+      allOfflineIds.addAll(offlineIds);
+    }
+    _offlineStreamIds = allOfflineIds;
   }
 
   Future<void> _loadDefaultPanel() async {
@@ -216,18 +250,57 @@ class UnifiedHomeController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Visible categories (filtered by hidden and source filter)
-  List<CategoryViewModel> get visibleLiveCategories => _liveCategories
-      .where((c) => !_isCategoryHidden(c) && _matchesSourceFilter(c, _liveSourceFilter))
-      .toList();
+  // Visible categories (filtered by hidden and source filter, with auto-combine rules applied)
+  List<CategoryViewModel> get visibleLiveCategories {
+    var filtered = _liveCategories
+        .where((c) => !_isCategoryHidden(c) && _matchesSourceFilter(c, _liveSourceFilter))
+        .toList();
+    filtered = _filterOfflineFromCategories(filtered);
+    return _autoCombineService.applyRules(filtered);
+  }
 
-  List<CategoryViewModel> get visibleMovieCategories => _movieCategories
-      .where((c) => !_isCategoryHidden(c) && _matchesSourceFilter(c, _movieSourceFilter))
-      .toList();
+  List<CategoryViewModel> get visibleMovieCategories {
+    var filtered = _movieCategories
+        .where((c) => !_isCategoryHidden(c) && _matchesSourceFilter(c, _movieSourceFilter))
+        .toList();
+    filtered = _filterOfflineFromCategories(filtered);
+    var result = _autoCombineService.applyRules(filtered);
 
-  List<CategoryViewModel> get visibleSeriesCategories => _seriesCategories
-      .where((c) => !_isCategoryHidden(c) && _matchesSourceFilter(c, _seriesSourceFilter))
-      .toList();
+    // Add New Releases section at the top if enabled and has content
+    if (_showNewReleases && _newReleasesMovies != null && _newReleasesMovies!.contentItems.isNotEmpty) {
+      return [_newReleasesMovies!, ...result];
+    }
+    return result;
+  }
+
+  List<CategoryViewModel> get visibleSeriesCategories {
+    var filtered = _seriesCategories
+        .where((c) => !_isCategoryHidden(c) && _matchesSourceFilter(c, _seriesSourceFilter))
+        .toList();
+    filtered = _filterOfflineFromCategories(filtered);
+    var result = _autoCombineService.applyRules(filtered);
+
+    // Add New Releases section at the top if enabled and has content
+    if (_showNewReleases && _newReleasesSeries != null && _newReleasesSeries!.contentItems.isNotEmpty) {
+      return [_newReleasesSeries!, ...result];
+    }
+    return result;
+  }
+
+  /// Filter offline streams from category content items
+  List<CategoryViewModel> _filterOfflineFromCategories(List<CategoryViewModel> categories) {
+    if (_offlineStreamIds.isEmpty) return categories;
+
+    return categories.map((category) {
+      final filteredItems = category.contentItems
+          .where((item) => !_offlineStreamIds.contains(item.id))
+          .toList();
+      return CategoryViewModel(
+        category: category.category,
+        contentItems: filteredItems,
+      );
+    }).where((c) => c.contentItems.isNotEmpty).toList();
+  }
 
   /// Check if a category is hidden (by ID or by normalized name)
   bool _isCategoryHidden(CategoryViewModel category) {
@@ -433,6 +506,134 @@ class UnifiedHomeController extends ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// Load new releases for movies and series from all active playlists
+  Future<void> _loadNewReleases() async {
+    try {
+      // Load preferences
+      _showNewReleases = await UserPreferences.getShowNewReleases();
+      _newReleasesLookbackDays = await UserPreferences.getNewReleasesLookbackDays();
+
+      if (!_showNewReleases) return;
+
+      final allMovies = <ContentItem>[];
+      final allSeries = <ContentItem>[];
+
+      // Load from all active playlists
+      for (final entry in AppState.activePlaylists.entries) {
+        final playlistId = entry.key;
+        final playlist = entry.value;
+
+        if (playlist.type == PlaylistType.xtream) {
+          // Xtream playlist
+          final recentMovies = await _database.getRecentlyAddedMovies(
+            playlistId: playlistId,
+            daysBack: _newReleasesLookbackDays,
+            limit: 10,
+          );
+
+          for (final movie in recentMovies) {
+            allMovies.add(ContentItem(
+              movie.streamId,
+              movie.name,
+              movie.streamIcon,
+              ContentType.vod,
+              containerExtension: movie.containerExtension,
+              vodStream: movie,
+              sourcePlaylistId: playlistId,
+              sourceType: PlaylistType.xtream,
+            ));
+          }
+
+          final recentSeries = await _database.getRecentlyAddedSeries(
+            playlistId: playlistId,
+            daysBack: _newReleasesLookbackDays,
+            limit: 10,
+          );
+
+          for (final series in recentSeries) {
+            allSeries.add(ContentItem(
+              series.seriesId,
+              series.name,
+              series.cover ?? '',
+              ContentType.series,
+              seriesStream: series,
+              sourcePlaylistId: playlistId,
+              sourceType: PlaylistType.xtream,
+            ));
+          }
+        } else {
+          // M3U playlist
+          final recentM3uMovies = await _database.getRecentlyAddedM3uMovies(
+            playlistId: playlistId,
+            daysBack: _newReleasesLookbackDays,
+            limit: 10,
+          );
+
+          for (final movie in recentM3uMovies) {
+            allMovies.add(ContentItem(
+              movie.url,
+              movie.name ?? '',
+              movie.tvgLogo ?? '',
+              ContentType.vod,
+              m3uItem: movie,
+              sourcePlaylistId: playlistId,
+              sourceType: PlaylistType.m3u,
+            ));
+          }
+
+          final recentM3uSeries = await _database.getRecentlyAddedM3uSeries(
+            playlistId: playlistId,
+            daysBack: _newReleasesLookbackDays,
+            limit: 10,
+          );
+
+          for (final series in recentM3uSeries) {
+            allSeries.add(ContentItem(
+              series.seriesId,
+              series.name,
+              '',
+              ContentType.series,
+              sourcePlaylistId: playlistId,
+              sourceType: PlaylistType.m3u,
+            ));
+          }
+        }
+      }
+
+      // Create category view models if we have content
+      // Note: Items are already sorted by createdAt DESC from DB queries
+      if (allMovies.isNotEmpty) {
+        _newReleasesMovies = CategoryViewModel(
+          category: Category(
+            categoryId: '_new_releases_movies',
+            categoryName: 'New Releases',
+            parentId: 0,
+            playlistId: 'unified',
+            type: CategoryType.vod,
+          ),
+          contentItems: allMovies.take(20).toList(),
+        );
+      }
+
+      if (allSeries.isNotEmpty) {
+        _newReleasesSeries = CategoryViewModel(
+          category: Category(
+            categoryId: '_new_releases_series',
+            categoryName: 'New Releases',
+            parentId: 0,
+            playlistId: 'unified',
+            type: CategoryType.series,
+          ),
+          contentItems: allSeries.take(20).toList(),
+        );
+      }
+
+      debugPrint('Unified New Releases loaded: ${allMovies.length} movies, ${allSeries.length} series');
+    } catch (e) {
+      debugPrint('Error loading unified new releases: $e');
     }
   }
 

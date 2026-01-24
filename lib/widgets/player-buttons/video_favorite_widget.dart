@@ -24,7 +24,7 @@ class _VideoFavoriteWidgetState extends State<VideoFavoriteWidget> {
     _favoritesController = FavoritesController();
     _checkFavoriteStatus();
 
-    // ContentItem değiştiğinde favori durumunu güncelle
+    // Update favorite status when content item changes
     _contentItemSubscription = EventBus()
         .on<ContentItem>('player_content_item')
         .listen((ContentItem item) {
@@ -48,6 +48,7 @@ class _VideoFavoriteWidgetState extends State<VideoFavoriteWidget> {
       final isFavorite = await _favoritesController.isFavorite(
         currentContent.id,
         currentContent.contentType,
+        contentItem: currentContent,
       );
       if (mounted) {
         setState(() {
@@ -74,6 +75,20 @@ class _VideoFavoriteWidgetState extends State<VideoFavoriteWidget> {
         setState(() {
           _isFavorite = result;
         });
+
+        // Show feedback to user
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              result
+                  ? 'Added to favorites'
+                  : 'Removed from favorites',
+            ),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: result ? Colors.green.shade700 : Colors.orange.shade700,
+          ),
+        );
       }
     }
   }
@@ -81,8 +96,8 @@ class _VideoFavoriteWidgetState extends State<VideoFavoriteWidget> {
   @override
   Widget build(BuildContext context) {
     final currentContent = PlayerState.currentContent;
-    
-    // Sadece canlı yayın ve filmler için göster
+
+    // Only show for live streams and movies
     if (currentContent == null ||
         (currentContent.contentType != ContentType.liveStream &&
             currentContent.contentType != ContentType.vod)) {
@@ -90,7 +105,7 @@ class _VideoFavoriteWidgetState extends State<VideoFavoriteWidget> {
     }
 
     return IconButton(
-      tooltip: _isFavorite ? 'Favorilerden Kaldır' : 'Favorilere Ekle',
+      tooltip: _isFavorite ? 'Remove from favorites' : 'Add to favorites',
       icon: Icon(
         _isFavorite ? Icons.favorite : Icons.favorite_border,
         color: _isFavorite ? Colors.red : Colors.white,
@@ -99,4 +114,3 @@ class _VideoFavoriteWidgetState extends State<VideoFavoriteWidget> {
     );
   }
 }
-
