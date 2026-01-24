@@ -15,6 +15,7 @@ import '../models/category_type.dart';
 import '../models/m3u_item.dart';
 import '../models/m3u_series.dart';
 import '../models/playlist_model.dart';
+import '../models/playlist_url.dart';
 import '../models/favorite.dart';
 
 part 'database.g.dart';
@@ -34,6 +35,12 @@ class Playlists extends Table {
   TextColumn get password => text().nullable()();
 
   DateTimeColumn get createdAt => dateTime()();
+
+  /// JSON-encoded list of additional URLs
+  TextColumn get additionalUrls => text().withDefault(const Constant('[]'))();
+
+  /// Index of currently active URL (0 = primary)
+  IntColumn get activeUrlIndex => integer().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -394,6 +401,8 @@ class M3uSeries extends Table {
 
   TextColumn get cover => text().nullable()();
 
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
   @override
   Set<Column> get primaryKey => {playlistId, seriesId};
 }
@@ -471,6 +480,30 @@ class HiddenItems extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+@DataClassName('OfflineItemsData')
+class OfflineItems extends Table {
+  TextColumn get id => text()();
+
+  TextColumn get playlistId => text()();
+
+  IntColumn get contentType => integer()();
+
+  TextColumn get streamId => text()();
+
+  TextColumn get name => text()();
+
+  TextColumn get imagePath => text().nullable()();
+
+  DateTimeColumn get markedAt => dateTime().withDefault(currentDateAndTime)();
+
+  BoolColumn get autoDetected => boolean().withDefault(const Constant(false))();
+
+  DateTimeColumn get temporaryUntil => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DataClassName('EpgProgramData')
 class EpgPrograms extends Table {
   TextColumn get id => text()();  // channelId_startTime_playlistId
@@ -510,6 +543,25 @@ class EpgSources extends Table {
 
   @override
   Set<Column> get primaryKey => {playlistId};
+}
+
+/// Stores multiple URLs per playlist with health status
+@DataClassName('PlaylistUrlData')
+class PlaylistUrls extends Table {
+  TextColumn get id => text()(); // playlistId_index
+  TextColumn get playlistId => text()();
+  TextColumn get url => text()();
+  IntColumn get priority => integer().withDefault(const Constant(0))(); // 0 = primary
+  IntColumn get status => integer().withDefault(const Constant(0))(); // UrlStatus enum
+  DateTimeColumn get lastChecked => dateTime().nullable()();
+  DateTimeColumn get lastSuccessful => dateTime().nullable()();
+  IntColumn get failureCount => integer().withDefault(const Constant(0))();
+  TextColumn get lastError => text().nullable()();
+  IntColumn get responseTimeMs => integer().withDefault(const Constant(0))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
 }
 
 /// Cached subtitles downloaded from OpenSubtitles
@@ -558,6 +610,8 @@ class ContentDetails extends Table {
   TextColumn get similarContent => text().nullable()(); // JSON array of similar TMDB IDs
   TextColumn get keywords => text().nullable()(); // JSON array of keywords
   TextColumn get certifications => text().nullable()(); // Content ratings by region
+  IntColumn get budget => integer().nullable()(); // Production budget in USD
+  IntColumn get revenue => integer().nullable()(); // Box office revenue in USD
   DateTimeColumn get fetchedAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 
@@ -583,9 +637,11 @@ class ContentDetails extends Table {
     M3uEpisodes,
     Favorites,
     HiddenItems,
+    OfflineItems,
     EpgPrograms,
     EpgChannels,
     EpgSources,
+    PlaylistUrls,
     CachedSubtitles,
     ContentDetails,
   ],
@@ -615,7 +671,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 14;
 
   // === PLAYLIST İŞLEMLERİ ===
 
@@ -630,8 +686,23 @@ class AppDatabase extends _$AppDatabase {
         username: Value(playlist.username),
         password: Value(playlist.password),
         createdAt: Value(playlist.createdAt),
+        additionalUrls: Value(_encodeUrlList(playlist.additionalUrls)),
+        activeUrlIndex: Value(playlist.activeUrlIndex),
       ),
     );
+  }
+
+  /// Encode URL list to JSON string for storage
+  String _encodeUrlList(List<String> urls) {
+    return urls.join('|||'); // Use separator instead of JSON for simplicity
+  }
+
+  /// Decode URL list from stored string
+  List<String> _decodeUrlList(String? encoded) {
+    if (encoded == null || encoded.isEmpty || encoded == '[]') {
+      return [];
+    }
+    return encoded.split('|||').where((u) => u.isNotEmpty).toList();
   }
 
   // Tüm playlistleri getir
@@ -664,7 +735,16 @@ class AppDatabase extends _$AppDatabase {
         url: Value(playlist.url),
         username: Value(playlist.username),
         password: Value(playlist.password),
+        additionalUrls: Value(_encodeUrlList(playlist.additionalUrls)),
+        activeUrlIndex: Value(playlist.activeUrlIndex),
       ),
+    );
+  }
+
+  /// Update only the active URL index for a playlist
+  Future<void> updatePlaylistActiveUrlIndex(String playlistId, int? index) async {
+    await (update(playlists)..where((p) => p.id.equals(playlistId))).write(
+      PlaylistsCompanion(activeUrlIndex: Value(index)),
     );
   }
 
@@ -875,9 +955,11 @@ class AppDatabase extends _$AppDatabase {
       name: data.name,
       type: PlaylistType.values.firstWhere((e) => e.toString() == data.type),
       url: data.url,
+      additionalUrls: _decodeUrlList(data.additionalUrls),
       username: data.username,
       password: data.password,
       createdAt: data.createdAt,
+      activeUrlIndex: data.activeUrlIndex,
     );
   }
 
@@ -1366,6 +1448,95 @@ class AppDatabase extends _$AppDatabase {
           ..where((tbl) => tbl.playlistId.equals(playlistId)))
         .get();
     return result.length;
+  }
+
+  // New Releases queries - get recently added content
+  /// Get movies added within the specified number of days
+  Future<List<VodStream>> getRecentlyAddedMovies({
+    required String playlistId,
+    required int daysBack,
+    int? limit,
+  }) async {
+    final cutoffDate = DateTime.now().subtract(Duration(days: daysBack));
+
+    var query = select(vodStreams)
+      ..where((vs) =>
+          vs.playlistId.equals(playlistId) &
+          vs.createdAt.isBiggerOrEqualValue(cutoffDate))
+      ..orderBy([(vs) => OrderingTerm.desc(vs.createdAt)]);
+
+    if (limit != null) {
+      query = query..limit(limit);
+    }
+
+    final rows = await query.get();
+    return rows.map((row) => VodStream.fromDriftVodStream(row)).toList();
+  }
+
+  /// Get series added within the specified number of days
+  Future<List<SeriesStream>> getRecentlyAddedSeries({
+    required String playlistId,
+    required int daysBack,
+    int? limit,
+  }) async {
+    final cutoffDate = DateTime.now().subtract(Duration(days: daysBack));
+
+    var query = select(seriesStreams)
+      ..where((ss) =>
+          ss.playlistId.equals(playlistId) &
+          ss.createdAt.isBiggerOrEqualValue(cutoffDate))
+      ..orderBy([(ss) => OrderingTerm.desc(ss.createdAt)]);
+
+    if (limit != null) {
+      query = query..limit(limit);
+    }
+
+    final rows = await query.get();
+    return rows.map((row) => SeriesStream.fromDriftSeriesStream(row)).toList();
+  }
+
+  /// Get M3U movies added within the specified number of days
+  Future<List<M3uItem>> getRecentlyAddedM3uMovies({
+    required String playlistId,
+    required int daysBack,
+    int? limit,
+  }) async {
+    final cutoffDate = DateTime.now().subtract(Duration(days: daysBack));
+
+    var query = select(m3uItems)
+      ..where((item) =>
+          item.playlistId.equals(playlistId) &
+          item.contentType.equals(ContentType.vod.index) &
+          item.createdAt.isBiggerOrEqualValue(cutoffDate))
+      ..orderBy([(item) => OrderingTerm.desc(item.createdAt)]);
+
+    if (limit != null) {
+      query = query..limit(limit);
+    }
+
+    final rows = await query.get();
+    return rows.map((row) => M3uItem.fromData(row)).toList();
+  }
+
+  /// Get M3U series added within the specified number of days
+  Future<List<M3uSeriesData>> getRecentlyAddedM3uSeries({
+    required String playlistId,
+    required int daysBack,
+    int? limit,
+  }) async {
+    final cutoffDate = DateTime.now().subtract(Duration(days: daysBack));
+
+    var query = select(m3uSeries)
+      ..where((series) =>
+          series.playlistId.equals(playlistId) &
+          series.createdAt.isBiggerOrEqualValue(cutoffDate))
+      ..orderBy([(series) => OrderingTerm.desc(series.createdAt)]);
+
+    if (limit != null) {
+      query = query..limit(limit);
+    }
+
+    return await query.get();
   }
 
   // Series Info CRUD Operations
@@ -1874,6 +2045,26 @@ class AppDatabase extends _$AppDatabase {
           print('Subtitle/ContentDetails tables migration skipped: $e');
         }
       }
+
+      if (from < 13) {
+        try {
+          await m.createTable(offlineItems);
+        } catch (e) {
+          print('OfflineItems table migration skipped: $e');
+        }
+      }
+
+      if (from < 14) {
+        try {
+          // Add multi-URL support columns to playlists
+          await m.addColumn(playlists, playlists.additionalUrls);
+          await m.addColumn(playlists, playlists.activeUrlIndex);
+          // Create PlaylistUrls table for URL health tracking
+          await m.createTable(playlistUrls);
+        } catch (e) {
+          print('Playlist URLs migration skipped: $e');
+        }
+      }
     },
   );
 
@@ -1933,6 +2124,102 @@ class AppDatabase extends _$AppDatabase {
       );
     final result = await query.getSingleOrNull();
     return result != null;
+  }
+
+  // === OFFLINE ITEMS CRUD ===
+
+  Future<void> insertOfflineItem(OfflineItemsCompanion item) async {
+    await into(offlineItems).insertOnConflictUpdate(item);
+  }
+
+  Future<void> deleteOfflineItem(String id) async {
+    await (delete(offlineItems)..where((o) => o.id.equals(id))).go();
+  }
+
+  Future<void> deleteOfflineItemByStreamId(
+    String playlistId,
+    String streamId,
+  ) async {
+    await (delete(offlineItems)..where(
+          (o) =>
+              o.playlistId.equals(playlistId) &
+              o.streamId.equals(streamId),
+        ))
+        .go();
+  }
+
+  Future<List<OfflineItemsData>> getAllOfflineItems() async {
+    return await select(offlineItems).get();
+  }
+
+  Future<List<OfflineItemsData>> getOfflineItemsByPlaylist(
+    String playlistId,
+  ) async {
+    final query = select(offlineItems)
+      ..where((o) => o.playlistId.equals(playlistId))
+      ..orderBy([(o) => OrderingTerm.desc(o.markedAt)]);
+    return await query.get();
+  }
+
+  Future<Set<String>> getOfflineStreamIds(String playlistId) async {
+    final items = await getOfflineItemsByPlaylist(playlistId);
+    // Filter out expired temporary items
+    final now = DateTime.now();
+    return items
+        .where((item) =>
+            item.temporaryUntil == null || item.temporaryUntil!.isAfter(now))
+        .map((item) => item.streamId)
+        .toSet();
+  }
+
+  Future<bool> isOffline(
+    String playlistId,
+    String streamId,
+  ) async {
+    final query = select(offlineItems)
+      ..where(
+        (o) =>
+            o.playlistId.equals(playlistId) &
+            o.streamId.equals(streamId),
+      );
+    final result = await query.getSingleOrNull();
+    if (result == null) return false;
+    // Check if not expired
+    if (result.temporaryUntil != null &&
+        DateTime.now().isAfter(result.temporaryUntil!)) {
+      return false;
+    }
+    return true;
+  }
+
+  Future<OfflineItemsData?> getOfflineItem(
+    String playlistId,
+    String streamId,
+  ) async {
+    final query = select(offlineItems)
+      ..where(
+        (o) =>
+            o.playlistId.equals(playlistId) &
+            o.streamId.equals(streamId),
+      );
+    return await query.getSingleOrNull();
+  }
+
+  /// Delete expired temporary offline items
+  Future<int> cleanupExpiredOfflineItems() async {
+    final now = DateTime.now();
+    return await (delete(offlineItems)..where(
+          (o) =>
+              o.temporaryUntil.isNotNull() &
+              o.temporaryUntil.isSmallerThanValue(now),
+        ))
+        .go();
+  }
+
+  /// Get count of offline items for a playlist
+  Future<int> getOfflineItemCount(String playlistId) async {
+    final items = await getOfflineStreamIds(playlistId);
+    return items.length;
   }
 
   // === EPG CRUD OPERATIONS ===
@@ -2031,6 +2318,38 @@ class AppDatabase extends _$AppDatabase {
     return result.length;
   }
 
+  /// Get count of EPG programs within a specific date range
+  Future<int> getEpgProgramCountInRange(
+    String playlistId,
+    DateTime start,
+    DateTime end,
+  ) async {
+    final result = await (select(epgPrograms)
+      ..where((e) =>
+          e.playlistId.equals(playlistId) &
+          e.startTime.isBiggerOrEqualValue(start) &
+          e.endTime.isSmallerOrEqualValue(end)))
+        .get();
+    return result.length;
+  }
+
+  /// Check if there are any EPG programs for today
+  Future<bool> hasEpgProgramsForToday(String playlistId) async {
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final todayEnd = todayStart.add(const Duration(days: 1));
+
+    final query = select(epgPrograms)
+      ..where((e) =>
+          e.playlistId.equals(playlistId) &
+          e.endTime.isBiggerThanValue(todayStart) &
+          e.startTime.isSmallerThanValue(todayEnd))
+      ..limit(1);
+
+    final result = await query.get();
+    return result.isNotEmpty;
+  }
+
   // Clear all EPG data for a playlist
   Future<void> clearEpgData(String playlistId) async {
     await deleteEpgPrograms(playlistId);
@@ -2049,12 +2368,40 @@ class AppDatabase extends _$AppDatabase {
 
   // === TV GUIDE OPTIMIZED QUERIES ===
 
+  /// Get all EPG channel IDs that have programs in the given time range
+  Future<Set<String>> getEpgChannelIdsWithPrograms(
+    String playlistId,
+    DateTime from,
+    DateTime to,
+  ) async {
+    final query = selectOnly(epgPrograms, distinct: true)
+      ..addColumns([epgPrograms.channelId])
+      ..where(epgPrograms.playlistId.equals(playlistId) &
+              epgPrograms.endTime.isBiggerThanValue(from) &
+              epgPrograms.startTime.isSmallerThanValue(to));
+
+    final results = await query.get();
+    return results.map((row) => row.read(epgPrograms.channelId)!).toSet();
+  }
+
+  /// Get all EPG channel IDs for a playlist (regardless of time)
+  Future<Set<String>> getAllEpgChannelIds(String playlistId) async {
+    final query = selectOnly(epgChannels, distinct: true)
+      ..addColumns([epgChannels.channelId])
+      ..where(epgChannels.playlistId.equals(playlistId));
+
+    final results = await query.get();
+    return results.map((row) => row.read(epgChannels.channelId)!).toSet();
+  }
+
   /// Count live streams excluding hidden categories (for pagination)
+  /// If requireEpgChannelIds is provided, only count streams that have matching EPG channel IDs
   Future<int> countLiveStreamsFiltered(
     String playlistId, {
     Set<String>? excludedCategoryIds,
     Set<String>? excludedStreamIds,
     String? searchQuery,
+    Set<String>? requireEpgChannelIds,
   }) async {
     var query = select(liveStreams)..where((ls) => ls.playlistId.equals(playlistId));
 
@@ -2071,6 +2418,18 @@ class AppDatabase extends _$AppDatabase {
           return false;
         }
       }
+      // Filter by EPG availability - check if stream's epgChannelId is in the set
+      if (requireEpgChannelIds != null) {
+        final epgId = row.epgChannelId;
+        if (epgId.isEmpty || !requireEpgChannelIds.contains(epgId)) {
+          // Also try case-insensitive match
+          final hasMatch = requireEpgChannelIds.any((id) =>
+            id.toLowerCase() == epgId.toLowerCase());
+          if (!hasMatch) {
+            return false;
+          }
+        }
+      }
       return true;
     });
 
@@ -2078,6 +2437,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   /// Get paginated live streams excluding hidden categories
+  /// If requireEpgChannelIds is provided, only return streams that have matching EPG channel IDs
   Future<List<LiveStream>> getLiveStreamsPaginated(
     String playlistId, {
     required int offset,
@@ -2085,6 +2445,7 @@ class AppDatabase extends _$AppDatabase {
     Set<String>? excludedCategoryIds,
     Set<String>? excludedStreamIds,
     String? searchQuery,
+    Set<String>? requireEpgChannelIds,
   }) async {
     var query = select(liveStreams)..where((ls) => ls.playlistId.equals(playlistId));
 
@@ -2099,6 +2460,18 @@ class AppDatabase extends _$AppDatabase {
       if (searchQuery != null && searchQuery.isNotEmpty) {
         if (!row.name.toLowerCase().contains(searchQuery.toLowerCase())) {
           return false;
+        }
+      }
+      // Filter by EPG availability - check if stream's epgChannelId is in the set
+      if (requireEpgChannelIds != null) {
+        final epgId = row.epgChannelId;
+        if (epgId.isEmpty || !requireEpgChannelIds.contains(epgId)) {
+          // Also try case-insensitive match
+          final hasMatch = requireEpgChannelIds.any((id) =>
+            id.toLowerCase() == epgId.toLowerCase());
+          if (!hasMatch) {
+            return false;
+          }
         }
       }
       return true;
@@ -2211,6 +2584,164 @@ class AppDatabase extends _$AppDatabase {
     }
 
     return grouped;
+  }
+
+  // === PLAYLIST URLS ===
+
+  /// Insert a playlist URL
+  Future<void> insertPlaylistUrl(PlaylistUrl url) async {
+    await into(playlistUrls).insert(PlaylistUrlsCompanion(
+      id: Value(url.id),
+      playlistId: Value(url.playlistId),
+      url: Value(url.url),
+      priority: Value(url.priority),
+      status: Value(url.status.index),
+      lastChecked: Value(url.lastChecked),
+      lastSuccessful: Value(url.lastSuccessful),
+      failureCount: Value(url.failureCount),
+      lastError: Value(url.lastError),
+      responseTimeMs: Value(url.responseTimeMs),
+    ));
+  }
+
+  /// Insert multiple playlist URLs
+  Future<void> insertPlaylistUrls(List<PlaylistUrl> urls) async {
+    await batch((batch) {
+      batch.insertAll(
+        playlistUrls,
+        urls.map((url) => PlaylistUrlsCompanion(
+          id: Value(url.id),
+          playlistId: Value(url.playlistId),
+          url: Value(url.url),
+          priority: Value(url.priority),
+          status: Value(url.status.index),
+          lastChecked: Value(url.lastChecked),
+          lastSuccessful: Value(url.lastSuccessful),
+          failureCount: Value(url.failureCount),
+          lastError: Value(url.lastError),
+          responseTimeMs: Value(url.responseTimeMs),
+        )).toList(),
+      );
+    });
+  }
+
+  /// Get all URLs for a playlist
+  Future<List<PlaylistUrl>> getPlaylistUrls(String playlistId) async {
+    final results = await (select(playlistUrls)
+          ..where((u) => u.playlistId.equals(playlistId))
+          ..orderBy([(u) => OrderingTerm.asc(u.priority)]))
+        .get();
+
+    return results.map((data) => PlaylistUrl(
+      id: data.id,
+      playlistId: data.playlistId,
+      url: data.url,
+      priority: data.priority,
+      status: UrlStatus.values[data.status],
+      lastChecked: data.lastChecked,
+      lastSuccessful: data.lastSuccessful,
+      failureCount: data.failureCount,
+      lastError: data.lastError,
+      responseTimeMs: data.responseTimeMs,
+    )).toList();
+  }
+
+  /// Get a single playlist URL by ID
+  Future<PlaylistUrl?> getPlaylistUrl(String id) async {
+    final result = await (select(playlistUrls)
+          ..where((u) => u.id.equals(id)))
+        .getSingleOrNull();
+
+    if (result == null) return null;
+
+    return PlaylistUrl(
+      id: result.id,
+      playlistId: result.playlistId,
+      url: result.url,
+      priority: result.priority,
+      status: UrlStatus.values[result.status],
+      lastChecked: result.lastChecked,
+      lastSuccessful: result.lastSuccessful,
+      failureCount: result.failureCount,
+      lastError: result.lastError,
+      responseTimeMs: result.responseTimeMs,
+    );
+  }
+
+  /// Update a playlist URL
+  Future<void> updatePlaylistUrl(PlaylistUrl url) async {
+    await (update(playlistUrls)..where((u) => u.id.equals(url.id))).write(
+      PlaylistUrlsCompanion(
+        url: Value(url.url),
+        priority: Value(url.priority),
+        status: Value(url.status.index),
+        lastChecked: Value(url.lastChecked),
+        lastSuccessful: Value(url.lastSuccessful),
+        failureCount: Value(url.failureCount),
+        lastError: Value(url.lastError),
+        responseTimeMs: Value(url.responseTimeMs),
+      ),
+    );
+  }
+
+  /// Update URL health status
+  Future<void> updatePlaylistUrlStatus(
+    String id, {
+    required UrlStatus status,
+    int? responseTimeMs,
+    String? lastError,
+  }) async {
+    await (update(playlistUrls)..where((u) => u.id.equals(id))).write(
+      PlaylistUrlsCompanion(
+        status: Value(status.index),
+        lastChecked: Value(DateTime.now()),
+        lastSuccessful: status == UrlStatus.online ? Value(DateTime.now()) : const Value.absent(),
+        failureCount: status != UrlStatus.online && status != UrlStatus.unknown
+            ? const Value.absent() // Will be incremented separately if needed
+            : Value(0),
+        responseTimeMs: responseTimeMs != null ? Value(responseTimeMs) : const Value.absent(),
+        lastError: Value(lastError),
+      ),
+    );
+  }
+
+  /// Increment failure count for a URL
+  Future<void> incrementPlaylistUrlFailureCount(String id) async {
+    final current = await getPlaylistUrl(id);
+    if (current != null) {
+      await (update(playlistUrls)..where((u) => u.id.equals(id))).write(
+        PlaylistUrlsCompanion(
+          failureCount: Value(current.failureCount + 1),
+          lastChecked: Value(DateTime.now()),
+        ),
+      );
+    }
+  }
+
+  /// Delete a playlist URL
+  Future<int> deletePlaylistUrl(String id) async {
+    return (delete(playlistUrls)..where((u) => u.id.equals(id))).go();
+  }
+
+  /// Delete all URLs for a playlist
+  Future<int> deletePlaylistUrlsByPlaylist(String playlistId) async {
+    return (delete(playlistUrls)..where((u) => u.playlistId.equals(playlistId))).go();
+  }
+
+  /// Upsert a playlist URL (insert or update)
+  Future<void> upsertPlaylistUrl(PlaylistUrl url) async {
+    await into(playlistUrls).insertOnConflictUpdate(PlaylistUrlsCompanion(
+      id: Value(url.id),
+      playlistId: Value(url.playlistId),
+      url: Value(url.url),
+      priority: Value(url.priority),
+      status: Value(url.status.index),
+      lastChecked: Value(url.lastChecked),
+      lastSuccessful: Value(url.lastSuccessful),
+      failureCount: Value(url.failureCount),
+      lastError: Value(url.lastError),
+      responseTimeMs: Value(url.responseTimeMs),
+    ));
   }
 
   // === CACHED SUBTITLES ===

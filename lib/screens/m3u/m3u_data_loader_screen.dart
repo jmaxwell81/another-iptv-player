@@ -1,6 +1,8 @@
 import 'package:another_iptv_player/models/m3u_item.dart';
 import 'package:another_iptv_player/repositories/user_preferences.dart';
 import 'package:another_iptv_player/services/app_state.dart';
+import 'package:another_iptv_player/services/m3u_parser.dart';
+import 'package:another_iptv_player/services/playlist_service.dart';
 import 'package:flutter/material.dart';
 import 'package:another_iptv_player/controllers/m3u_controller.dart';
 import 'package:another_iptv_player/models/playlist_model.dart';
@@ -10,25 +12,27 @@ import 'package:provider/provider.dart';
 import '../playlist_screen.dart';
 import 'm3u_home_screen.dart';
 
-class M3uDataLoaderScreen extends StatefulWidget {
+class M3UDataLoaderScreen extends StatefulWidget {
   final Playlist playlist;
-  final List<M3uItem> m3uItems;
+  final List<M3uItem>? m3uItems;
   bool refreshAll = false;
+  bool returnToPlaylistScreen = false;
   final List<M3uItem>? oldM3uItems;
 
-  M3uDataLoaderScreen({
+  M3UDataLoaderScreen({
     super.key,
     required this.playlist,
-    required this.m3uItems,
+    this.m3uItems,
     this.refreshAll = false,
+    this.returnToPlaylistScreen = false,
     this.oldM3uItems,
   });
 
   @override
-  M3uDataLoaderScreenState createState() => M3uDataLoaderScreenState();
+  M3UDataLoaderScreenState createState() => M3UDataLoaderScreenState();
 }
 
-class M3uDataLoaderScreenState extends State<M3uDataLoaderScreen>
+class M3UDataLoaderScreenState extends State<M3UDataLoaderScreen>
     with TickerProviderStateMixin {
   late AnimationController _animationController;
   late AnimationController _pulseAnimationController;
@@ -36,10 +40,14 @@ class M3uDataLoaderScreenState extends State<M3uDataLoaderScreen>
   late Animation<double> _progressAnimation;
   late Animation<double> _pulseAnimation;
   late Animation<double> _waveAnimation;
-  late M3uController _controller;
+  M3uController? _controller;
+  bool _isDownloading = false;
+  String? _downloadError;
+  int _currentUrlIndex = 0;
+  String? _activeUrl;
 
   Map<ProgressStep, String> get stepTitles => {
-    // ProgressStep.userInfo: context.loc.loading_m3u,
+    ProgressStep.userInfo: 'Downloading M3U...',
     ProgressStep.categories: context.loc.preparing_categories,
     ProgressStep.liveChannels: context.loc.preparing_live_streams,
     ProgressStep.movies: context.loc.preparing_movies,
@@ -88,13 +96,106 @@ class M3uDataLoaderScreenState extends State<M3uDataLoaderScreen>
       CurvedAnimation(parent: _waveAnimationController, curve: Curves.linear),
     );
 
+    _initializeAndLoad();
+  }
+
+  Future<void> _initializeAndLoad() async {
+    List<M3uItem> m3uItems = widget.m3uItems ?? [];
+
+    // Initialize URL index
+    _currentUrlIndex = widget.playlist.activeUrlIndex ?? 0;
+    final allUrls = widget.playlist.allUrls;
+    if (allUrls.isNotEmpty) {
+      _activeUrl = allUrls[_currentUrlIndex.clamp(0, allUrls.length - 1)];
+    } else {
+      _activeUrl = widget.playlist.url;
+    }
+
+    // If no m3uItems provided and we have a URL, download and parse
+    if (m3uItems.isEmpty && _activeUrl != null) {
+      m3uItems = await _downloadWithFailover();
+      if (m3uItems.isEmpty && _downloadError != null) {
+        return;
+      }
+    }
+
     _controller = M3uController(
       playlistId: widget.playlist.id,
-      m3uItems: widget.m3uItems,
+      m3uItems: m3uItems,
       refreshAll: widget.refreshAll,
     );
 
     _startLoading();
+  }
+
+  Future<List<M3uItem>> _downloadWithFailover() async {
+    final allUrls = widget.playlist.allUrls;
+    if (allUrls.isEmpty && _activeUrl == null) {
+      setState(() {
+        _downloadError = 'No URL configured';
+      });
+      return [];
+    }
+
+    final urlsToTry = allUrls.isNotEmpty ? allUrls : [_activeUrl!];
+    final startIndex = _currentUrlIndex;
+
+    for (var attempt = 0; attempt < urlsToTry.length; attempt++) {
+      final urlIndex = (startIndex + attempt) % urlsToTry.length;
+      final url = urlsToTry[urlIndex];
+
+      setState(() {
+        _isDownloading = true;
+        _downloadError = null;
+        if (attempt > 0) {
+          // Show message about trying backup URL
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Primary URL failed. Trying backup URL ${urlIndex + 1}...'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      });
+
+      try {
+        final m3uItems = await M3uParser.parseUrl(widget.playlist.id, url);
+
+        if (m3uItems.isNotEmpty) {
+          setState(() {
+            _isDownloading = false;
+            _currentUrlIndex = urlIndex;
+            _activeUrl = url;
+          });
+
+          // Update active URL index if we switched URLs
+          if (urlIndex != (widget.playlist.activeUrlIndex ?? 0)) {
+            final updatedPlaylist = widget.playlist.copyWith(
+              activeUrlIndex: urlIndex,
+            );
+            await PlaylistService.updatePlaylist(updatedPlaylist);
+          }
+
+          return m3uItems;
+        }
+      } catch (e) {
+        // Continue to next URL
+        if (attempt == urlsToTry.length - 1) {
+          // Last attempt failed
+          setState(() {
+            _isDownloading = false;
+            _downloadError = 'Failed to download M3U from all URLs: $e';
+          });
+        }
+      }
+    }
+
+    setState(() {
+      _isDownloading = false;
+    });
+
+    return [];
   }
 
   @override
@@ -102,31 +203,42 @@ class M3uDataLoaderScreenState extends State<M3uDataLoaderScreen>
     _animationController.dispose();
     _pulseAnimationController.dispose();
     _waveAnimationController.dispose();
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
   Future<void> _startLoading() async {
-    final success = await _controller.loadAllData();
+    if (_controller == null) return;
+
+    final success = await _controller!.loadAllData();
 
     if (success) {
       _animationController.animateTo(1.0);
       _pulseAnimationController.stop();
       _waveAnimationController.stop();
-      // await Future.delayed(Duration(milliseconds: 800));
 
-      AppState.currentPlaylist = widget.playlist;
-      await UserPreferences.setLastPlaylist(widget.playlist.id);
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ChangeNotifierProvider.value(
-            value: _controller,
-            child: M3UHomeScreen(playlist: widget.playlist),
+      // Update last refresh time
+      await UserPreferences.setLastRefreshTime(widget.playlist.id, DateTime.now());
+
+      if (widget.returnToPlaylistScreen) {
+        // Just pop back to the playlist screen
+        if (mounted) {
+          Navigator.pop(context);
+        }
+      } else {
+        AppState.currentPlaylist = widget.playlist;
+        await UserPreferences.setLastPlaylist(widget.playlist.id);
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChangeNotifierProvider.value(
+              value: _controller!,
+              child: M3UHomeScreen(playlist: widget.playlist),
+            ),
           ),
-        ),
-        (route) => false,
-      );
+          (route) => false,
+        );
+      }
     }
   }
 
@@ -147,6 +259,87 @@ class M3uDataLoaderScreenState extends State<M3uDataLoaderScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Show error if download failed
+    if (_downloadError != null) {
+      return Scaffold(
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF1a1a2e), Color(0xFF16213e), Color(0xFF0f3460)],
+            ),
+          ),
+          child: SafeArea(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error_outline, color: Colors.red, size: 64),
+                    SizedBox(height: 24),
+                    Text(
+                      'Failed to refresh playlist',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    Text(
+                      _downloadError!,
+                      style: TextStyle(color: Colors.white70),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text('Go Back'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Show loading while downloading or if controller not ready
+    if (_isDownloading || _controller == null) {
+      return Scaffold(
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF1a1a2e), Color(0xFF16213e), Color(0xFF0f3460)],
+            ),
+          ),
+          child: SafeArea(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(color: Color(0xFF00d4ff)),
+                  SizedBox(height: 24),
+                  Text(
+                    'Downloading M3U playlist...',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -157,7 +350,7 @@ class M3uDataLoaderScreenState extends State<M3uDataLoaderScreen>
           ),
         ),
         child: ChangeNotifierProvider.value(
-          value: _controller,
+          value: _controller!,
           child: Consumer<M3uController>(
             builder: (context, controller, child) {
               WidgetsBinding.instance.addPostFrameCallback((_) {

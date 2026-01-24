@@ -1,20 +1,47 @@
 import 'package:another_iptv_player/l10n/localization_extension.dart';
 import 'package:another_iptv_player/utils/app_themes.dart';
+import 'package:another_iptv_player/repositories/user_preferences.dart';
 import 'package:flutter/material.dart';
 import '../../../../models/playlist_model.dart';
 import '../../utils/playlist_utils.dart';
 
-class PlaylistCard extends StatelessWidget {
+class PlaylistCard extends StatefulWidget {
   final Playlist playlist;
   final VoidCallback onTap;
   final VoidCallback onDelete;
+  final VoidCallback? onEdit;
+  final VoidCallback? onRefresh;
 
   const PlaylistCard({
     super.key,
     required this.playlist,
     required this.onTap,
     required this.onDelete,
+    this.onEdit,
+    this.onRefresh,
   });
+
+  @override
+  State<PlaylistCard> createState() => _PlaylistCardState();
+}
+
+class _PlaylistCardState extends State<PlaylistCard> {
+  DateTime? _lastRefreshTime;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLastRefreshTime();
+  }
+
+  Future<void> _loadLastRefreshTime() async {
+    final time = await UserPreferences.getLastRefreshTime(widget.playlist.id);
+    if (mounted) {
+      setState(() {
+        _lastRefreshTime = time;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,16 +51,25 @@ class PlaylistCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: InkWell(
-        onTap: onTap,
+        onTap: widget.onTap,
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              _PlaylistIcon(type: playlist.type),
+              _PlaylistIcon(type: widget.playlist.type),
               const SizedBox(width: 16),
-              Expanded(child: _PlaylistInfo(playlist: playlist)),
-              _PlaylistMenu(onDelete: onDelete),
+              Expanded(
+                child: _PlaylistInfo(
+                  playlist: widget.playlist,
+                  lastRefreshTime: _lastRefreshTime,
+                ),
+              ),
+              _PlaylistMenu(
+                onDelete: widget.onDelete,
+                onEdit: widget.onEdit,
+                onRefresh: widget.onRefresh,
+              ),
             ],
           ),
         ),
@@ -67,8 +103,28 @@ class _PlaylistIcon extends StatelessWidget {
 
 class _PlaylistInfo extends StatelessWidget {
   final Playlist playlist;
+  final DateTime? lastRefreshTime;
 
-  const _PlaylistInfo({required this.playlist});
+  const _PlaylistInfo({required this.playlist, this.lastRefreshTime});
+
+  String _formatLastRefresh(DateTime? time) {
+    if (time == null) return 'Never refreshed';
+
+    final now = DateTime.now();
+    final difference = now.difference(time);
+
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays}d ago';
+    } else {
+      return PlaylistUtils.formatDate(time);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,6 +149,24 @@ class _PlaylistInfo extends StatelessWidget {
             Text(
               PlaylistUtils.formatDate(playlist.createdAt),
               style: const TextStyle(fontSize: 12, color: AppThemes.textGrey),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Icon(
+              Icons.sync,
+              size: 12,
+              color: lastRefreshTime == null ? Colors.orange : AppThemes.iconGrey,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              _formatLastRefresh(lastRefreshTime),
+              style: TextStyle(
+                fontSize: 11,
+                color: lastRefreshTime == null ? Colors.orange : AppThemes.textGrey,
+              ),
             ),
           ],
         ),
@@ -139,13 +213,37 @@ class _TypeChip extends StatelessWidget {
 
 class _PlaylistMenu extends StatelessWidget {
   final VoidCallback onDelete;
+  final VoidCallback? onEdit;
+  final VoidCallback? onRefresh;
 
-  const _PlaylistMenu({required this.onDelete});
+  const _PlaylistMenu({required this.onDelete, this.onEdit, this.onRefresh});
 
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
       itemBuilder: (context) => [
+        if (onRefresh != null)
+          PopupMenuItem(
+            value: 'refresh',
+            child: Row(
+              children: [
+                Icon(Icons.sync, color: Theme.of(context).colorScheme.primary, size: 20),
+                SizedBox(width: 8),
+                Text('Refresh'),
+              ],
+            ),
+          ),
+        if (onEdit != null)
+          PopupMenuItem(
+            value: 'edit',
+            child: Row(
+              children: [
+                Icon(Icons.edit, color: Theme.of(context).colorScheme.primary, size: 20),
+                SizedBox(width: 8),
+                Text(context.loc.edit),
+              ],
+            ),
+          ),
         PopupMenuItem(
           value: 'delete',
           child: Row(
@@ -158,7 +256,11 @@ class _PlaylistMenu extends StatelessWidget {
         ),
       ],
       onSelected: (value) {
-        if (value == 'delete') {
+        if (value == 'refresh') {
+          onRefresh?.call();
+        } else if (value == 'edit') {
+          onEdit?.call();
+        } else if (value == 'delete') {
           onDelete();
         }
       },

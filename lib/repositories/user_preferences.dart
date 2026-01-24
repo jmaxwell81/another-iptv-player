@@ -37,6 +37,7 @@ class UserPreferences {
   static const String _categoryConfigKey = 'category_configs';
   static const String _activePlaylistsConfigKey = 'active_playlists_config';
   static const String _tvGuideChannelLimitKey = 'tv_guide_channel_limit';
+  static const String _favoritesOnlyCategoriesKey = 'favorites_only_categories';
 
   // TV Guide channel limit (default 100)
   static Future<void> setTvGuideChannelLimit(int limit) async {
@@ -648,6 +649,8 @@ class UserPreferences {
   static const String _keyVpnStatusOpacity = 'vpn_status_opacity';
   static const String _keyVpnShowOnlyWhenDisconnected = 'vpn_show_only_when_disconnected';
   static const String _keyVpnTargetCountry = 'vpn_target_country';
+  static const String _keyVpnStatusOffsetX = 'vpn_status_offset_x';
+  static const String _keyVpnStatusOffsetY = 'vpn_status_offset_y';
 
   static Future<void> setVpnCheckEnabled(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
@@ -725,6 +728,30 @@ class UserPreferences {
   static Future<String?> getVpnTargetCountry() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_keyVpnTargetCountry);
+  }
+
+  /// Set VPN status X offset (horizontal distance from corner)
+  static Future<void> setVpnStatusOffsetX(double offset) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_keyVpnStatusOffsetX, offset);
+  }
+
+  /// Get VPN status X offset (default: 16)
+  static Future<double> getVpnStatusOffsetX() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getDouble(_keyVpnStatusOffsetX) ?? 16.0;
+  }
+
+  /// Set VPN status Y offset (vertical distance from corner)
+  static Future<void> setVpnStatusOffsetY(double offset) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_keyVpnStatusOffsetY, offset);
+  }
+
+  /// Get VPN status Y offset (default: 16)
+  static Future<double> getVpnStatusOffsetY() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getDouble(_keyVpnStatusOffsetY) ?? 16.0;
   }
 
   // Download settings
@@ -1133,6 +1160,218 @@ class UserPreferences {
     } catch (e) {
       return [];
     }
+  }
+
+  // Favorites-only categories - show only favorited items in these categories
+  /// Get list of category IDs that should show only favorites
+  static Future<List<String>> getFavoritesOnlyCategories() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_favoritesOnlyCategoriesKey) ?? [];
+  }
+
+  /// Set list of category IDs that should show only favorites
+  static Future<void> setFavoritesOnlyCategories(List<String> categoryIds) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_favoritesOnlyCategoriesKey, categoryIds);
+  }
+
+  /// Check if a category is set to show only favorites
+  static Future<bool> isFavoritesOnlyCategory(String categoryId) async {
+    final favOnly = await getFavoritesOnlyCategories();
+    return favOnly.contains(categoryId);
+  }
+
+  /// Toggle favorites-only mode for a category
+  static Future<void> toggleFavoritesOnlyCategory(String categoryId) async {
+    final favOnly = await getFavoritesOnlyCategories();
+    if (favOnly.contains(categoryId)) {
+      favOnly.remove(categoryId);
+    } else {
+      favOnly.add(categoryId);
+    }
+    await setFavoritesOnlyCategories(favOnly);
+  }
+
+  /// Enable favorites-only mode for a category
+  static Future<void> setFavoritesOnly(String categoryId) async {
+    final favOnly = await getFavoritesOnlyCategories();
+    if (!favOnly.contains(categoryId)) {
+      favOnly.add(categoryId);
+      await setFavoritesOnlyCategories(favOnly);
+    }
+  }
+
+  /// Disable favorites-only mode for a category
+  static Future<void> clearFavoritesOnly(String categoryId) async {
+    final favOnly = await getFavoritesOnlyCategories();
+    if (favOnly.contains(categoryId)) {
+      favOnly.remove(categoryId);
+      await setFavoritesOnlyCategories(favOnly);
+    }
+  }
+
+  // Category preview settings
+  static const String _keyCategoryPreviewLimit = 'category_preview_limit';
+
+  /// Get the number of items to show per category on the main page
+  /// Default is 15, configurable by user
+  static Future<int> getCategoryPreviewLimit() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_keyCategoryPreviewLimit) ?? 15;
+  }
+
+  /// Set the number of items to show per category on the main page
+  static Future<void> setCategoryPreviewLimit(int limit) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_keyCategoryPreviewLimit, limit);
+  }
+
+  // Pinned categories - categories that should appear at the top of the list
+  static const String _keyPinnedCategories = 'pinned_categories';
+
+  /// Get list of pinned category IDs in order (first = top)
+  static Future<List<String>> getPinnedCategories() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_keyPinnedCategories) ?? [];
+  }
+
+  /// Set list of pinned category IDs
+  static Future<void> setPinnedCategories(List<String> categoryIds) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_keyPinnedCategories, categoryIds);
+  }
+
+  /// Pin a category to the top (or move it to the very top if already pinned)
+  static Future<void> pinCategoryToTop(String categoryId) async {
+    final pinned = await getPinnedCategories();
+    // Remove if already exists to avoid duplicates
+    pinned.remove(categoryId);
+    // Insert at the beginning (top)
+    pinned.insert(0, categoryId);
+    await setPinnedCategories(pinned);
+  }
+
+  /// Unpin a category (remove from pinned list)
+  static Future<void> unpinCategory(String categoryId) async {
+    final pinned = await getPinnedCategories();
+    pinned.remove(categoryId);
+    await setPinnedCategories(pinned);
+  }
+
+  /// Check if a category is pinned
+  static Future<bool> isCategoryPinned(String categoryId) async {
+    final pinned = await getPinnedCategories();
+    return pinned.contains(categoryId);
+  }
+
+  // Demoted categories - categories that should appear at the bottom of the list
+  static const String _keyDemotedCategories = 'demoted_categories';
+
+  /// Get list of demoted category IDs (shown at bottom)
+  static Future<List<String>> getDemotedCategories() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_keyDemotedCategories) ?? [];
+  }
+
+  /// Set list of demoted category IDs
+  static Future<void> setDemotedCategories(List<String> categoryIds) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_keyDemotedCategories, categoryIds);
+  }
+
+  /// Demote a category to the bottom
+  static Future<void> demoteCategoryToBottom(String categoryId) async {
+    // Remove from pinned if it was pinned
+    await unpinCategory(categoryId);
+
+    final demoted = await getDemotedCategories();
+    // Remove if already exists to avoid duplicates
+    demoted.remove(categoryId);
+    // Add to the end (bottom)
+    demoted.add(categoryId);
+    await setDemotedCategories(demoted);
+  }
+
+  /// Undemote a category (remove from demoted list)
+  static Future<void> undemoteCategory(String categoryId) async {
+    final demoted = await getDemotedCategories();
+    demoted.remove(categoryId);
+    await setDemotedCategories(demoted);
+  }
+
+  /// Check if a category is demoted
+  static Future<bool> isCategoryDemoted(String categoryId) async {
+    final demoted = await getDemotedCategories();
+    return demoted.contains(categoryId);
+  }
+
+  // Offline Stream settings
+  static const String _keyOfflineStreamTempHideHours = 'offline_stream_temp_hide_hours';
+  static const String _keyAutoOfflineEnabled = 'auto_offline_enabled';
+  static const String _keyAutoOfflineTimeoutSeconds = 'auto_offline_timeout_seconds';
+
+  /// Get temporary offline hide duration in hours (default: 48)
+  static Future<int> getOfflineStreamTempHideHours() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_keyOfflineStreamTempHideHours) ?? 48;
+  }
+
+  /// Set temporary offline hide duration in hours
+  static Future<void> setOfflineStreamTempHideHours(int hours) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_keyOfflineStreamTempHideHours, hours);
+  }
+
+  /// Get whether auto-offline detection is enabled (default: false)
+  static Future<bool> getAutoOfflineEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyAutoOfflineEnabled) ?? false;
+  }
+
+  /// Set whether auto-offline detection is enabled
+  static Future<void> setAutoOfflineEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyAutoOfflineEnabled, enabled);
+  }
+
+  /// Get auto-offline detection timeout in seconds (default: 10)
+  static Future<int> getAutoOfflineTimeoutSeconds() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_keyAutoOfflineTimeoutSeconds) ?? 10;
+  }
+
+  /// Set auto-offline detection timeout in seconds
+  static Future<void> setAutoOfflineTimeoutSeconds(int seconds) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_keyAutoOfflineTimeoutSeconds, seconds);
+  }
+
+  // New Releases section settings
+  static const String _keyShowNewReleases = 'show_new_releases';
+  static const String _keyNewReleasesLookbackDays = 'new_releases_lookback_days';
+
+  /// Get whether to show the "New Releases" section (default: true)
+  static Future<bool> getShowNewReleases() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyShowNewReleases) ?? true;
+  }
+
+  /// Set whether to show the "New Releases" section
+  static Future<void> setShowNewReleases(bool show) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyShowNewReleases, show);
+  }
+
+  /// Get the lookback period for "New Releases" in days (default: 7)
+  static Future<int> getNewReleasesLookbackDays() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_keyNewReleasesLookbackDays) ?? 7;
+  }
+
+  /// Set the lookback period for "New Releases" in days
+  static Future<void> setNewReleasesLookbackDays(int days) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_keyNewReleasesLookbackDays, days);
   }
 }
 

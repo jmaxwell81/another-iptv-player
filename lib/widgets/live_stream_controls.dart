@@ -2,12 +2,16 @@ import 'dart:async';
 import 'package:another_iptv_player/controllers/epg_controller.dart';
 import 'package:another_iptv_player/models/epg_program.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
+import 'package:another_iptv_player/repositories/offline_items_repository.dart';
 import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/services/event_bus.dart';
+import 'package:another_iptv_player/services/fullscreen_service.dart';
 import 'package:another_iptv_player/services/live_recording_service.dart';
 import 'package:another_iptv_player/services/player_state.dart';
 import 'package:another_iptv_player/utils/app_themes.dart';
 import 'package:another_iptv_player/widgets/player-buttons/video_favorite_widget.dart';
+import 'package:another_iptv_player/widgets/player-buttons/video_hide_widget.dart';
+import 'package:another_iptv_player/widgets/player-buttons/video_offline_widget.dart';
 import 'package:another_iptv_player/widgets/recording_dialog.dart';
 import 'package:another_iptv_player/widgets/recording_status_widget.dart';
 import 'package:flutter/material.dart';
@@ -68,6 +72,9 @@ class _LiveStreamControlsState extends State<LiveStreamControls> {
   // Recording service
   final LiveRecordingService _recordingService = LiveRecordingService();
 
+  // Fullscreen service
+  final FullscreenService _fullscreenService = FullscreenService();
+
   // EPG data
   final EpgController _epgController = EpgController();
   EpgProgram? _currentProgram;
@@ -75,11 +82,17 @@ class _LiveStreamControlsState extends State<LiveStreamControls> {
   bool _isLoadingEpg = true;
   Timer? _epgRefreshTimer;
 
+  // Offline items for skip navigation
+  final OfflineItemsRepository _offlineItemsRepository = OfflineItemsRepository();
+  Set<String> _offlineStreamIds = {};
+
   @override
   void initState() {
     super.initState();
     _recordingService.addListener(_onRecordingStateChanged);
     _recordingService.initialize();
+    _fullscreenService.addListener(_onFullscreenStateChanged);
+    _fullscreenService.initialize();
     _setupSubscriptions();
     _startHideTimer();
 
@@ -88,6 +101,21 @@ class _LiveStreamControlsState extends State<LiveStreamControls> {
     _epgRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) _loadEpgData();
     });
+
+    // Load offline stream IDs for skip navigation
+    _loadOfflineStreamIds();
+  }
+
+  Future<void> _loadOfflineStreamIds() async {
+    final playlistId = AppState.currentPlaylist?.id;
+    if (playlistId != null) {
+      final offlineIds = await _offlineItemsRepository.getOfflineStreamIds(playlistId);
+      if (mounted) {
+        setState(() {
+          _offlineStreamIds = offlineIds;
+        });
+      }
+    }
   }
 
   Future<void> _loadEpgData() async {
@@ -139,6 +167,10 @@ class _LiveStreamControlsState extends State<LiveStreamControls> {
   }
 
   void _onRecordingStateChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onFullscreenStateChanged() {
     if (mounted) setState(() {});
   }
 
@@ -233,6 +265,7 @@ class _LiveStreamControlsState extends State<LiveStreamControls> {
     _bufferSubscription?.cancel();
     _epgRefreshTimer?.cancel();
     _recordingService.removeListener(_onRecordingStateChanged);
+    _fullscreenService.removeListener(_onFullscreenStateChanged);
     super.dispose();
   }
 
@@ -370,7 +403,13 @@ class _LiveStreamControlsState extends State<LiveStreamControls> {
     final queue = widget.queue ?? PlayerState.queue;
     if (queue == null || queue.length <= 1) return;
     final currentIdx = widget.currentIndex > 0 ? widget.currentIndex : PlayerState.currentIndex;
-    final newIndex = currentIdx - 1;
+
+    // Find the previous non-offline channel
+    int newIndex = currentIdx - 1;
+    while (newIndex >= 0 && _offlineStreamIds.contains(queue[newIndex].id)) {
+      newIndex--;
+    }
+
     if (newIndex >= 0) {
       EventBus().emit('player_content_item_index_changed', newIndex);
     }
@@ -380,7 +419,13 @@ class _LiveStreamControlsState extends State<LiveStreamControls> {
     final queue = widget.queue ?? PlayerState.queue;
     if (queue == null || queue.length <= 1) return;
     final currentIdx = widget.currentIndex > 0 ? widget.currentIndex : PlayerState.currentIndex;
-    final newIndex = currentIdx + 1;
+
+    // Find the next non-offline channel
+    int newIndex = currentIdx + 1;
+    while (newIndex < queue.length && _offlineStreamIds.contains(queue[newIndex].id)) {
+      newIndex++;
+    }
+
     if (newIndex < queue.length) {
       EventBus().emit('player_content_item_index_changed', newIndex);
     }
@@ -456,7 +501,16 @@ class _LiveStreamControlsState extends State<LiveStreamControls> {
                   _seekRelative(10);
                   return KeyEventResult.handled;
                 } else if (event.logicalKey == LogicalKeyboardKey.escape) {
-                  _goBack();
+                  // Exit fullscreen first, then go back if not in fullscreen
+                  if (_fullscreenService.isFullscreen) {
+                    _fullscreenService.exitFullscreen();
+                  } else {
+                    _goBack();
+                  }
+                  return KeyEventResult.handled;
+                } else if (event.logicalKey == LogicalKeyboardKey.keyF) {
+                  // F key toggles fullscreen
+                  _fullscreenService.toggle();
                   return KeyEventResult.handled;
                 }
               }
@@ -488,7 +542,7 @@ class _LiveStreamControlsState extends State<LiveStreamControls> {
                       ),
                     ),
 
-                    // Top bar with back button and favorite (subtle, no colored background)
+                    // Top bar with back button, channel name, and actions
                     Positioned(
                       top: 0,
                       left: 0,
@@ -499,7 +553,11 @@ class _LiveStreamControlsState extends State<LiveStreamControls> {
                           child: Row(
                             children: [
                               _buildBackButton(),
-                              const Spacer(),
+                              const SizedBox(width: 16),
+                              // Channel name
+                              Expanded(
+                                child: _buildChannelNameBadge(),
+                              ),
                               // Channel list toggle button
                               Container(
                                 margin: const EdgeInsets.only(right: 8),
@@ -547,6 +605,46 @@ class _LiveStreamControlsState extends State<LiveStreamControls> {
                                 ),
                                 child: const VideoFavoriteWidget(),
                               ),
+                              // Hide channel button
+                              const SizedBox(width: 8),
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF3A3A3C),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const VideoHideWidget(),
+                              ),
+                              // Offline channel button
+                              const SizedBox(width: 8),
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF3A3A3C),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const VideoOfflineWidget(),
+                              ),
+                              // Fullscreen button (desktop only)
+                              if (_fullscreenService.isSupported) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF3A3A3C),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: IconButton(
+                                    icon: Icon(
+                                      _fullscreenService.isFullscreen
+                                          ? Icons.fullscreen_exit
+                                          : Icons.fullscreen,
+                                      color: Colors.white,
+                                    ),
+                                    tooltip: _fullscreenService.isFullscreen
+                                        ? 'Exit Fullscreen'
+                                        : 'Fullscreen',
+                                    onPressed: () => _fullscreenService.toggle(),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -614,24 +712,16 @@ class _LiveStreamControlsState extends State<LiveStreamControls> {
                       ),
                     ),
 
-                    // EPG info bar (above bottom controls)
-                    if (_currentProgram != null && !channelListOpen)
+                    // Bottom bar with EPG info and live indicator
+                    if (!channelListOpen)
                       Positioned(
-                        left: 80,
-                        right: 80,
-                        bottom: 70,
-                        child: _buildEpgInfoBar(),
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: SafeArea(
+                          child: _buildBottomBar(),
+                        ),
                       ),
-
-                    // Bottom bar with live indicator and time behind
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: SafeArea(
-                        child: _buildBottomBar(),
-                      ),
-                    ),
 
                     // Left side - Previous channel button (hide when channel list is open)
                     if (_hasPrevChannel && !channelListOpen)
@@ -692,6 +782,74 @@ class _LiveStreamControlsState extends State<LiveStreamControls> {
     );
   }
 
+  Widget _buildChannelNameBadge() {
+    final content = PlayerState.currentContent;
+    if (content == null) return const SizedBox.shrink();
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Channel logo (if available)
+        if (content.imagePath.isNotEmpty)
+          Container(
+            width: 32,
+            height: 32,
+            margin: const EdgeInsets.only(right: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(6),
+              color: Colors.white.withOpacity(0.1),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Image.network(
+              content.imagePath,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => const Icon(
+                Icons.live_tv,
+                color: Colors.white54,
+                size: 20,
+              ),
+            ),
+          ),
+        // Channel name
+        Flexible(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFF3A3A3C).withOpacity(0.9),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: AppThemes.accentRed,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    content.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildControlButton({
     required IconData icon,
     required VoidCallback onPressed,
@@ -727,31 +885,100 @@ class _LiveStreamControlsState extends State<LiveStreamControls> {
   }
 
   Widget _buildBottomBar() {
+    final timeFormat = DateFormat.Hm();
+    final program = _currentProgram;
+    final progressPercent = program != null ? (program.progress * 100).round() : 0;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Live indicator or time behind live
+          // EPG Program info row (when available)
+          if (program != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2C2C2E).withValues(alpha: 0.95),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  // Program title
+                  Expanded(
+                    child: Text(
+                      program.title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Time range
+                  Text(
+                    '${timeFormat.format(program.startTime)} - ${timeFormat.format(program.endTime)}',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Progress bar and percentage
+                  SizedBox(
+                    width: 80,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: LinearProgressIndicator(
+                        value: program.progress.clamp(0.0, 1.0),
+                        backgroundColor: Colors.white24,
+                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
+                        minHeight: 4,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      '$progressPercent%',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          // Live indicator row (only when behind live or no EPG)
           if (_isBehindLive)
-            _buildTimeBehindIndicator()
-          else
-            _buildLiveIndicator(),
-
-          const SizedBox(width: 16),
-
-          // Buffer bar showing time behind live (when behind)
-          if (_isBehindLive)
-            Expanded(
-              child: _buildBufferBar(),
+            Row(
+              children: [
+                _buildTimeBehindIndicator(),
+                const SizedBox(width: 16),
+                Expanded(child: _buildBufferBar()),
+                const SizedBox(width: 16),
+                _buildGoLiveButton(),
+              ],
             )
           else
-            const Spacer(),
-
-          const SizedBox(width: 16),
-
-          // Go Live button (only when behind live)
-          if (_isBehindLive)
-            _buildGoLiveButton(),
+            Row(
+              children: [
+                _buildLiveIndicator(),
+                const Spacer(),
+              ],
+            ),
         ],
       ),
     );
@@ -925,140 +1152,6 @@ class _LiveStreamControlsState extends State<LiveStreamControls> {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildEpgInfoBar() {
-    final timeFormat = DateFormat.Hm();
-    final program = _currentProgram!;
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2C2C2E).withOpacity(0.95),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Program title row
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.blue,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Text(
-                  'NOW',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  program.title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Time and progress row
-          Row(
-            children: [
-              Text(
-                '${timeFormat.format(program.startTime)} - ${timeFormat.format(program.endTime)}',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 11,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(2),
-                  child: LinearProgressIndicator(
-                    value: program.progress.clamp(0.0, 1.0),
-                    backgroundColor: Colors.white24,
-                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
-                    minHeight: 4,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '${program.remainingTime.inMinutes}m left',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ),
-          // Next program (if available)
-          if (_nextProgram != null) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade700,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text(
-                    'NEXT',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    _nextProgram!.title,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Text(
-                  timeFormat.format(_nextProgram!.startTime),
-                  style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
       ),
     );
   }

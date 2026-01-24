@@ -8,6 +8,7 @@ import 'package:another_iptv_player/models/playlist_content_model.dart';
 import 'package:another_iptv_player/models/playlist_model.dart';
 import 'package:another_iptv_player/models/view_state.dart';
 import 'package:another_iptv_player/repositories/iptv_repository.dart';
+import 'package:another_iptv_player/repositories/offline_items_repository.dart';
 import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/services/category_config_service.dart';
 import 'package:another_iptv_player/services/content_filter_service.dart';
@@ -16,12 +17,17 @@ import 'package:another_iptv_player/services/parental_control_service.dart';
 import 'package:another_iptv_player/services/content_consolidation_service.dart';
 import 'package:another_iptv_player/services/content_preference_service.dart';
 import 'package:another_iptv_player/services/hidden_favorites_service.dart';
+import 'package:another_iptv_player/services/auto_combine_service.dart';
+import 'package:another_iptv_player/database/database.dart';
+import 'package:another_iptv_player/services/service_locator.dart';
+import 'package:another_iptv_player/models/category.dart';
 import '../repositories/user_preferences.dart';
 import '../screens/xtream-codes/xtream_code_data_loader_screen.dart';
 
 class XtreamCodeHomeController extends ChangeNotifier {
   late PageController _pageController;
   final IptvRepository _repository = AppState.xtreamCodeRepository!;
+  final AppDatabase _database = getIt<AppDatabase>();
   String? _errorMessage;
   ViewState _viewState = ViewState.idle;
 
@@ -32,11 +38,22 @@ class XtreamCodeHomeController extends ChangeNotifier {
   final List<CategoryViewModel> _movieCategories = [];
   final List<CategoryViewModel> _seriesCategories = [];
 
+  // New Releases
+  CategoryViewModel? _newReleasesMovies;
+  CategoryViewModel? _newReleasesSeries;
+  bool _showNewReleases = true;
+  int _newReleasesLookbackDays = 7;
+
   // Event subscriptions
   StreamSubscription? _configChangedSubscription;
 
   // --- Category hidden ---
   Set<String> _hiddenCategoryIds = {};
+  Set<String> _hiddenCategoryNames = {};
+
+  // --- Offline streams ---
+  final OfflineItemsRepository _offlineItemsRepository = OfflineItemsRepository();
+  Set<String> _offlineStreamIds = {};
 
   // Getter for hidden category IDs
   Set<String> get hiddenCategoryIds => _hiddenCategoryIds;
@@ -45,7 +62,31 @@ class XtreamCodeHomeController extends ChangeNotifier {
   Future<void> loadHiddenCategories() async {
     final hidden = await UserPreferences.getHiddenCategories();
     _hiddenCategoryIds = hidden.toSet();
+    final hiddenNames = await UserPreferences.getHiddenCategoryNames();
+    _hiddenCategoryNames = hiddenNames.toSet();
     notifyListeners();
+  }
+
+  /// Check if a category is hidden (by ID or by normalized name)
+  bool _isCategoryHidden(CategoryViewModel category) {
+    // Check by exact ID match
+    if (_hiddenCategoryIds.contains(category.category.categoryId)) {
+      return true;
+    }
+    // Check by normalized name match (for cross-source consistency)
+    final normalizedName = category.category.categoryName.toLowerCase().trim();
+    if (_hiddenCategoryNames.contains(normalizedName)) {
+      return true;
+    }
+    return false;
+  }
+
+  // Load offline stream IDs from repository
+  Future<void> _loadOfflineStreamIds() async {
+    final playlistId = AppState.currentPlaylist?.id;
+    if (playlistId != null) {
+      _offlineStreamIds = await _offlineItemsRepository.getOfflineStreamIds(playlistId);
+    }
   }
 
   // Hide a category and update UI immediately
@@ -65,10 +106,10 @@ class XtreamCodeHomeController extends ChangeNotifier {
   // Parental control service for filtering content
   final ParentalControlService _parentalService = ParentalControlService();
 
-  // Getters for visible categories (filtered by hidden, parental controls, then merged/ordered)
+  // Getters for visible categories (filtered by hidden, parental controls, then merged/ordered, with auto-combine rules)
   List<CategoryViewModel> get visibleLiveCategories {
     final filtered = _liveCategories
-        .where((c) => !_hiddenCategoryIds.contains(c.category.categoryId))
+        .where((c) => !_isCategoryHidden(c))
         .where((c) => !_parentalService.shouldHideCategory(
             c.category.categoryId, c.category.categoryName))
         .toList();
@@ -83,6 +124,8 @@ class XtreamCodeHomeController extends ChangeNotifier {
         categories: filtered,
       ));
     }
+    // Apply auto-combine rules (merge kids, genres, hide non-English countries)
+    result = _autoCombineService.applyRules(result);
     // Add hidden favorites category at the top if available
     if (_hiddenFavoritesLive != null) {
       return [_hiddenFavoritesLive!, ...result];
@@ -92,7 +135,7 @@ class XtreamCodeHomeController extends ChangeNotifier {
 
   List<CategoryViewModel> get visibleMovieCategories {
     final filtered = _movieCategories
-        .where((c) => !_hiddenCategoryIds.contains(c.category.categoryId))
+        .where((c) => !_isCategoryHidden(c))
         .where((c) => !_parentalService.shouldHideCategory(
             c.category.categoryId, c.category.categoryName))
         .toList();
@@ -107,16 +150,28 @@ class XtreamCodeHomeController extends ChangeNotifier {
         categories: filtered,
       ));
     }
+    // Apply auto-combine rules (merge kids, genres, hide non-English countries)
+    result = _autoCombineService.applyRules(result);
+
+    // Build the final list with special sections at the top
+    final topSections = <CategoryViewModel>[];
+
     // Add hidden favorites category at the top if available
     if (_hiddenFavoritesVod != null) {
-      return [_hiddenFavoritesVod!, ...result];
+      topSections.add(_hiddenFavoritesVod!);
     }
-    return result;
+
+    // Add New Releases section if enabled and has content
+    if (_showNewReleases && _newReleasesMovies != null && _newReleasesMovies!.contentItems.isNotEmpty) {
+      topSections.add(_newReleasesMovies!);
+    }
+
+    return [...topSections, ...result];
   }
 
   List<CategoryViewModel> get visibleSeriesCategories {
     final filtered = _seriesCategories
-        .where((c) => !_hiddenCategoryIds.contains(c.category.categoryId))
+        .where((c) => !_isCategoryHidden(c))
         .where((c) => !_parentalService.shouldHideCategory(
             c.category.categoryId, c.category.categoryName))
         .toList();
@@ -131,11 +186,23 @@ class XtreamCodeHomeController extends ChangeNotifier {
         categories: filtered,
       ));
     }
+    // Apply auto-combine rules (merge kids, genres, hide non-English countries)
+    result = _autoCombineService.applyRules(result);
+
+    // Build the final list with special sections at the top
+    final topSections = <CategoryViewModel>[];
+
     // Add hidden favorites category at the top if available
     if (_hiddenFavoritesSeries != null) {
-      return [_hiddenFavoritesSeries!, ...result];
+      topSections.add(_hiddenFavoritesSeries!);
     }
-    return result;
+
+    // Add New Releases section if enabled and has content
+    if (_showNewReleases && _newReleasesSeries != null && _newReleasesSeries!.contentItems.isNotEmpty) {
+      topSections.add(_newReleasesSeries!);
+    }
+
+    return [...topSections, ...result];
   }
 
   // Consolidation service for merging duplicates
@@ -143,6 +210,7 @@ class XtreamCodeHomeController extends ChangeNotifier {
   final ContentPreferenceService _preferenceService = ContentPreferenceService();
   final HiddenFavoritesService _hiddenFavoritesService = HiddenFavoritesService();
   final ContentFilterService _contentFilterService = ContentFilterService();
+  final AutoCombineService _autoCombineService = AutoCombineService();
   bool _consolidationEnabled = true;
 
   // Hidden favorites category cache (built once per session)
@@ -154,13 +222,7 @@ class XtreamCodeHomeController extends ChangeNotifier {
   List<CategoryViewModel> _applyContentFiltering(List<CategoryViewModel> categories) {
     return categories.map((category) {
       // First apply parental controls
-      var filteredItems = _parentalService.filterContent<ContentItem>(
-        category.contentItems,
-        getId: (item) => item.id,
-        getName: (item) => item.name,
-        getCategoryId: (item) => category.category.categoryId,
-        getCategoryName: (item) => category.category.categoryName,
-      );
+      var filteredItems = _parentalService.filterContent(category.contentItems);
 
       // Then apply content filter rules (like ## pattern)
       filteredItems = filteredItems.where((item) {
@@ -168,6 +230,11 @@ class XtreamCodeHomeController extends ChangeNotifier {
           item.name,
           categoryId: category.category.categoryId,
         );
+      }).toList();
+
+      // Filter out offline streams from category previews
+      filteredItems = filteredItems.where((item) {
+        return !_offlineStreamIds.contains(item.id);
       }).toList();
 
       // Apply consolidation if enabled
@@ -239,10 +306,15 @@ class XtreamCodeHomeController extends ChangeNotifier {
     _consolidationEnabled = await UserPreferences.getConsolidationEnabled();
     // Initialize hidden favorites service
     await _hiddenFavoritesService.initialize();
+    // Initialize auto-combine service
+    await _autoCombineService.initialize();
     // Load category configuration (ordering, merging)
     await CategoryConfigService().loadConfigs();
     await loadHiddenCategories();
+    await _loadOfflineStreamIds();
     await _loadCategories(all);
+    // Load new releases after loading categories
+    await _loadNewReleases();
     // Build hidden favorites categories after loading all categories
     await _buildHiddenFavoritesCategories();
   }
@@ -479,6 +551,85 @@ class XtreamCodeHomeController extends ChangeNotifier {
         ),
       ),
     );
+  }
+
+  /// Load new releases for movies and series
+  Future<void> _loadNewReleases() async {
+    try {
+      // Load preferences
+      _showNewReleases = await UserPreferences.getShowNewReleases();
+      _newReleasesLookbackDays = await UserPreferences.getNewReleasesLookbackDays();
+
+      if (!_showNewReleases) return;
+
+      final playlistId = AppState.currentPlaylist?.id;
+      if (playlistId == null) return;
+
+      // Load recently added movies
+      final recentMovies = await _database.getRecentlyAddedMovies(
+        playlistId: playlistId,
+        daysBack: _newReleasesLookbackDays,
+        limit: 20,
+      );
+
+      if (recentMovies.isNotEmpty) {
+        _newReleasesMovies = CategoryViewModel(
+          category: Category(
+            categoryId: '_new_releases_movies',
+            categoryName: 'New Releases',
+            parentId: 0,
+            playlistId: playlistId,
+            type: CategoryType.vod,
+          ),
+          contentItems: recentMovies
+              .map((movie) => ContentItem(
+                    movie.streamId,
+                    movie.name,
+                    movie.streamIcon,
+                    ContentType.vod,
+                    containerExtension: movie.containerExtension,
+                    vodStream: movie,
+                    sourcePlaylistId: playlistId,
+                    sourceType: PlaylistType.xtream,
+                  ))
+              .toList(),
+        );
+      }
+
+      // Load recently added series
+      final recentSeries = await _database.getRecentlyAddedSeries(
+        playlistId: playlistId,
+        daysBack: _newReleasesLookbackDays,
+        limit: 20,
+      );
+
+      if (recentSeries.isNotEmpty) {
+        _newReleasesSeries = CategoryViewModel(
+          category: Category(
+            categoryId: '_new_releases_series',
+            categoryName: 'New Releases',
+            parentId: 0,
+            playlistId: playlistId,
+            type: CategoryType.series,
+          ),
+          contentItems: recentSeries
+              .map((series) => ContentItem(
+                    series.seriesId,
+                    series.name,
+                    series.cover ?? '',
+                    ContentType.series,
+                    seriesStream: series,
+                    sourcePlaylistId: playlistId,
+                    sourceType: PlaylistType.xtream,
+                  ))
+              .toList(),
+        );
+      }
+
+      debugPrint('New Releases loaded: ${recentMovies.length} movies, ${recentSeries.length} series');
+    } catch (e) {
+      debugPrint('Error loading new releases: $e');
+    }
   }
 
   /// Build hidden favorites categories for each content type

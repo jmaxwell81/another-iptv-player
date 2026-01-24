@@ -6,9 +6,12 @@ import '../../../../controllers/playlist_controller.dart';
 import '../../../../models/api_configuration_model.dart';
 import '../../../../models/playlist_model.dart';
 import '../../../../repositories/iptv_repository.dart';
+import '../../../../services/url_failover_service.dart';
 
 class NewXtreamCodePlaylistScreen extends StatefulWidget {
-  const NewXtreamCodePlaylistScreen({super.key});
+  final Playlist? editPlaylist;
+
+  const NewXtreamCodePlaylistScreen({super.key, this.editPlaylist});
 
   @override
   NewXtreamCodePlaylistScreenState createState() =>
@@ -18,21 +21,53 @@ class NewXtreamCodePlaylistScreen extends StatefulWidget {
 class NewXtreamCodePlaylistScreenState
     extends State<NewXtreamCodePlaylistScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController(text: 'Playlist-1');
-  final _urlController = TextEditingController();
-  final _usernameController = TextEditingController();
-  final _passwordController = TextEditingController();
+  late final TextEditingController _nameController;
+  late final TextEditingController _urlController;
+  late final TextEditingController _usernameController;
+  late final TextEditingController _passwordController;
 
   bool _obscurePassword = true;
   bool _isFormValid = false;
+  bool _showAdvancedUrls = false;
+  List<String> _additionalUrls = [];
+  final UrlFailoverService _failoverService = UrlFailoverService();
+
+  bool get _isEditing => widget.editPlaylist != null;
 
   @override
   void initState() {
     super.initState();
+    // Initialize controllers with existing values if editing
+    _nameController = TextEditingController(
+      text: widget.editPlaylist?.name ?? 'Playlist-1',
+    );
+    _urlController = TextEditingController(
+      text: widget.editPlaylist?.url ?? '',
+    );
+    _usernameController = TextEditingController(
+      text: widget.editPlaylist?.username ?? '',
+    );
+    _passwordController = TextEditingController(
+      text: widget.editPlaylist?.password ?? '',
+    );
+
+    // Load additional URLs if editing
+    if (widget.editPlaylist != null) {
+      _additionalUrls = List.from(widget.editPlaylist!.additionalUrls);
+      if (_additionalUrls.isNotEmpty) {
+        _showAdvancedUrls = true;
+      }
+    }
+
     _nameController.addListener(_validateForm);
     _urlController.addListener(_validateForm);
     _usernameController.addListener(_validateForm);
     _passwordController.addListener(_validateForm);
+
+    // Validate immediately for edit mode
+    if (_isEditing) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _validateForm());
+    }
   }
 
   @override
@@ -60,7 +95,7 @@ class NewXtreamCodePlaylistScreenState
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: Text('XStream Playlist')),
+      appBar: AppBar(title: Text(_isEditing ? 'Edit Playlist' : 'XStream Playlist')),
       body: Consumer<PlaylistController>(
         builder: (context, controller, child) {
           return SingleChildScrollView(
@@ -75,6 +110,8 @@ class NewXtreamCodePlaylistScreenState
                   _buildPlaylistNameField(colorScheme),
                   SizedBox(height: 20),
                   _buildUrlField(colorScheme),
+                  SizedBox(height: 12),
+                  _buildBackupUrlsSection(colorScheme),
                   SizedBox(height: 20),
                   _buildUsernameField(colorScheme),
                   SizedBox(height: 20),
@@ -107,11 +144,15 @@ class NewXtreamCodePlaylistScreenState
             color: colorScheme.primary,
             borderRadius: BorderRadius.circular(30),
           ),
-          child: Icon(Icons.stream, size: 30, color: colorScheme.onPrimary),
+          child: Icon(
+            _isEditing ? Icons.edit : Icons.stream,
+            size: 30,
+            color: colorScheme.onPrimary,
+          ),
         ),
         SizedBox(height: 16),
         Text(
-          'XStream Code Playlist',
+          _isEditing ? 'Edit XStream Playlist' : 'XStream Code Playlist',
           style: TextStyle(
             fontSize: 26,
             fontWeight: FontWeight.bold,
@@ -120,7 +161,9 @@ class NewXtreamCodePlaylistScreenState
         ),
         SizedBox(height: 8),
         Text(
-          context.loc.xtream_code_description,
+          _isEditing
+              ? 'Update the playlist credentials below'
+              : context.loc.xtream_code_description,
           style: TextStyle(
             fontSize: 16,
             color: colorScheme.onSurface.withOpacity(0.7),
@@ -221,6 +264,207 @@ class NewXtreamCodePlaylistScreenState
           },
         ),
       ],
+    );
+  }
+
+  Widget _buildBackupUrlsSection(ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Toggle button for advanced URLs
+        InkWell(
+          onTap: () {
+            setState(() {
+              _showAdvancedUrls = !_showAdvancedUrls;
+            });
+          },
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                Icon(
+                  _showAdvancedUrls
+                      ? Icons.keyboard_arrow_down
+                      : Icons.keyboard_arrow_right,
+                  color: colorScheme.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Backup URLs (optional)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.primary,
+                  ),
+                ),
+                if (_additionalUrls.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${_additionalUrls.length}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+
+        // Backup URLs editor
+        if (_showAdvancedUrls) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: colorScheme.outlineVariant),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Add backup server URLs that will be used if the primary URL is offline.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: colorScheme.onSurface.withOpacity(0.7),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // List of backup URLs
+                ..._buildBackupUrlFields(colorScheme),
+
+                // Add backup URL button
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _addBackupUrl,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add Backup URL'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: colorScheme.primary,
+                    side: BorderSide(color: colorScheme.outline),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  List<Widget> _buildBackupUrlFields(ColorScheme colorScheme) {
+    final widgets = <Widget>[];
+
+    for (var i = 0; i < _additionalUrls.length; i++) {
+      final controller = TextEditingController(text: _additionalUrls[i]);
+
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: controller,
+                  keyboardType: TextInputType.url,
+                  decoration: InputDecoration(
+                    hintText: 'http://backup-server.com:8080',
+                    prefixIcon: Icon(Icons.backup, color: colorScheme.outline),
+                    labelText: 'Backup URL ${i + 1}',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                  ),
+                  onChanged: (value) {
+                    _additionalUrls[i] = value;
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Check health button
+              IconButton(
+                onPressed: () => _checkBackupUrlHealth(i),
+                icon: const Icon(Icons.network_check, size: 20),
+                tooltip: 'Check connection',
+                style: IconButton.styleFrom(
+                  foregroundColor: colorScheme.primary,
+                ),
+              ),
+              // Remove button
+              IconButton(
+                onPressed: () => _removeBackupUrl(i),
+                icon: const Icon(Icons.remove_circle_outline, size: 20),
+                tooltip: 'Remove',
+                style: IconButton.styleFrom(
+                  foregroundColor: colorScheme.error,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return widgets;
+  }
+
+  void _addBackupUrl() {
+    setState(() {
+      _additionalUrls.add('');
+    });
+  }
+
+  void _removeBackupUrl(int index) {
+    setState(() {
+      _additionalUrls.removeAt(index);
+    });
+  }
+
+  Future<void> _checkBackupUrlHealth(int index) async {
+    final url = _additionalUrls[index];
+    if (url.isEmpty) return;
+
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text.trim();
+
+    final result = await _failoverService.checkUrlHealth(
+      url,
+      username: username.isNotEmpty ? username : null,
+      password: password.isNotEmpty ? password : null,
+      type: PlaylistType.xtream,
+      useCache: false,
+    );
+
+    if (!mounted) return;
+
+    final statusText = result.isHealthy
+        ? 'Online (${result.responseTimeMs}ms)'
+        : 'Offline: ${result.error ?? 'Unknown error'}';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Backup URL ${index + 1}: $statusText'),
+        backgroundColor: result.isHealthy ? Colors.green : Colors.red,
+        duration: const Duration(seconds: 3),
+      ),
     );
   }
 
@@ -368,7 +612,7 @@ class NewXtreamCodePlaylistScreenState
                   Icon(Icons.save, size: 20),
                   SizedBox(width: 8),
                   Text(
-                    context.loc.submit_create_playlist,
+                    _isEditing ? 'Save Changes' : context.loc.submit_create_playlist,
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                 ],
@@ -479,22 +723,57 @@ class NewXtreamCodePlaylistScreenState
         return;
       }
 
-      final playlist = await controller.createPlaylist(
-        name: _nameController.text.trim(),
-        type: PlaylistType.xtream,
-        url: _urlController.text.trim(),
-        username: _usernameController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
+      // Filter out empty backup URLs
+      final validBackupUrls = _additionalUrls
+          .map((u) => u.trim())
+          .where((u) => u.isNotEmpty)
+          .toList();
 
-      if (playlist != null) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) =>
-                XtreamCodeDataLoaderScreen(playlist: playlist),
-          ),
+      if (_isEditing) {
+        // Update existing playlist
+        final updatedPlaylist = Playlist(
+          id: widget.editPlaylist!.id,
+          name: _nameController.text.trim(),
+          type: PlaylistType.xtream,
+          url: _urlController.text.trim(),
+          additionalUrls: validBackupUrls,
+          username: _usernameController.text.trim(),
+          password: _passwordController.text.trim(),
+          createdAt: widget.editPlaylist!.createdAt,
+          activeUrlIndex: widget.editPlaylist!.activeUrlIndex,
         );
+
+        final success = await controller.updatePlaylist(updatedPlaylist);
+
+        if (success && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Playlist updated successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context, true); // Return true to indicate update
+        }
+      } else {
+        // Create new playlist
+        final playlist = await controller.createPlaylist(
+          name: _nameController.text.trim(),
+          type: PlaylistType.xtream,
+          url: _urlController.text.trim(),
+          additionalUrls: validBackupUrls,
+          username: _usernameController.text.trim(),
+          password: _passwordController.text.trim(),
+        );
+
+        if (playlist != null) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  XtreamCodeDataLoaderScreen(playlist: playlist),
+            ),
+          );
+        }
       }
     }
   }

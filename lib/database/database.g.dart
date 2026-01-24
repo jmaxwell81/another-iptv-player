@@ -78,6 +78,29 @@ class $PlaylistsTable extends Playlists
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _additionalUrlsMeta = const VerificationMeta(
+    'additionalUrls',
+  );
+  @override
+  late final GeneratedColumn<String> additionalUrls = GeneratedColumn<String>(
+    'additional_urls',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
+  static const VerificationMeta _activeUrlIndexMeta = const VerificationMeta(
+    'activeUrlIndex',
+  );
+  @override
+  late final GeneratedColumn<int> activeUrlIndex = GeneratedColumn<int>(
+    'active_url_index',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -87,6 +110,8 @@ class $PlaylistsTable extends Playlists
     username,
     password,
     createdAt,
+    additionalUrls,
+    activeUrlIndex,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -147,6 +172,24 @@ class $PlaylistsTable extends Playlists
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('additional_urls')) {
+      context.handle(
+        _additionalUrlsMeta,
+        additionalUrls.isAcceptableOrUnknown(
+          data['additional_urls']!,
+          _additionalUrlsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('active_url_index')) {
+      context.handle(
+        _activeUrlIndexMeta,
+        activeUrlIndex.isAcceptableOrUnknown(
+          data['active_url_index']!,
+          _activeUrlIndexMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -184,6 +227,14 @@ class $PlaylistsTable extends Playlists
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      additionalUrls: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}additional_urls'],
+      )!,
+      activeUrlIndex: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}active_url_index'],
+      ),
     );
   }
 
@@ -201,6 +252,12 @@ class PlaylistData extends DataClass implements Insertable<PlaylistData> {
   final String? username;
   final String? password;
   final DateTime createdAt;
+
+  /// JSON-encoded list of additional URLs
+  final String additionalUrls;
+
+  /// Index of currently active URL (0 = primary)
+  final int? activeUrlIndex;
   const PlaylistData({
     required this.id,
     required this.name,
@@ -209,6 +266,8 @@ class PlaylistData extends DataClass implements Insertable<PlaylistData> {
     this.username,
     this.password,
     required this.createdAt,
+    required this.additionalUrls,
+    this.activeUrlIndex,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -226,6 +285,10 @@ class PlaylistData extends DataClass implements Insertable<PlaylistData> {
       map['password'] = Variable<String>(password);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
+    map['additional_urls'] = Variable<String>(additionalUrls);
+    if (!nullToAbsent || activeUrlIndex != null) {
+      map['active_url_index'] = Variable<int>(activeUrlIndex);
+    }
     return map;
   }
 
@@ -242,6 +305,10 @@ class PlaylistData extends DataClass implements Insertable<PlaylistData> {
           ? const Value.absent()
           : Value(password),
       createdAt: Value(createdAt),
+      additionalUrls: Value(additionalUrls),
+      activeUrlIndex: activeUrlIndex == null && nullToAbsent
+          ? const Value.absent()
+          : Value(activeUrlIndex),
     );
   }
 
@@ -258,6 +325,8 @@ class PlaylistData extends DataClass implements Insertable<PlaylistData> {
       username: serializer.fromJson<String?>(json['username']),
       password: serializer.fromJson<String?>(json['password']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      additionalUrls: serializer.fromJson<String>(json['additionalUrls']),
+      activeUrlIndex: serializer.fromJson<int?>(json['activeUrlIndex']),
     );
   }
   @override
@@ -271,6 +340,8 @@ class PlaylistData extends DataClass implements Insertable<PlaylistData> {
       'username': serializer.toJson<String?>(username),
       'password': serializer.toJson<String?>(password),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'additionalUrls': serializer.toJson<String>(additionalUrls),
+      'activeUrlIndex': serializer.toJson<int?>(activeUrlIndex),
     };
   }
 
@@ -282,6 +353,8 @@ class PlaylistData extends DataClass implements Insertable<PlaylistData> {
     Value<String?> username = const Value.absent(),
     Value<String?> password = const Value.absent(),
     DateTime? createdAt,
+    String? additionalUrls,
+    Value<int?> activeUrlIndex = const Value.absent(),
   }) => PlaylistData(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -290,6 +363,10 @@ class PlaylistData extends DataClass implements Insertable<PlaylistData> {
     username: username.present ? username.value : this.username,
     password: password.present ? password.value : this.password,
     createdAt: createdAt ?? this.createdAt,
+    additionalUrls: additionalUrls ?? this.additionalUrls,
+    activeUrlIndex: activeUrlIndex.present
+        ? activeUrlIndex.value
+        : this.activeUrlIndex,
   );
   PlaylistData copyWithCompanion(PlaylistsCompanion data) {
     return PlaylistData(
@@ -300,6 +377,12 @@ class PlaylistData extends DataClass implements Insertable<PlaylistData> {
       username: data.username.present ? data.username.value : this.username,
       password: data.password.present ? data.password.value : this.password,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      additionalUrls: data.additionalUrls.present
+          ? data.additionalUrls.value
+          : this.additionalUrls,
+      activeUrlIndex: data.activeUrlIndex.present
+          ? data.activeUrlIndex.value
+          : this.activeUrlIndex,
     );
   }
 
@@ -312,14 +395,25 @@ class PlaylistData extends DataClass implements Insertable<PlaylistData> {
           ..write('url: $url, ')
           ..write('username: $username, ')
           ..write('password: $password, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('additionalUrls: $additionalUrls, ')
+          ..write('activeUrlIndex: $activeUrlIndex')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, type, url, username, password, createdAt);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    type,
+    url,
+    username,
+    password,
+    createdAt,
+    additionalUrls,
+    activeUrlIndex,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -330,7 +424,9 @@ class PlaylistData extends DataClass implements Insertable<PlaylistData> {
           other.url == this.url &&
           other.username == this.username &&
           other.password == this.password &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.additionalUrls == this.additionalUrls &&
+          other.activeUrlIndex == this.activeUrlIndex);
 }
 
 class PlaylistsCompanion extends UpdateCompanion<PlaylistData> {
@@ -341,6 +437,8 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistData> {
   final Value<String?> username;
   final Value<String?> password;
   final Value<DateTime> createdAt;
+  final Value<String> additionalUrls;
+  final Value<int?> activeUrlIndex;
   final Value<int> rowid;
   const PlaylistsCompanion({
     this.id = const Value.absent(),
@@ -350,6 +448,8 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistData> {
     this.username = const Value.absent(),
     this.password = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.additionalUrls = const Value.absent(),
+    this.activeUrlIndex = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PlaylistsCompanion.insert({
@@ -360,6 +460,8 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistData> {
     this.username = const Value.absent(),
     this.password = const Value.absent(),
     required DateTime createdAt,
+    this.additionalUrls = const Value.absent(),
+    this.activeUrlIndex = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -373,6 +475,8 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistData> {
     Expression<String>? username,
     Expression<String>? password,
     Expression<DateTime>? createdAt,
+    Expression<String>? additionalUrls,
+    Expression<int>? activeUrlIndex,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -383,6 +487,8 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistData> {
       if (username != null) 'username': username,
       if (password != null) 'password': password,
       if (createdAt != null) 'created_at': createdAt,
+      if (additionalUrls != null) 'additional_urls': additionalUrls,
+      if (activeUrlIndex != null) 'active_url_index': activeUrlIndex,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -395,6 +501,8 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistData> {
     Value<String?>? username,
     Value<String?>? password,
     Value<DateTime>? createdAt,
+    Value<String>? additionalUrls,
+    Value<int?>? activeUrlIndex,
     Value<int>? rowid,
   }) {
     return PlaylistsCompanion(
@@ -405,6 +513,8 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistData> {
       username: username ?? this.username,
       password: password ?? this.password,
       createdAt: createdAt ?? this.createdAt,
+      additionalUrls: additionalUrls ?? this.additionalUrls,
+      activeUrlIndex: activeUrlIndex ?? this.activeUrlIndex,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -433,6 +543,12 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistData> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (additionalUrls.present) {
+      map['additional_urls'] = Variable<String>(additionalUrls.value);
+    }
+    if (activeUrlIndex.present) {
+      map['active_url_index'] = Variable<int>(activeUrlIndex.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -449,6 +565,8 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistData> {
           ..write('username: $username, ')
           ..write('password: $password, ')
           ..write('createdAt: $createdAt, ')
+          ..write('additionalUrls: $additionalUrls, ')
+          ..write('activeUrlIndex: $activeUrlIndex, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -8984,6 +9102,18 @@ class $M3uSeriesTable extends M3uSeries
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     playlistId,
@@ -8991,6 +9121,7 @@ class $M3uSeriesTable extends M3uSeries
     name,
     categoryId,
     cover,
+    createdAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -9040,6 +9171,12 @@ class $M3uSeriesTable extends M3uSeries
         cover.isAcceptableOrUnknown(data['cover']!, _coverMeta),
       );
     }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
     return context;
   }
 
@@ -9069,6 +9206,10 @@ class $M3uSeriesTable extends M3uSeries
         DriftSqlType.string,
         data['${effectivePrefix}cover'],
       ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
     );
   }
 
@@ -9084,12 +9225,14 @@ class M3uSeriesData extends DataClass implements Insertable<M3uSeriesData> {
   final String name;
   final String? categoryId;
   final String? cover;
+  final DateTime createdAt;
   const M3uSeriesData({
     required this.playlistId,
     required this.seriesId,
     required this.name,
     this.categoryId,
     this.cover,
+    required this.createdAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -9103,6 +9246,7 @@ class M3uSeriesData extends DataClass implements Insertable<M3uSeriesData> {
     if (!nullToAbsent || cover != null) {
       map['cover'] = Variable<String>(cover);
     }
+    map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
 
@@ -9117,6 +9261,7 @@ class M3uSeriesData extends DataClass implements Insertable<M3uSeriesData> {
       cover: cover == null && nullToAbsent
           ? const Value.absent()
           : Value(cover),
+      createdAt: Value(createdAt),
     );
   }
 
@@ -9131,6 +9276,7 @@ class M3uSeriesData extends DataClass implements Insertable<M3uSeriesData> {
       name: serializer.fromJson<String>(json['name']),
       categoryId: serializer.fromJson<String?>(json['categoryId']),
       cover: serializer.fromJson<String?>(json['cover']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
   @override
@@ -9142,6 +9288,7 @@ class M3uSeriesData extends DataClass implements Insertable<M3uSeriesData> {
       'name': serializer.toJson<String>(name),
       'categoryId': serializer.toJson<String?>(categoryId),
       'cover': serializer.toJson<String?>(cover),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
 
@@ -9151,12 +9298,14 @@ class M3uSeriesData extends DataClass implements Insertable<M3uSeriesData> {
     String? name,
     Value<String?> categoryId = const Value.absent(),
     Value<String?> cover = const Value.absent(),
+    DateTime? createdAt,
   }) => M3uSeriesData(
     playlistId: playlistId ?? this.playlistId,
     seriesId: seriesId ?? this.seriesId,
     name: name ?? this.name,
     categoryId: categoryId.present ? categoryId.value : this.categoryId,
     cover: cover.present ? cover.value : this.cover,
+    createdAt: createdAt ?? this.createdAt,
   );
   M3uSeriesData copyWithCompanion(M3uSeriesCompanion data) {
     return M3uSeriesData(
@@ -9169,6 +9318,7 @@ class M3uSeriesData extends DataClass implements Insertable<M3uSeriesData> {
           ? data.categoryId.value
           : this.categoryId,
       cover: data.cover.present ? data.cover.value : this.cover,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
 
@@ -9179,14 +9329,15 @@ class M3uSeriesData extends DataClass implements Insertable<M3uSeriesData> {
           ..write('seriesId: $seriesId, ')
           ..write('name: $name, ')
           ..write('categoryId: $categoryId, ')
-          ..write('cover: $cover')
+          ..write('cover: $cover, ')
+          ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(playlistId, seriesId, name, categoryId, cover);
+      Object.hash(playlistId, seriesId, name, categoryId, cover, createdAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -9195,7 +9346,8 @@ class M3uSeriesData extends DataClass implements Insertable<M3uSeriesData> {
           other.seriesId == this.seriesId &&
           other.name == this.name &&
           other.categoryId == this.categoryId &&
-          other.cover == this.cover);
+          other.cover == this.cover &&
+          other.createdAt == this.createdAt);
 }
 
 class M3uSeriesCompanion extends UpdateCompanion<M3uSeriesData> {
@@ -9204,6 +9356,7 @@ class M3uSeriesCompanion extends UpdateCompanion<M3uSeriesData> {
   final Value<String> name;
   final Value<String?> categoryId;
   final Value<String?> cover;
+  final Value<DateTime> createdAt;
   final Value<int> rowid;
   const M3uSeriesCompanion({
     this.playlistId = const Value.absent(),
@@ -9211,6 +9364,7 @@ class M3uSeriesCompanion extends UpdateCompanion<M3uSeriesData> {
     this.name = const Value.absent(),
     this.categoryId = const Value.absent(),
     this.cover = const Value.absent(),
+    this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   M3uSeriesCompanion.insert({
@@ -9219,6 +9373,7 @@ class M3uSeriesCompanion extends UpdateCompanion<M3uSeriesData> {
     required String name,
     this.categoryId = const Value.absent(),
     this.cover = const Value.absent(),
+    this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : playlistId = Value(playlistId),
        seriesId = Value(seriesId),
@@ -9229,6 +9384,7 @@ class M3uSeriesCompanion extends UpdateCompanion<M3uSeriesData> {
     Expression<String>? name,
     Expression<String>? categoryId,
     Expression<String>? cover,
+    Expression<DateTime>? createdAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -9237,6 +9393,7 @@ class M3uSeriesCompanion extends UpdateCompanion<M3uSeriesData> {
       if (name != null) 'name': name,
       if (categoryId != null) 'category_id': categoryId,
       if (cover != null) 'cover': cover,
+      if (createdAt != null) 'created_at': createdAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -9247,6 +9404,7 @@ class M3uSeriesCompanion extends UpdateCompanion<M3uSeriesData> {
     Value<String>? name,
     Value<String?>? categoryId,
     Value<String?>? cover,
+    Value<DateTime>? createdAt,
     Value<int>? rowid,
   }) {
     return M3uSeriesCompanion(
@@ -9255,6 +9413,7 @@ class M3uSeriesCompanion extends UpdateCompanion<M3uSeriesData> {
       name: name ?? this.name,
       categoryId: categoryId ?? this.categoryId,
       cover: cover ?? this.cover,
+      createdAt: createdAt ?? this.createdAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -9277,6 +9436,9 @@ class M3uSeriesCompanion extends UpdateCompanion<M3uSeriesData> {
     if (cover.present) {
       map['cover'] = Variable<String>(cover.value);
     }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -9291,6 +9453,7 @@ class M3uSeriesCompanion extends UpdateCompanion<M3uSeriesData> {
           ..write('name: $name, ')
           ..write('categoryId: $categoryId, ')
           ..write('cover: $cover, ')
+          ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -10909,6 +11072,586 @@ class HiddenItemsCompanion extends UpdateCompanion<HiddenItemsData> {
   }
 }
 
+class $OfflineItemsTable extends OfflineItems
+    with TableInfo<$OfflineItemsTable, OfflineItemsData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $OfflineItemsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _playlistIdMeta = const VerificationMeta(
+    'playlistId',
+  );
+  @override
+  late final GeneratedColumn<String> playlistId = GeneratedColumn<String>(
+    'playlist_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentTypeMeta = const VerificationMeta(
+    'contentType',
+  );
+  @override
+  late final GeneratedColumn<int> contentType = GeneratedColumn<int>(
+    'content_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _streamIdMeta = const VerificationMeta(
+    'streamId',
+  );
+  @override
+  late final GeneratedColumn<String> streamId = GeneratedColumn<String>(
+    'stream_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _imagePathMeta = const VerificationMeta(
+    'imagePath',
+  );
+  @override
+  late final GeneratedColumn<String> imagePath = GeneratedColumn<String>(
+    'image_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _markedAtMeta = const VerificationMeta(
+    'markedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> markedAt = GeneratedColumn<DateTime>(
+    'marked_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _autoDetectedMeta = const VerificationMeta(
+    'autoDetected',
+  );
+  @override
+  late final GeneratedColumn<bool> autoDetected = GeneratedColumn<bool>(
+    'auto_detected',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("auto_detected" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _temporaryUntilMeta = const VerificationMeta(
+    'temporaryUntil',
+  );
+  @override
+  late final GeneratedColumn<DateTime> temporaryUntil =
+      GeneratedColumn<DateTime>(
+        'temporary_until',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    playlistId,
+    contentType,
+    streamId,
+    name,
+    imagePath,
+    markedAt,
+    autoDetected,
+    temporaryUntil,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'offline_items';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<OfflineItemsData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('playlist_id')) {
+      context.handle(
+        _playlistIdMeta,
+        playlistId.isAcceptableOrUnknown(data['playlist_id']!, _playlistIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_playlistIdMeta);
+    }
+    if (data.containsKey('content_type')) {
+      context.handle(
+        _contentTypeMeta,
+        contentType.isAcceptableOrUnknown(
+          data['content_type']!,
+          _contentTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_contentTypeMeta);
+    }
+    if (data.containsKey('stream_id')) {
+      context.handle(
+        _streamIdMeta,
+        streamId.isAcceptableOrUnknown(data['stream_id']!, _streamIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_streamIdMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('image_path')) {
+      context.handle(
+        _imagePathMeta,
+        imagePath.isAcceptableOrUnknown(data['image_path']!, _imagePathMeta),
+      );
+    }
+    if (data.containsKey('marked_at')) {
+      context.handle(
+        _markedAtMeta,
+        markedAt.isAcceptableOrUnknown(data['marked_at']!, _markedAtMeta),
+      );
+    }
+    if (data.containsKey('auto_detected')) {
+      context.handle(
+        _autoDetectedMeta,
+        autoDetected.isAcceptableOrUnknown(
+          data['auto_detected']!,
+          _autoDetectedMeta,
+        ),
+      );
+    }
+    if (data.containsKey('temporary_until')) {
+      context.handle(
+        _temporaryUntilMeta,
+        temporaryUntil.isAcceptableOrUnknown(
+          data['temporary_until']!,
+          _temporaryUntilMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  OfflineItemsData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return OfflineItemsData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      playlistId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}playlist_id'],
+      )!,
+      contentType: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}content_type'],
+      )!,
+      streamId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}stream_id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      imagePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}image_path'],
+      ),
+      markedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}marked_at'],
+      )!,
+      autoDetected: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}auto_detected'],
+      )!,
+      temporaryUntil: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}temporary_until'],
+      ),
+    );
+  }
+
+  @override
+  $OfflineItemsTable createAlias(String alias) {
+    return $OfflineItemsTable(attachedDatabase, alias);
+  }
+}
+
+class OfflineItemsData extends DataClass
+    implements Insertable<OfflineItemsData> {
+  final String id;
+  final String playlistId;
+  final int contentType;
+  final String streamId;
+  final String name;
+  final String? imagePath;
+  final DateTime markedAt;
+  final bool autoDetected;
+  final DateTime? temporaryUntil;
+  const OfflineItemsData({
+    required this.id,
+    required this.playlistId,
+    required this.contentType,
+    required this.streamId,
+    required this.name,
+    this.imagePath,
+    required this.markedAt,
+    required this.autoDetected,
+    this.temporaryUntil,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['playlist_id'] = Variable<String>(playlistId);
+    map['content_type'] = Variable<int>(contentType);
+    map['stream_id'] = Variable<String>(streamId);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || imagePath != null) {
+      map['image_path'] = Variable<String>(imagePath);
+    }
+    map['marked_at'] = Variable<DateTime>(markedAt);
+    map['auto_detected'] = Variable<bool>(autoDetected);
+    if (!nullToAbsent || temporaryUntil != null) {
+      map['temporary_until'] = Variable<DateTime>(temporaryUntil);
+    }
+    return map;
+  }
+
+  OfflineItemsCompanion toCompanion(bool nullToAbsent) {
+    return OfflineItemsCompanion(
+      id: Value(id),
+      playlistId: Value(playlistId),
+      contentType: Value(contentType),
+      streamId: Value(streamId),
+      name: Value(name),
+      imagePath: imagePath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(imagePath),
+      markedAt: Value(markedAt),
+      autoDetected: Value(autoDetected),
+      temporaryUntil: temporaryUntil == null && nullToAbsent
+          ? const Value.absent()
+          : Value(temporaryUntil),
+    );
+  }
+
+  factory OfflineItemsData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return OfflineItemsData(
+      id: serializer.fromJson<String>(json['id']),
+      playlistId: serializer.fromJson<String>(json['playlistId']),
+      contentType: serializer.fromJson<int>(json['contentType']),
+      streamId: serializer.fromJson<String>(json['streamId']),
+      name: serializer.fromJson<String>(json['name']),
+      imagePath: serializer.fromJson<String?>(json['imagePath']),
+      markedAt: serializer.fromJson<DateTime>(json['markedAt']),
+      autoDetected: serializer.fromJson<bool>(json['autoDetected']),
+      temporaryUntil: serializer.fromJson<DateTime?>(json['temporaryUntil']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'playlistId': serializer.toJson<String>(playlistId),
+      'contentType': serializer.toJson<int>(contentType),
+      'streamId': serializer.toJson<String>(streamId),
+      'name': serializer.toJson<String>(name),
+      'imagePath': serializer.toJson<String?>(imagePath),
+      'markedAt': serializer.toJson<DateTime>(markedAt),
+      'autoDetected': serializer.toJson<bool>(autoDetected),
+      'temporaryUntil': serializer.toJson<DateTime?>(temporaryUntil),
+    };
+  }
+
+  OfflineItemsData copyWith({
+    String? id,
+    String? playlistId,
+    int? contentType,
+    String? streamId,
+    String? name,
+    Value<String?> imagePath = const Value.absent(),
+    DateTime? markedAt,
+    bool? autoDetected,
+    Value<DateTime?> temporaryUntil = const Value.absent(),
+  }) => OfflineItemsData(
+    id: id ?? this.id,
+    playlistId: playlistId ?? this.playlistId,
+    contentType: contentType ?? this.contentType,
+    streamId: streamId ?? this.streamId,
+    name: name ?? this.name,
+    imagePath: imagePath.present ? imagePath.value : this.imagePath,
+    markedAt: markedAt ?? this.markedAt,
+    autoDetected: autoDetected ?? this.autoDetected,
+    temporaryUntil: temporaryUntil.present
+        ? temporaryUntil.value
+        : this.temporaryUntil,
+  );
+  OfflineItemsData copyWithCompanion(OfflineItemsCompanion data) {
+    return OfflineItemsData(
+      id: data.id.present ? data.id.value : this.id,
+      playlistId: data.playlistId.present
+          ? data.playlistId.value
+          : this.playlistId,
+      contentType: data.contentType.present
+          ? data.contentType.value
+          : this.contentType,
+      streamId: data.streamId.present ? data.streamId.value : this.streamId,
+      name: data.name.present ? data.name.value : this.name,
+      imagePath: data.imagePath.present ? data.imagePath.value : this.imagePath,
+      markedAt: data.markedAt.present ? data.markedAt.value : this.markedAt,
+      autoDetected: data.autoDetected.present
+          ? data.autoDetected.value
+          : this.autoDetected,
+      temporaryUntil: data.temporaryUntil.present
+          ? data.temporaryUntil.value
+          : this.temporaryUntil,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('OfflineItemsData(')
+          ..write('id: $id, ')
+          ..write('playlistId: $playlistId, ')
+          ..write('contentType: $contentType, ')
+          ..write('streamId: $streamId, ')
+          ..write('name: $name, ')
+          ..write('imagePath: $imagePath, ')
+          ..write('markedAt: $markedAt, ')
+          ..write('autoDetected: $autoDetected, ')
+          ..write('temporaryUntil: $temporaryUntil')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    playlistId,
+    contentType,
+    streamId,
+    name,
+    imagePath,
+    markedAt,
+    autoDetected,
+    temporaryUntil,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is OfflineItemsData &&
+          other.id == this.id &&
+          other.playlistId == this.playlistId &&
+          other.contentType == this.contentType &&
+          other.streamId == this.streamId &&
+          other.name == this.name &&
+          other.imagePath == this.imagePath &&
+          other.markedAt == this.markedAt &&
+          other.autoDetected == this.autoDetected &&
+          other.temporaryUntil == this.temporaryUntil);
+}
+
+class OfflineItemsCompanion extends UpdateCompanion<OfflineItemsData> {
+  final Value<String> id;
+  final Value<String> playlistId;
+  final Value<int> contentType;
+  final Value<String> streamId;
+  final Value<String> name;
+  final Value<String?> imagePath;
+  final Value<DateTime> markedAt;
+  final Value<bool> autoDetected;
+  final Value<DateTime?> temporaryUntil;
+  final Value<int> rowid;
+  const OfflineItemsCompanion({
+    this.id = const Value.absent(),
+    this.playlistId = const Value.absent(),
+    this.contentType = const Value.absent(),
+    this.streamId = const Value.absent(),
+    this.name = const Value.absent(),
+    this.imagePath = const Value.absent(),
+    this.markedAt = const Value.absent(),
+    this.autoDetected = const Value.absent(),
+    this.temporaryUntil = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  OfflineItemsCompanion.insert({
+    required String id,
+    required String playlistId,
+    required int contentType,
+    required String streamId,
+    required String name,
+    this.imagePath = const Value.absent(),
+    this.markedAt = const Value.absent(),
+    this.autoDetected = const Value.absent(),
+    this.temporaryUntil = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       playlistId = Value(playlistId),
+       contentType = Value(contentType),
+       streamId = Value(streamId),
+       name = Value(name);
+  static Insertable<OfflineItemsData> custom({
+    Expression<String>? id,
+    Expression<String>? playlistId,
+    Expression<int>? contentType,
+    Expression<String>? streamId,
+    Expression<String>? name,
+    Expression<String>? imagePath,
+    Expression<DateTime>? markedAt,
+    Expression<bool>? autoDetected,
+    Expression<DateTime>? temporaryUntil,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (playlistId != null) 'playlist_id': playlistId,
+      if (contentType != null) 'content_type': contentType,
+      if (streamId != null) 'stream_id': streamId,
+      if (name != null) 'name': name,
+      if (imagePath != null) 'image_path': imagePath,
+      if (markedAt != null) 'marked_at': markedAt,
+      if (autoDetected != null) 'auto_detected': autoDetected,
+      if (temporaryUntil != null) 'temporary_until': temporaryUntil,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  OfflineItemsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? playlistId,
+    Value<int>? contentType,
+    Value<String>? streamId,
+    Value<String>? name,
+    Value<String?>? imagePath,
+    Value<DateTime>? markedAt,
+    Value<bool>? autoDetected,
+    Value<DateTime?>? temporaryUntil,
+    Value<int>? rowid,
+  }) {
+    return OfflineItemsCompanion(
+      id: id ?? this.id,
+      playlistId: playlistId ?? this.playlistId,
+      contentType: contentType ?? this.contentType,
+      streamId: streamId ?? this.streamId,
+      name: name ?? this.name,
+      imagePath: imagePath ?? this.imagePath,
+      markedAt: markedAt ?? this.markedAt,
+      autoDetected: autoDetected ?? this.autoDetected,
+      temporaryUntil: temporaryUntil ?? this.temporaryUntil,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (playlistId.present) {
+      map['playlist_id'] = Variable<String>(playlistId.value);
+    }
+    if (contentType.present) {
+      map['content_type'] = Variable<int>(contentType.value);
+    }
+    if (streamId.present) {
+      map['stream_id'] = Variable<String>(streamId.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (imagePath.present) {
+      map['image_path'] = Variable<String>(imagePath.value);
+    }
+    if (markedAt.present) {
+      map['marked_at'] = Variable<DateTime>(markedAt.value);
+    }
+    if (autoDetected.present) {
+      map['auto_detected'] = Variable<bool>(autoDetected.value);
+    }
+    if (temporaryUntil.present) {
+      map['temporary_until'] = Variable<DateTime>(temporaryUntil.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('OfflineItemsCompanion(')
+          ..write('id: $id, ')
+          ..write('playlistId: $playlistId, ')
+          ..write('contentType: $contentType, ')
+          ..write('streamId: $streamId, ')
+          ..write('name: $name, ')
+          ..write('imagePath: $imagePath, ')
+          ..write('markedAt: $markedAt, ')
+          ..write('autoDetected: $autoDetected, ')
+          ..write('temporaryUntil: $temporaryUntil, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $EpgProgramsTable extends EpgPrograms
     with TableInfo<$EpgProgramsTable, EpgProgramData> {
   @override
@@ -12280,6 +13023,676 @@ class EpgSourcesCompanion extends UpdateCompanion<EpgSourceData> {
   }
 }
 
+class $PlaylistUrlsTable extends PlaylistUrls
+    with TableInfo<$PlaylistUrlsTable, PlaylistUrlData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PlaylistUrlsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _playlistIdMeta = const VerificationMeta(
+    'playlistId',
+  );
+  @override
+  late final GeneratedColumn<String> playlistId = GeneratedColumn<String>(
+    'playlist_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _urlMeta = const VerificationMeta('url');
+  @override
+  late final GeneratedColumn<String> url = GeneratedColumn<String>(
+    'url',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _priorityMeta = const VerificationMeta(
+    'priority',
+  );
+  @override
+  late final GeneratedColumn<int> priority = GeneratedColumn<int>(
+    'priority',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<int> status = GeneratedColumn<int>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lastCheckedMeta = const VerificationMeta(
+    'lastChecked',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastChecked = GeneratedColumn<DateTime>(
+    'last_checked',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastSuccessfulMeta = const VerificationMeta(
+    'lastSuccessful',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastSuccessful =
+      GeneratedColumn<DateTime>(
+        'last_successful',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _failureCountMeta = const VerificationMeta(
+    'failureCount',
+  );
+  @override
+  late final GeneratedColumn<int> failureCount = GeneratedColumn<int>(
+    'failure_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lastErrorMeta = const VerificationMeta(
+    'lastError',
+  );
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+    'last_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _responseTimeMsMeta = const VerificationMeta(
+    'responseTimeMs',
+  );
+  @override
+  late final GeneratedColumn<int> responseTimeMs = GeneratedColumn<int>(
+    'response_time_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    playlistId,
+    url,
+    priority,
+    status,
+    lastChecked,
+    lastSuccessful,
+    failureCount,
+    lastError,
+    responseTimeMs,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'playlist_urls';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PlaylistUrlData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('playlist_id')) {
+      context.handle(
+        _playlistIdMeta,
+        playlistId.isAcceptableOrUnknown(data['playlist_id']!, _playlistIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_playlistIdMeta);
+    }
+    if (data.containsKey('url')) {
+      context.handle(
+        _urlMeta,
+        url.isAcceptableOrUnknown(data['url']!, _urlMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_urlMeta);
+    }
+    if (data.containsKey('priority')) {
+      context.handle(
+        _priorityMeta,
+        priority.isAcceptableOrUnknown(data['priority']!, _priorityMeta),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('last_checked')) {
+      context.handle(
+        _lastCheckedMeta,
+        lastChecked.isAcceptableOrUnknown(
+          data['last_checked']!,
+          _lastCheckedMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_successful')) {
+      context.handle(
+        _lastSuccessfulMeta,
+        lastSuccessful.isAcceptableOrUnknown(
+          data['last_successful']!,
+          _lastSuccessfulMeta,
+        ),
+      );
+    }
+    if (data.containsKey('failure_count')) {
+      context.handle(
+        _failureCountMeta,
+        failureCount.isAcceptableOrUnknown(
+          data['failure_count']!,
+          _failureCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(
+        _lastErrorMeta,
+        lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta),
+      );
+    }
+    if (data.containsKey('response_time_ms')) {
+      context.handle(
+        _responseTimeMsMeta,
+        responseTimeMs.isAcceptableOrUnknown(
+          data['response_time_ms']!,
+          _responseTimeMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PlaylistUrlData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PlaylistUrlData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      playlistId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}playlist_id'],
+      )!,
+      url: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}url'],
+      )!,
+      priority: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}priority'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}status'],
+      )!,
+      lastChecked: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_checked'],
+      ),
+      lastSuccessful: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_successful'],
+      ),
+      failureCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}failure_count'],
+      )!,
+      lastError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_error'],
+      ),
+      responseTimeMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}response_time_ms'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $PlaylistUrlsTable createAlias(String alias) {
+    return $PlaylistUrlsTable(attachedDatabase, alias);
+  }
+}
+
+class PlaylistUrlData extends DataClass implements Insertable<PlaylistUrlData> {
+  final String id;
+  final String playlistId;
+  final String url;
+  final int priority;
+  final int status;
+  final DateTime? lastChecked;
+  final DateTime? lastSuccessful;
+  final int failureCount;
+  final String? lastError;
+  final int responseTimeMs;
+  final DateTime createdAt;
+  const PlaylistUrlData({
+    required this.id,
+    required this.playlistId,
+    required this.url,
+    required this.priority,
+    required this.status,
+    this.lastChecked,
+    this.lastSuccessful,
+    required this.failureCount,
+    this.lastError,
+    required this.responseTimeMs,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['playlist_id'] = Variable<String>(playlistId);
+    map['url'] = Variable<String>(url);
+    map['priority'] = Variable<int>(priority);
+    map['status'] = Variable<int>(status);
+    if (!nullToAbsent || lastChecked != null) {
+      map['last_checked'] = Variable<DateTime>(lastChecked);
+    }
+    if (!nullToAbsent || lastSuccessful != null) {
+      map['last_successful'] = Variable<DateTime>(lastSuccessful);
+    }
+    map['failure_count'] = Variable<int>(failureCount);
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    map['response_time_ms'] = Variable<int>(responseTimeMs);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  PlaylistUrlsCompanion toCompanion(bool nullToAbsent) {
+    return PlaylistUrlsCompanion(
+      id: Value(id),
+      playlistId: Value(playlistId),
+      url: Value(url),
+      priority: Value(priority),
+      status: Value(status),
+      lastChecked: lastChecked == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastChecked),
+      lastSuccessful: lastSuccessful == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastSuccessful),
+      failureCount: Value(failureCount),
+      lastError: lastError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastError),
+      responseTimeMs: Value(responseTimeMs),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory PlaylistUrlData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PlaylistUrlData(
+      id: serializer.fromJson<String>(json['id']),
+      playlistId: serializer.fromJson<String>(json['playlistId']),
+      url: serializer.fromJson<String>(json['url']),
+      priority: serializer.fromJson<int>(json['priority']),
+      status: serializer.fromJson<int>(json['status']),
+      lastChecked: serializer.fromJson<DateTime?>(json['lastChecked']),
+      lastSuccessful: serializer.fromJson<DateTime?>(json['lastSuccessful']),
+      failureCount: serializer.fromJson<int>(json['failureCount']),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+      responseTimeMs: serializer.fromJson<int>(json['responseTimeMs']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'playlistId': serializer.toJson<String>(playlistId),
+      'url': serializer.toJson<String>(url),
+      'priority': serializer.toJson<int>(priority),
+      'status': serializer.toJson<int>(status),
+      'lastChecked': serializer.toJson<DateTime?>(lastChecked),
+      'lastSuccessful': serializer.toJson<DateTime?>(lastSuccessful),
+      'failureCount': serializer.toJson<int>(failureCount),
+      'lastError': serializer.toJson<String?>(lastError),
+      'responseTimeMs': serializer.toJson<int>(responseTimeMs),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  PlaylistUrlData copyWith({
+    String? id,
+    String? playlistId,
+    String? url,
+    int? priority,
+    int? status,
+    Value<DateTime?> lastChecked = const Value.absent(),
+    Value<DateTime?> lastSuccessful = const Value.absent(),
+    int? failureCount,
+    Value<String?> lastError = const Value.absent(),
+    int? responseTimeMs,
+    DateTime? createdAt,
+  }) => PlaylistUrlData(
+    id: id ?? this.id,
+    playlistId: playlistId ?? this.playlistId,
+    url: url ?? this.url,
+    priority: priority ?? this.priority,
+    status: status ?? this.status,
+    lastChecked: lastChecked.present ? lastChecked.value : this.lastChecked,
+    lastSuccessful: lastSuccessful.present
+        ? lastSuccessful.value
+        : this.lastSuccessful,
+    failureCount: failureCount ?? this.failureCount,
+    lastError: lastError.present ? lastError.value : this.lastError,
+    responseTimeMs: responseTimeMs ?? this.responseTimeMs,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  PlaylistUrlData copyWithCompanion(PlaylistUrlsCompanion data) {
+    return PlaylistUrlData(
+      id: data.id.present ? data.id.value : this.id,
+      playlistId: data.playlistId.present
+          ? data.playlistId.value
+          : this.playlistId,
+      url: data.url.present ? data.url.value : this.url,
+      priority: data.priority.present ? data.priority.value : this.priority,
+      status: data.status.present ? data.status.value : this.status,
+      lastChecked: data.lastChecked.present
+          ? data.lastChecked.value
+          : this.lastChecked,
+      lastSuccessful: data.lastSuccessful.present
+          ? data.lastSuccessful.value
+          : this.lastSuccessful,
+      failureCount: data.failureCount.present
+          ? data.failureCount.value
+          : this.failureCount,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+      responseTimeMs: data.responseTimeMs.present
+          ? data.responseTimeMs.value
+          : this.responseTimeMs,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlaylistUrlData(')
+          ..write('id: $id, ')
+          ..write('playlistId: $playlistId, ')
+          ..write('url: $url, ')
+          ..write('priority: $priority, ')
+          ..write('status: $status, ')
+          ..write('lastChecked: $lastChecked, ')
+          ..write('lastSuccessful: $lastSuccessful, ')
+          ..write('failureCount: $failureCount, ')
+          ..write('lastError: $lastError, ')
+          ..write('responseTimeMs: $responseTimeMs, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    playlistId,
+    url,
+    priority,
+    status,
+    lastChecked,
+    lastSuccessful,
+    failureCount,
+    lastError,
+    responseTimeMs,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PlaylistUrlData &&
+          other.id == this.id &&
+          other.playlistId == this.playlistId &&
+          other.url == this.url &&
+          other.priority == this.priority &&
+          other.status == this.status &&
+          other.lastChecked == this.lastChecked &&
+          other.lastSuccessful == this.lastSuccessful &&
+          other.failureCount == this.failureCount &&
+          other.lastError == this.lastError &&
+          other.responseTimeMs == this.responseTimeMs &&
+          other.createdAt == this.createdAt);
+}
+
+class PlaylistUrlsCompanion extends UpdateCompanion<PlaylistUrlData> {
+  final Value<String> id;
+  final Value<String> playlistId;
+  final Value<String> url;
+  final Value<int> priority;
+  final Value<int> status;
+  final Value<DateTime?> lastChecked;
+  final Value<DateTime?> lastSuccessful;
+  final Value<int> failureCount;
+  final Value<String?> lastError;
+  final Value<int> responseTimeMs;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const PlaylistUrlsCompanion({
+    this.id = const Value.absent(),
+    this.playlistId = const Value.absent(),
+    this.url = const Value.absent(),
+    this.priority = const Value.absent(),
+    this.status = const Value.absent(),
+    this.lastChecked = const Value.absent(),
+    this.lastSuccessful = const Value.absent(),
+    this.failureCount = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.responseTimeMs = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PlaylistUrlsCompanion.insert({
+    required String id,
+    required String playlistId,
+    required String url,
+    this.priority = const Value.absent(),
+    this.status = const Value.absent(),
+    this.lastChecked = const Value.absent(),
+    this.lastSuccessful = const Value.absent(),
+    this.failureCount = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.responseTimeMs = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       playlistId = Value(playlistId),
+       url = Value(url);
+  static Insertable<PlaylistUrlData> custom({
+    Expression<String>? id,
+    Expression<String>? playlistId,
+    Expression<String>? url,
+    Expression<int>? priority,
+    Expression<int>? status,
+    Expression<DateTime>? lastChecked,
+    Expression<DateTime>? lastSuccessful,
+    Expression<int>? failureCount,
+    Expression<String>? lastError,
+    Expression<int>? responseTimeMs,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (playlistId != null) 'playlist_id': playlistId,
+      if (url != null) 'url': url,
+      if (priority != null) 'priority': priority,
+      if (status != null) 'status': status,
+      if (lastChecked != null) 'last_checked': lastChecked,
+      if (lastSuccessful != null) 'last_successful': lastSuccessful,
+      if (failureCount != null) 'failure_count': failureCount,
+      if (lastError != null) 'last_error': lastError,
+      if (responseTimeMs != null) 'response_time_ms': responseTimeMs,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PlaylistUrlsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? playlistId,
+    Value<String>? url,
+    Value<int>? priority,
+    Value<int>? status,
+    Value<DateTime?>? lastChecked,
+    Value<DateTime?>? lastSuccessful,
+    Value<int>? failureCount,
+    Value<String?>? lastError,
+    Value<int>? responseTimeMs,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return PlaylistUrlsCompanion(
+      id: id ?? this.id,
+      playlistId: playlistId ?? this.playlistId,
+      url: url ?? this.url,
+      priority: priority ?? this.priority,
+      status: status ?? this.status,
+      lastChecked: lastChecked ?? this.lastChecked,
+      lastSuccessful: lastSuccessful ?? this.lastSuccessful,
+      failureCount: failureCount ?? this.failureCount,
+      lastError: lastError ?? this.lastError,
+      responseTimeMs: responseTimeMs ?? this.responseTimeMs,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (playlistId.present) {
+      map['playlist_id'] = Variable<String>(playlistId.value);
+    }
+    if (url.present) {
+      map['url'] = Variable<String>(url.value);
+    }
+    if (priority.present) {
+      map['priority'] = Variable<int>(priority.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<int>(status.value);
+    }
+    if (lastChecked.present) {
+      map['last_checked'] = Variable<DateTime>(lastChecked.value);
+    }
+    if (lastSuccessful.present) {
+      map['last_successful'] = Variable<DateTime>(lastSuccessful.value);
+    }
+    if (failureCount.present) {
+      map['failure_count'] = Variable<int>(failureCount.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (responseTimeMs.present) {
+      map['response_time_ms'] = Variable<int>(responseTimeMs.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlaylistUrlsCompanion(')
+          ..write('id: $id, ')
+          ..write('playlistId: $playlistId, ')
+          ..write('url: $url, ')
+          ..write('priority: $priority, ')
+          ..write('status: $status, ')
+          ..write('lastChecked: $lastChecked, ')
+          ..write('lastSuccessful: $lastSuccessful, ')
+          ..write('failureCount: $failureCount, ')
+          ..write('lastError: $lastError, ')
+          ..write('responseTimeMs: $responseTimeMs, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $CachedSubtitlesTable extends CachedSubtitles
     with TableInfo<$CachedSubtitlesTable, CachedSubtitleData> {
   @override
@@ -13317,6 +14730,26 @@ class $ContentDetailsTable extends ContentDetails
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _budgetMeta = const VerificationMeta('budget');
+  @override
+  late final GeneratedColumn<int> budget = GeneratedColumn<int>(
+    'budget',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _revenueMeta = const VerificationMeta(
+    'revenue',
+  );
+  @override
+  late final GeneratedColumn<int> revenue = GeneratedColumn<int>(
+    'revenue',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _fetchedAtMeta = const VerificationMeta(
     'fetchedAt',
   );
@@ -13365,6 +14798,8 @@ class $ContentDetailsTable extends ContentDetails
     similarContent,
     keywords,
     certifications,
+    budget,
+    revenue,
     fetchedAt,
     updatedAt,
   ];
@@ -13543,6 +14978,18 @@ class $ContentDetailsTable extends ContentDetails
         ),
       );
     }
+    if (data.containsKey('budget')) {
+      context.handle(
+        _budgetMeta,
+        budget.isAcceptableOrUnknown(data['budget']!, _budgetMeta),
+      );
+    }
+    if (data.containsKey('revenue')) {
+      context.handle(
+        _revenueMeta,
+        revenue.isAcceptableOrUnknown(data['revenue']!, _revenueMeta),
+      );
+    }
     if (data.containsKey('fetched_at')) {
       context.handle(
         _fetchedAtMeta,
@@ -13652,6 +15099,14 @@ class $ContentDetailsTable extends ContentDetails
         DriftSqlType.string,
         data['${effectivePrefix}certifications'],
       ),
+      budget: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}budget'],
+      ),
+      revenue: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}revenue'],
+      ),
       fetchedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}fetched_at'],
@@ -13693,6 +15148,8 @@ class ContentDetailsData extends DataClass
   final String? similarContent;
   final String? keywords;
   final String? certifications;
+  final int? budget;
+  final int? revenue;
   final DateTime fetchedAt;
   final DateTime updatedAt;
   const ContentDetailsData({
@@ -13718,6 +15175,8 @@ class ContentDetailsData extends DataClass
     this.similarContent,
     this.keywords,
     this.certifications,
+    this.budget,
+    this.revenue,
     required this.fetchedAt,
     required this.updatedAt,
   });
@@ -13780,6 +15239,12 @@ class ContentDetailsData extends DataClass
     if (!nullToAbsent || certifications != null) {
       map['certifications'] = Variable<String>(certifications);
     }
+    if (!nullToAbsent || budget != null) {
+      map['budget'] = Variable<int>(budget);
+    }
+    if (!nullToAbsent || revenue != null) {
+      map['revenue'] = Variable<int>(revenue);
+    }
     map['fetched_at'] = Variable<DateTime>(fetchedAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -13841,6 +15306,12 @@ class ContentDetailsData extends DataClass
       certifications: certifications == null && nullToAbsent
           ? const Value.absent()
           : Value(certifications),
+      budget: budget == null && nullToAbsent
+          ? const Value.absent()
+          : Value(budget),
+      revenue: revenue == null && nullToAbsent
+          ? const Value.absent()
+          : Value(revenue),
       fetchedAt: Value(fetchedAt),
       updatedAt: Value(updatedAt),
     );
@@ -13876,6 +15347,8 @@ class ContentDetailsData extends DataClass
       similarContent: serializer.fromJson<String?>(json['similarContent']),
       keywords: serializer.fromJson<String?>(json['keywords']),
       certifications: serializer.fromJson<String?>(json['certifications']),
+      budget: serializer.fromJson<int?>(json['budget']),
+      revenue: serializer.fromJson<int?>(json['revenue']),
       fetchedAt: serializer.fromJson<DateTime>(json['fetchedAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -13906,6 +15379,8 @@ class ContentDetailsData extends DataClass
       'similarContent': serializer.toJson<String?>(similarContent),
       'keywords': serializer.toJson<String?>(keywords),
       'certifications': serializer.toJson<String?>(certifications),
+      'budget': serializer.toJson<int?>(budget),
+      'revenue': serializer.toJson<int?>(revenue),
       'fetchedAt': serializer.toJson<DateTime>(fetchedAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -13934,6 +15409,8 @@ class ContentDetailsData extends DataClass
     Value<String?> similarContent = const Value.absent(),
     Value<String?> keywords = const Value.absent(),
     Value<String?> certifications = const Value.absent(),
+    Value<int?> budget = const Value.absent(),
+    Value<int?> revenue = const Value.absent(),
     DateTime? fetchedAt,
     DateTime? updatedAt,
   }) => ContentDetailsData(
@@ -13967,6 +15444,8 @@ class ContentDetailsData extends DataClass
     certifications: certifications.present
         ? certifications.value
         : this.certifications,
+    budget: budget.present ? budget.value : this.budget,
+    revenue: revenue.present ? revenue.value : this.revenue,
     fetchedAt: fetchedAt ?? this.fetchedAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -14014,6 +15493,8 @@ class ContentDetailsData extends DataClass
       certifications: data.certifications.present
           ? data.certifications.value
           : this.certifications,
+      budget: data.budget.present ? data.budget.value : this.budget,
+      revenue: data.revenue.present ? data.revenue.value : this.revenue,
       fetchedAt: data.fetchedAt.present ? data.fetchedAt.value : this.fetchedAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -14044,6 +15525,8 @@ class ContentDetailsData extends DataClass
           ..write('similarContent: $similarContent, ')
           ..write('keywords: $keywords, ')
           ..write('certifications: $certifications, ')
+          ..write('budget: $budget, ')
+          ..write('revenue: $revenue, ')
           ..write('fetchedAt: $fetchedAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -14074,6 +15557,8 @@ class ContentDetailsData extends DataClass
     similarContent,
     keywords,
     certifications,
+    budget,
+    revenue,
     fetchedAt,
     updatedAt,
   ]);
@@ -14103,6 +15588,8 @@ class ContentDetailsData extends DataClass
           other.similarContent == this.similarContent &&
           other.keywords == this.keywords &&
           other.certifications == this.certifications &&
+          other.budget == this.budget &&
+          other.revenue == this.revenue &&
           other.fetchedAt == this.fetchedAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -14130,6 +15617,8 @@ class ContentDetailsCompanion extends UpdateCompanion<ContentDetailsData> {
   final Value<String?> similarContent;
   final Value<String?> keywords;
   final Value<String?> certifications;
+  final Value<int?> budget;
+  final Value<int?> revenue;
   final Value<DateTime> fetchedAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -14156,6 +15645,8 @@ class ContentDetailsCompanion extends UpdateCompanion<ContentDetailsData> {
     this.similarContent = const Value.absent(),
     this.keywords = const Value.absent(),
     this.certifications = const Value.absent(),
+    this.budget = const Value.absent(),
+    this.revenue = const Value.absent(),
     this.fetchedAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -14183,6 +15674,8 @@ class ContentDetailsCompanion extends UpdateCompanion<ContentDetailsData> {
     this.similarContent = const Value.absent(),
     this.keywords = const Value.absent(),
     this.certifications = const Value.absent(),
+    this.budget = const Value.absent(),
+    this.revenue = const Value.absent(),
     this.fetchedAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -14214,6 +15707,8 @@ class ContentDetailsCompanion extends UpdateCompanion<ContentDetailsData> {
     Expression<String>? similarContent,
     Expression<String>? keywords,
     Expression<String>? certifications,
+    Expression<int>? budget,
+    Expression<int>? revenue,
     Expression<DateTime>? fetchedAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -14242,6 +15737,8 @@ class ContentDetailsCompanion extends UpdateCompanion<ContentDetailsData> {
       if (similarContent != null) 'similar_content': similarContent,
       if (keywords != null) 'keywords': keywords,
       if (certifications != null) 'certifications': certifications,
+      if (budget != null) 'budget': budget,
+      if (revenue != null) 'revenue': revenue,
       if (fetchedAt != null) 'fetched_at': fetchedAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -14271,6 +15768,8 @@ class ContentDetailsCompanion extends UpdateCompanion<ContentDetailsData> {
     Value<String?>? similarContent,
     Value<String?>? keywords,
     Value<String?>? certifications,
+    Value<int?>? budget,
+    Value<int?>? revenue,
     Value<DateTime>? fetchedAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -14298,6 +15797,8 @@ class ContentDetailsCompanion extends UpdateCompanion<ContentDetailsData> {
       similarContent: similarContent ?? this.similarContent,
       keywords: keywords ?? this.keywords,
       certifications: certifications ?? this.certifications,
+      budget: budget ?? this.budget,
+      revenue: revenue ?? this.revenue,
       fetchedAt: fetchedAt ?? this.fetchedAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -14373,6 +15874,12 @@ class ContentDetailsCompanion extends UpdateCompanion<ContentDetailsData> {
     if (certifications.present) {
       map['certifications'] = Variable<String>(certifications.value);
     }
+    if (budget.present) {
+      map['budget'] = Variable<int>(budget.value);
+    }
+    if (revenue.present) {
+      map['revenue'] = Variable<int>(revenue.value);
+    }
     if (fetchedAt.present) {
       map['fetched_at'] = Variable<DateTime>(fetchedAt.value);
     }
@@ -14410,6 +15917,8 @@ class ContentDetailsCompanion extends UpdateCompanion<ContentDetailsData> {
           ..write('similarContent: $similarContent, ')
           ..write('keywords: $keywords, ')
           ..write('certifications: $certifications, ')
+          ..write('budget: $budget, ')
+          ..write('revenue: $revenue, ')
           ..write('fetchedAt: $fetchedAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -14437,9 +15946,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $M3uEpisodesTable m3uEpisodes = $M3uEpisodesTable(this);
   late final $FavoritesTable favorites = $FavoritesTable(this);
   late final $HiddenItemsTable hiddenItems = $HiddenItemsTable(this);
+  late final $OfflineItemsTable offlineItems = $OfflineItemsTable(this);
   late final $EpgProgramsTable epgPrograms = $EpgProgramsTable(this);
   late final $EpgChannelsTable epgChannels = $EpgChannelsTable(this);
   late final $EpgSourcesTable epgSources = $EpgSourcesTable(this);
+  late final $PlaylistUrlsTable playlistUrls = $PlaylistUrlsTable(this);
   late final $CachedSubtitlesTable cachedSubtitles = $CachedSubtitlesTable(
     this,
   );
@@ -14465,9 +15976,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     m3uEpisodes,
     favorites,
     hiddenItems,
+    offlineItems,
     epgPrograms,
     epgChannels,
     epgSources,
+    playlistUrls,
     cachedSubtitles,
     contentDetails,
   ];
@@ -14482,6 +15995,8 @@ typedef $$PlaylistsTableCreateCompanionBuilder =
       Value<String?> username,
       Value<String?> password,
       required DateTime createdAt,
+      Value<String> additionalUrls,
+      Value<int?> activeUrlIndex,
       Value<int> rowid,
     });
 typedef $$PlaylistsTableUpdateCompanionBuilder =
@@ -14493,6 +16008,8 @@ typedef $$PlaylistsTableUpdateCompanionBuilder =
       Value<String?> username,
       Value<String?> password,
       Value<DateTime> createdAt,
+      Value<String> additionalUrls,
+      Value<int?> activeUrlIndex,
       Value<int> rowid,
     });
 
@@ -14537,6 +16054,16 @@ class $$PlaylistsTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get additionalUrls => $composableBuilder(
+    column: $table.additionalUrls,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get activeUrlIndex => $composableBuilder(
+    column: $table.activeUrlIndex,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -14584,6 +16111,16 @@ class $$PlaylistsTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get additionalUrls => $composableBuilder(
+    column: $table.additionalUrls,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get activeUrlIndex => $composableBuilder(
+    column: $table.activeUrlIndex,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PlaylistsTableAnnotationComposer
@@ -14615,6 +16152,16 @@ class $$PlaylistsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get additionalUrls => $composableBuilder(
+    column: $table.additionalUrls,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get activeUrlIndex => $composableBuilder(
+    column: $table.activeUrlIndex,
+    builder: (column) => column,
+  );
 }
 
 class $$PlaylistsTableTableManager
@@ -14655,6 +16202,8 @@ class $$PlaylistsTableTableManager
                 Value<String?> username = const Value.absent(),
                 Value<String?> password = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String> additionalUrls = const Value.absent(),
+                Value<int?> activeUrlIndex = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PlaylistsCompanion(
                 id: id,
@@ -14664,6 +16213,8 @@ class $$PlaylistsTableTableManager
                 username: username,
                 password: password,
                 createdAt: createdAt,
+                additionalUrls: additionalUrls,
+                activeUrlIndex: activeUrlIndex,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -14675,6 +16226,8 @@ class $$PlaylistsTableTableManager
                 Value<String?> username = const Value.absent(),
                 Value<String?> password = const Value.absent(),
                 required DateTime createdAt,
+                Value<String> additionalUrls = const Value.absent(),
+                Value<int?> activeUrlIndex = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PlaylistsCompanion.insert(
                 id: id,
@@ -14684,6 +16237,8 @@ class $$PlaylistsTableTableManager
                 username: username,
                 password: password,
                 createdAt: createdAt,
+                additionalUrls: additionalUrls,
+                activeUrlIndex: activeUrlIndex,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -18684,6 +20239,7 @@ typedef $$M3uSeriesTableCreateCompanionBuilder =
       required String name,
       Value<String?> categoryId,
       Value<String?> cover,
+      Value<DateTime> createdAt,
       Value<int> rowid,
     });
 typedef $$M3uSeriesTableUpdateCompanionBuilder =
@@ -18693,6 +20249,7 @@ typedef $$M3uSeriesTableUpdateCompanionBuilder =
       Value<String> name,
       Value<String?> categoryId,
       Value<String?> cover,
+      Value<DateTime> createdAt,
       Value<int> rowid,
     });
 
@@ -18727,6 +20284,11 @@ class $$M3uSeriesTableFilterComposer
 
   ColumnFilters<String> get cover => $composableBuilder(
     column: $table.cover,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -18764,6 +20326,11 @@ class $$M3uSeriesTableOrderingComposer
     column: $table.cover,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$M3uSeriesTableAnnotationComposer
@@ -18793,6 +20360,9 @@ class $$M3uSeriesTableAnnotationComposer
 
   GeneratedColumn<String> get cover =>
       $composableBuilder(column: $table.cover, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
 }
 
 class $$M3uSeriesTableTableManager
@@ -18831,6 +20401,7 @@ class $$M3uSeriesTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<String?> categoryId = const Value.absent(),
                 Value<String?> cover = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => M3uSeriesCompanion(
                 playlistId: playlistId,
@@ -18838,6 +20409,7 @@ class $$M3uSeriesTableTableManager
                 name: name,
                 categoryId: categoryId,
                 cover: cover,
+                createdAt: createdAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -18847,6 +20419,7 @@ class $$M3uSeriesTableTableManager
                 required String name,
                 Value<String?> categoryId = const Value.absent(),
                 Value<String?> cover = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => M3uSeriesCompanion.insert(
                 playlistId: playlistId,
@@ -18854,6 +20427,7 @@ class $$M3uSeriesTableTableManager
                 name: name,
                 categoryId: categoryId,
                 cover: cover,
+                createdAt: createdAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -19687,6 +21261,290 @@ typedef $$HiddenItemsTableProcessedTableManager =
       HiddenItemsData,
       PrefetchHooks Function()
     >;
+typedef $$OfflineItemsTableCreateCompanionBuilder =
+    OfflineItemsCompanion Function({
+      required String id,
+      required String playlistId,
+      required int contentType,
+      required String streamId,
+      required String name,
+      Value<String?> imagePath,
+      Value<DateTime> markedAt,
+      Value<bool> autoDetected,
+      Value<DateTime?> temporaryUntil,
+      Value<int> rowid,
+    });
+typedef $$OfflineItemsTableUpdateCompanionBuilder =
+    OfflineItemsCompanion Function({
+      Value<String> id,
+      Value<String> playlistId,
+      Value<int> contentType,
+      Value<String> streamId,
+      Value<String> name,
+      Value<String?> imagePath,
+      Value<DateTime> markedAt,
+      Value<bool> autoDetected,
+      Value<DateTime?> temporaryUntil,
+      Value<int> rowid,
+    });
+
+class $$OfflineItemsTableFilterComposer
+    extends Composer<_$AppDatabase, $OfflineItemsTable> {
+  $$OfflineItemsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get playlistId => $composableBuilder(
+    column: $table.playlistId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get contentType => $composableBuilder(
+    column: $table.contentType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get streamId => $composableBuilder(
+    column: $table.streamId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get imagePath => $composableBuilder(
+    column: $table.imagePath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get markedAt => $composableBuilder(
+    column: $table.markedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get autoDetected => $composableBuilder(
+    column: $table.autoDetected,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get temporaryUntil => $composableBuilder(
+    column: $table.temporaryUntil,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$OfflineItemsTableOrderingComposer
+    extends Composer<_$AppDatabase, $OfflineItemsTable> {
+  $$OfflineItemsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get playlistId => $composableBuilder(
+    column: $table.playlistId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get contentType => $composableBuilder(
+    column: $table.contentType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get streamId => $composableBuilder(
+    column: $table.streamId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get imagePath => $composableBuilder(
+    column: $table.imagePath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get markedAt => $composableBuilder(
+    column: $table.markedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get autoDetected => $composableBuilder(
+    column: $table.autoDetected,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get temporaryUntil => $composableBuilder(
+    column: $table.temporaryUntil,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$OfflineItemsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $OfflineItemsTable> {
+  $$OfflineItemsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get playlistId => $composableBuilder(
+    column: $table.playlistId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get contentType => $composableBuilder(
+    column: $table.contentType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get streamId =>
+      $composableBuilder(column: $table.streamId, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get imagePath =>
+      $composableBuilder(column: $table.imagePath, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get markedAt =>
+      $composableBuilder(column: $table.markedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get autoDetected => $composableBuilder(
+    column: $table.autoDetected,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get temporaryUntil => $composableBuilder(
+    column: $table.temporaryUntil,
+    builder: (column) => column,
+  );
+}
+
+class $$OfflineItemsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $OfflineItemsTable,
+          OfflineItemsData,
+          $$OfflineItemsTableFilterComposer,
+          $$OfflineItemsTableOrderingComposer,
+          $$OfflineItemsTableAnnotationComposer,
+          $$OfflineItemsTableCreateCompanionBuilder,
+          $$OfflineItemsTableUpdateCompanionBuilder,
+          (
+            OfflineItemsData,
+            BaseReferences<_$AppDatabase, $OfflineItemsTable, OfflineItemsData>,
+          ),
+          OfflineItemsData,
+          PrefetchHooks Function()
+        > {
+  $$OfflineItemsTableTableManager(_$AppDatabase db, $OfflineItemsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$OfflineItemsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$OfflineItemsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$OfflineItemsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> playlistId = const Value.absent(),
+                Value<int> contentType = const Value.absent(),
+                Value<String> streamId = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> imagePath = const Value.absent(),
+                Value<DateTime> markedAt = const Value.absent(),
+                Value<bool> autoDetected = const Value.absent(),
+                Value<DateTime?> temporaryUntil = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => OfflineItemsCompanion(
+                id: id,
+                playlistId: playlistId,
+                contentType: contentType,
+                streamId: streamId,
+                name: name,
+                imagePath: imagePath,
+                markedAt: markedAt,
+                autoDetected: autoDetected,
+                temporaryUntil: temporaryUntil,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String playlistId,
+                required int contentType,
+                required String streamId,
+                required String name,
+                Value<String?> imagePath = const Value.absent(),
+                Value<DateTime> markedAt = const Value.absent(),
+                Value<bool> autoDetected = const Value.absent(),
+                Value<DateTime?> temporaryUntil = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => OfflineItemsCompanion.insert(
+                id: id,
+                playlistId: playlistId,
+                contentType: contentType,
+                streamId: streamId,
+                name: name,
+                imagePath: imagePath,
+                markedAt: markedAt,
+                autoDetected: autoDetected,
+                temporaryUntil: temporaryUntil,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$OfflineItemsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $OfflineItemsTable,
+      OfflineItemsData,
+      $$OfflineItemsTableFilterComposer,
+      $$OfflineItemsTableOrderingComposer,
+      $$OfflineItemsTableAnnotationComposer,
+      $$OfflineItemsTableCreateCompanionBuilder,
+      $$OfflineItemsTableUpdateCompanionBuilder,
+      (
+        OfflineItemsData,
+        BaseReferences<_$AppDatabase, $OfflineItemsTable, OfflineItemsData>,
+      ),
+      OfflineItemsData,
+      PrefetchHooks Function()
+    >;
 typedef $$EpgProgramsTableCreateCompanionBuilder =
     EpgProgramsCompanion Function({
       required String id,
@@ -20400,6 +22258,330 @@ typedef $$EpgSourcesTableProcessedTableManager =
       EpgSourceData,
       PrefetchHooks Function()
     >;
+typedef $$PlaylistUrlsTableCreateCompanionBuilder =
+    PlaylistUrlsCompanion Function({
+      required String id,
+      required String playlistId,
+      required String url,
+      Value<int> priority,
+      Value<int> status,
+      Value<DateTime?> lastChecked,
+      Value<DateTime?> lastSuccessful,
+      Value<int> failureCount,
+      Value<String?> lastError,
+      Value<int> responseTimeMs,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$PlaylistUrlsTableUpdateCompanionBuilder =
+    PlaylistUrlsCompanion Function({
+      Value<String> id,
+      Value<String> playlistId,
+      Value<String> url,
+      Value<int> priority,
+      Value<int> status,
+      Value<DateTime?> lastChecked,
+      Value<DateTime?> lastSuccessful,
+      Value<int> failureCount,
+      Value<String?> lastError,
+      Value<int> responseTimeMs,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$PlaylistUrlsTableFilterComposer
+    extends Composer<_$AppDatabase, $PlaylistUrlsTable> {
+  $$PlaylistUrlsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get playlistId => $composableBuilder(
+    column: $table.playlistId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get url => $composableBuilder(
+    column: $table.url,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastChecked => $composableBuilder(
+    column: $table.lastChecked,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastSuccessful => $composableBuilder(
+    column: $table.lastSuccessful,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get failureCount => $composableBuilder(
+    column: $table.failureCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get responseTimeMs => $composableBuilder(
+    column: $table.responseTimeMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PlaylistUrlsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PlaylistUrlsTable> {
+  $$PlaylistUrlsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get playlistId => $composableBuilder(
+    column: $table.playlistId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get url => $composableBuilder(
+    column: $table.url,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastChecked => $composableBuilder(
+    column: $table.lastChecked,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastSuccessful => $composableBuilder(
+    column: $table.lastSuccessful,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get failureCount => $composableBuilder(
+    column: $table.failureCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get responseTimeMs => $composableBuilder(
+    column: $table.responseTimeMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PlaylistUrlsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PlaylistUrlsTable> {
+  $$PlaylistUrlsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get playlistId => $composableBuilder(
+    column: $table.playlistId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get url =>
+      $composableBuilder(column: $table.url, builder: (column) => column);
+
+  GeneratedColumn<int> get priority =>
+      $composableBuilder(column: $table.priority, builder: (column) => column);
+
+  GeneratedColumn<int> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastChecked => $composableBuilder(
+    column: $table.lastChecked,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastSuccessful => $composableBuilder(
+    column: $table.lastSuccessful,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get failureCount => $composableBuilder(
+    column: $table.failureCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get lastError =>
+      $composableBuilder(column: $table.lastError, builder: (column) => column);
+
+  GeneratedColumn<int> get responseTimeMs => $composableBuilder(
+    column: $table.responseTimeMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$PlaylistUrlsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PlaylistUrlsTable,
+          PlaylistUrlData,
+          $$PlaylistUrlsTableFilterComposer,
+          $$PlaylistUrlsTableOrderingComposer,
+          $$PlaylistUrlsTableAnnotationComposer,
+          $$PlaylistUrlsTableCreateCompanionBuilder,
+          $$PlaylistUrlsTableUpdateCompanionBuilder,
+          (
+            PlaylistUrlData,
+            BaseReferences<_$AppDatabase, $PlaylistUrlsTable, PlaylistUrlData>,
+          ),
+          PlaylistUrlData,
+          PrefetchHooks Function()
+        > {
+  $$PlaylistUrlsTableTableManager(_$AppDatabase db, $PlaylistUrlsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PlaylistUrlsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PlaylistUrlsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PlaylistUrlsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> playlistId = const Value.absent(),
+                Value<String> url = const Value.absent(),
+                Value<int> priority = const Value.absent(),
+                Value<int> status = const Value.absent(),
+                Value<DateTime?> lastChecked = const Value.absent(),
+                Value<DateTime?> lastSuccessful = const Value.absent(),
+                Value<int> failureCount = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int> responseTimeMs = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PlaylistUrlsCompanion(
+                id: id,
+                playlistId: playlistId,
+                url: url,
+                priority: priority,
+                status: status,
+                lastChecked: lastChecked,
+                lastSuccessful: lastSuccessful,
+                failureCount: failureCount,
+                lastError: lastError,
+                responseTimeMs: responseTimeMs,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String playlistId,
+                required String url,
+                Value<int> priority = const Value.absent(),
+                Value<int> status = const Value.absent(),
+                Value<DateTime?> lastChecked = const Value.absent(),
+                Value<DateTime?> lastSuccessful = const Value.absent(),
+                Value<int> failureCount = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int> responseTimeMs = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PlaylistUrlsCompanion.insert(
+                id: id,
+                playlistId: playlistId,
+                url: url,
+                priority: priority,
+                status: status,
+                lastChecked: lastChecked,
+                lastSuccessful: lastSuccessful,
+                failureCount: failureCount,
+                lastError: lastError,
+                responseTimeMs: responseTimeMs,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PlaylistUrlsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PlaylistUrlsTable,
+      PlaylistUrlData,
+      $$PlaylistUrlsTableFilterComposer,
+      $$PlaylistUrlsTableOrderingComposer,
+      $$PlaylistUrlsTableAnnotationComposer,
+      $$PlaylistUrlsTableCreateCompanionBuilder,
+      $$PlaylistUrlsTableUpdateCompanionBuilder,
+      (
+        PlaylistUrlData,
+        BaseReferences<_$AppDatabase, $PlaylistUrlsTable, PlaylistUrlData>,
+      ),
+      PlaylistUrlData,
+      PrefetchHooks Function()
+    >;
 typedef $$CachedSubtitlesTableCreateCompanionBuilder =
     CachedSubtitlesCompanion Function({
       required String id,
@@ -20804,6 +22986,8 @@ typedef $$ContentDetailsTableCreateCompanionBuilder =
       Value<String?> similarContent,
       Value<String?> keywords,
       Value<String?> certifications,
+      Value<int?> budget,
+      Value<int?> revenue,
       Value<DateTime> fetchedAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -20832,6 +23016,8 @@ typedef $$ContentDetailsTableUpdateCompanionBuilder =
       Value<String?> similarContent,
       Value<String?> keywords,
       Value<String?> certifications,
+      Value<int?> budget,
+      Value<int?> revenue,
       Value<DateTime> fetchedAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -20953,6 +23139,16 @@ class $$ContentDetailsTableFilterComposer
 
   ColumnFilters<String> get certifications => $composableBuilder(
     column: $table.certifications,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get budget => $composableBuilder(
+    column: $table.budget,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get revenue => $composableBuilder(
+    column: $table.revenue,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -21086,6 +23282,16 @@ class $$ContentDetailsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get budget => $composableBuilder(
+    column: $table.budget,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get revenue => $composableBuilder(
+    column: $table.revenue,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get fetchedAt => $composableBuilder(
     column: $table.fetchedAt,
     builder: (column) => ColumnOrderings(column),
@@ -21192,6 +23398,12 @@ class $$ContentDetailsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get budget =>
+      $composableBuilder(column: $table.budget, builder: (column) => column);
+
+  GeneratedColumn<int> get revenue =>
+      $composableBuilder(column: $table.revenue, builder: (column) => column);
+
   GeneratedColumn<DateTime> get fetchedAt =>
       $composableBuilder(column: $table.fetchedAt, builder: (column) => column);
 
@@ -21258,6 +23470,8 @@ class $$ContentDetailsTableTableManager
                 Value<String?> similarContent = const Value.absent(),
                 Value<String?> keywords = const Value.absent(),
                 Value<String?> certifications = const Value.absent(),
+                Value<int?> budget = const Value.absent(),
+                Value<int?> revenue = const Value.absent(),
                 Value<DateTime> fetchedAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -21284,6 +23498,8 @@ class $$ContentDetailsTableTableManager
                 similarContent: similarContent,
                 keywords: keywords,
                 certifications: certifications,
+                budget: budget,
+                revenue: revenue,
                 fetchedAt: fetchedAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -21312,6 +23528,8 @@ class $$ContentDetailsTableTableManager
                 Value<String?> similarContent = const Value.absent(),
                 Value<String?> keywords = const Value.absent(),
                 Value<String?> certifications = const Value.absent(),
+                Value<int?> budget = const Value.absent(),
+                Value<int?> revenue = const Value.absent(),
                 Value<DateTime> fetchedAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -21338,6 +23556,8 @@ class $$ContentDetailsTableTableManager
                 similarContent: similarContent,
                 keywords: keywords,
                 certifications: certifications,
+                budget: budget,
+                revenue: revenue,
                 fetchedAt: fetchedAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -21403,12 +23623,16 @@ class $AppDatabaseManager {
       $$FavoritesTableTableManager(_db, _db.favorites);
   $$HiddenItemsTableTableManager get hiddenItems =>
       $$HiddenItemsTableTableManager(_db, _db.hiddenItems);
+  $$OfflineItemsTableTableManager get offlineItems =>
+      $$OfflineItemsTableTableManager(_db, _db.offlineItems);
   $$EpgProgramsTableTableManager get epgPrograms =>
       $$EpgProgramsTableTableManager(_db, _db.epgPrograms);
   $$EpgChannelsTableTableManager get epgChannels =>
       $$EpgChannelsTableTableManager(_db, _db.epgChannels);
   $$EpgSourcesTableTableManager get epgSources =>
       $$EpgSourcesTableTableManager(_db, _db.epgSources);
+  $$PlaylistUrlsTableTableManager get playlistUrls =>
+      $$PlaylistUrlsTableTableManager(_db, _db.playlistUrls);
   $$CachedSubtitlesTableTableManager get cachedSubtitles =>
       $$CachedSubtitlesTableTableManager(_db, _db.cachedSubtitles);
   $$ContentDetailsTableTableManager get contentDetails =>

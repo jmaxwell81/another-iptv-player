@@ -23,7 +23,7 @@ class _M3uPlaylistSettingsScreenState extends State<M3uPlaylistSettingsScreen> {
     // Pass existing m3uItems from AppState if available
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (context) => M3uDataLoaderScreen(
+        builder: (context) => M3UDataLoaderScreen(
           playlist: widget.playlist,
           m3uItems: AppState.m3uItems ?? [],
           refreshAll: true,

@@ -7,6 +7,7 @@ import 'package:another_iptv_player/utils/responsive_helper.dart';
 import '../../controllers/watch_history_controller.dart';
 import '../../controllers/favorites_controller.dart';
 import 'watch_history_section.dart';
+import 'recordings_section.dart';
 
 class WatchHistoryContent extends StatelessWidget {
   final Function(dynamic) onHistoryTap;
@@ -43,6 +44,11 @@ class WatchHistoryContent extends StatelessWidget {
           body: SingleChildScrollView(
             child: Column(
               children: [
+                // Recordings section - shows active and completed recordings
+                RecordingsSection(
+                  cardWidth: cardWidth,
+                  cardHeight: cardHeight,
+                ),
                 // Continue Watching (Movies & Series with progress)
                 WatchHistorySection(
                   title: context.loc.continue_watching,

@@ -32,6 +32,7 @@ import '../../widgets/dropdown_tile_widget.dart';
 import '../../widgets/section_title_widget.dart';
 import '../m3u/m3u_data_loader_screen.dart';
 import '../playlist_screen.dart';
+import 'parental_controls_screen.dart';
 import '../xtream-codes/xtream_code_data_loader_screen.dart';
 import 'category_settings_section.dart';
 import 'renaming_rules_screen.dart';
@@ -40,6 +41,7 @@ import 'active_sources_screen.dart';
 import 'unified_category_settings_screen.dart';
 import 'content_filter_settings_screen.dart';
 import 'custom_category_settings_screen.dart';
+import 'auto_combine_settings_section.dart';
 
 final controller = XtreamCodeHomeController(true);
 
@@ -73,6 +75,11 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
   bool _timeshiftEnabled = true;
   int _timeshiftMaxBuffer = 30;
 
+  // Offline stream detection settings
+  bool _autoOfflineEnabled = false;
+  int _autoOfflineTimeoutSeconds = 10;
+  int _offlineStreamTempHideHours = 48;
+
   // Default panel setting
   String _defaultPanel = 'live';
 
@@ -85,6 +92,8 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
   double _vpnStatusOpacity = 0.5;
   bool _vpnShowOnlyWhenDisconnected = false;
   String? _vpnTargetCountry;
+  double _vpnStatusOffsetX = 16.0;
+  double _vpnStatusOffsetY = 16.0;
 
   @override
   void initState() {
@@ -113,13 +122,22 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
       final vpnStatusOpacity = await UserPreferences.getVpnStatusOpacity();
       final vpnShowOnlyWhenDisconnected = await UserPreferences.getVpnShowOnlyWhenDisconnected();
       final vpnTargetCountry = await UserPreferences.getVpnTargetCountry();
+      final vpnStatusOffsetX = await UserPreferences.getVpnStatusOffsetX();
+      final vpnStatusOffsetY = await UserPreferences.getVpnStatusOffsetY();
       final defaultPanel = await UserPreferences.getDefaultPanel();
       final timeshiftEnabled = await UserPreferences.getTimeshiftEnabled();
       final timeshiftMaxBuffer = await UserPreferences.getTimeshiftMaxBuffer();
+      final autoOfflineEnabled = await UserPreferences.getAutoOfflineEnabled();
+      final autoOfflineTimeoutSeconds = await UserPreferences.getAutoOfflineTimeoutSeconds();
+      final offlineStreamTempHideHours = await UserPreferences.getOfflineStreamTempHideHours();
+      if (!mounted) return;
       setState(() {
         _defaultPanel = defaultPanel;
         _timeshiftEnabled = timeshiftEnabled;
         _timeshiftMaxBuffer = timeshiftMaxBuffer;
+        _autoOfflineEnabled = autoOfflineEnabled;
+        _autoOfflineTimeoutSeconds = autoOfflineTimeoutSeconds;
+        _offlineStreamTempHideHours = offlineStreamTempHideHours;
         _backgroundPlayEnabled = backgroundPlay;
         _selectedTheme = _themeModeToString(themeMode);
         _brightnessGesture = brightnessGesture;
@@ -138,9 +156,12 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
         _vpnStatusOpacity = vpnStatusOpacity;
         _vpnShowOnlyWhenDisconnected = vpnShowOnlyWhenDisconnected;
         _vpnTargetCountry = vpnTargetCountry;
+        _vpnStatusOffsetX = vpnStatusOffsetX;
+        _vpnStatusOffsetY = vpnStatusOffsetY;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
@@ -207,20 +228,35 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Card(
-          child: ListTile(
-            leading: const Icon(Icons.home),
-            title: Text(context.loc.playlist_list),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () async {
-              await UserPreferences.removeLastPlaylist();
-              if (mounted) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => PlaylistScreen()),
-                );
-              }
-            },
+          child: Column(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.home),
+                title: Text(context.loc.playlist_list),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => PlaylistScreen()),
+                  );
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.lock),
+                title: const Text('Parental Controls'),
+                subtitle: const Text('Manage blocked content and keywords'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const ParentalControlsScreen()),
+                  );
+                },
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 10),
@@ -357,6 +393,24 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
                     context,
                     MaterialPageRoute(
                       builder: (context) => const ActiveSourcesScreen(),
+                    ),
+                  );
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.auto_fix_high),
+                title: const Text('Auto-Combine Rules'),
+                subtitle: const Text('Auto-merge KIDS, genres, hide non-English'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => Scaffold(
+                        appBar: AppBar(title: const Text('Auto-Combine Rules')),
+                        body: const AutoCombineSettingsSection(),
+                      ),
                     ),
                   );
                 },
@@ -773,6 +827,88 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
           ),
         ),
         const SizedBox(height: 10),
+        const SectionTitleWidget(title: 'Offline Stream Detection'),
+        Card(
+          child: Column(
+            children: [
+              SwitchListTile(
+                secondary: const Icon(Icons.signal_wifi_off),
+                title: const Text('Auto-detect Offline Streams'),
+                subtitle: const Text('Mark streams as offline if they fail to load'),
+                value: _autoOfflineEnabled,
+                onChanged: (value) async {
+                  await UserPreferences.setAutoOfflineEnabled(value);
+                  setState(() {
+                    _autoOfflineEnabled = value;
+                  });
+                },
+              ),
+              if (_autoOfflineEnabled) ...[
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.timer),
+                  title: const Text('Detection Timeout'),
+                  subtitle: Text('Mark offline after $_autoOfflineTimeoutSeconds seconds'),
+                  trailing: DropdownButton<int>(
+                    value: _autoOfflineTimeoutSeconds,
+                    underline: const SizedBox(),
+                    items: [5, 10, 15, 20, 30].map((value) {
+                      return DropdownMenuItem<int>(
+                        value: value,
+                        child: Text('$value sec'),
+                      );
+                    }).toList(),
+                    onChanged: (value) async {
+                      if (value != null) {
+                        await UserPreferences.setAutoOfflineTimeoutSeconds(value);
+                        setState(() {
+                          _autoOfflineTimeoutSeconds = value;
+                        });
+                      }
+                    },
+                  ),
+                ),
+              ],
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.schedule),
+                title: const Text('Temporary Offline Duration'),
+                subtitle: Text('Auto-restore after $_offlineStreamTempHideHours hours'),
+                trailing: DropdownButton<int>(
+                  value: _offlineStreamTempHideHours,
+                  underline: const SizedBox(),
+                  items: [12, 24, 48, 72, 168].map((value) {
+                    String label;
+                    if (value < 24) {
+                      label = '$value hours';
+                    } else if (value == 24) {
+                      label = '1 day';
+                    } else if (value == 48) {
+                      label = '2 days';
+                    } else if (value == 72) {
+                      label = '3 days';
+                    } else {
+                      label = '1 week';
+                    }
+                    return DropdownMenuItem<int>(
+                      value: value,
+                      child: Text(label),
+                    );
+                  }).toList(),
+                  onChanged: (value) async {
+                    if (value != null) {
+                      await UserPreferences.setOfflineStreamTempHideHours(value);
+                      setState(() {
+                        _offlineStreamTempHideHours = value;
+                      });
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
         const SectionTitleWidget(title: 'VPN Protection'),
         Card(
           child: Column(
@@ -888,6 +1024,50 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
                         });
                       }
                     },
+                  ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.swap_horiz),
+                  title: const Text('Horizontal Offset (X)'),
+                  subtitle: Text('${_vpnStatusOffsetX.round()} px from edge'),
+                  trailing: SizedBox(
+                    width: 150,
+                    child: Slider(
+                      value: _vpnStatusOffsetX,
+                      min: 0,
+                      max: 200,
+                      divisions: 20,
+                      label: '${_vpnStatusOffsetX.round()} px',
+                      onChanged: (value) async {
+                        await UserPreferences.setVpnStatusOffsetX(value);
+                        setState(() {
+                          _vpnStatusOffsetX = value;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.swap_vert),
+                  title: const Text('Vertical Offset (Y)'),
+                  subtitle: Text('${_vpnStatusOffsetY.round()} px from edge'),
+                  trailing: SizedBox(
+                    width: 150,
+                    child: Slider(
+                      value: _vpnStatusOffsetY,
+                      min: 0,
+                      max: 200,
+                      divisions: 20,
+                      label: '${_vpnStatusOffsetY.round()} px',
+                      onChanged: (value) async {
+                        await UserPreferences.setVpnStatusOffsetY(value);
+                        setState(() {
+                          _vpnStatusOffsetY = value;
+                        });
+                      },
+                    ),
                   ),
                 ),
                 const Divider(height: 1),
@@ -1207,7 +1387,7 @@ class _GeneralSettingsWidgetState extends State<GeneralSettingsWidget> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (context) => M3uDataLoaderScreen(
+        builder: (context) => M3UDataLoaderScreen(
           playlist: AppState.currentPlaylist!,
           m3uItems: newM3uItems,
         ),

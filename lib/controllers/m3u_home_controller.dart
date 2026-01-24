@@ -8,6 +8,7 @@ import 'package:another_iptv_player/models/playlist_content_model.dart';
 import 'package:another_iptv_player/models/playlist_model.dart';
 import 'package:another_iptv_player/models/view_state.dart';
 import 'package:another_iptv_player/repositories/m3u_repository.dart';
+import 'package:another_iptv_player/repositories/offline_items_repository.dart';
 import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/services/content_filter_service.dart';
 import 'package:another_iptv_player/services/event_bus.dart';
@@ -16,12 +17,17 @@ import 'package:another_iptv_player/services/content_consolidation_service.dart'
 import 'package:another_iptv_player/services/content_preference_service.dart';
 import 'package:another_iptv_player/services/hidden_favorites_service.dart';
 import 'package:another_iptv_player/services/category_config_service.dart';
+import 'package:another_iptv_player/services/auto_combine_service.dart';
 import 'package:another_iptv_player/repositories/user_preferences.dart';
+import 'package:another_iptv_player/database/database.dart';
+import 'package:another_iptv_player/services/service_locator.dart';
+import 'package:another_iptv_player/models/category.dart';
 import 'package:flutter/material.dart';
 
 class M3UHomeController extends ChangeNotifier {
   late PageController _pageController;
   final M3uRepository _repository = AppState.m3uRepository!;
+  final AppDatabase _database = getIt<AppDatabase>();
   final ParentalControlService _parentalService = ParentalControlService();
   String? _errorMessage;
   ViewState _viewState = ViewState.idle;
@@ -37,6 +43,12 @@ class M3UHomeController extends ChangeNotifier {
   List<M3uItem>? _movies;
   List<M3uItem>? _series;
 
+  // New Releases
+  CategoryViewModel? _newReleasesMovies;
+  CategoryViewModel? _newReleasesSeries;
+  bool _showNewReleases = true;
+  int _newReleasesLookbackDays = 7;
+
   // Event subscriptions
   StreamSubscription? _configChangedSubscription;
 
@@ -45,9 +57,11 @@ class M3UHomeController extends ChangeNotifier {
 
   int get currentIndex => _currentIndex;
 
-  // Visible categories with parental filtering and hidden favorites applied
+  // Visible categories with parental filtering, auto-combine rules, and hidden favorites applied
   List<CategoryViewModel>? get liveCategories {
-    final filtered = _applyParentalFiltering(_liveCategories);
+    var filtered = _applyParentalFiltering(_liveCategories);
+    // Apply auto-combine rules (merge kids, genres, hide non-English countries)
+    filtered = _autoCombineService.applyRules(filtered);
     // Add hidden favorites category at the top if available
     if (_hiddenFavoritesLive != null) {
       return [_hiddenFavoritesLive!, ...filtered];
@@ -56,21 +70,45 @@ class M3UHomeController extends ChangeNotifier {
   }
 
   List<CategoryViewModel>? get vodCategories {
-    final filtered = _applyParentalFiltering(_vodCategories);
+    var filtered = _applyParentalFiltering(_vodCategories);
+    // Apply auto-combine rules (merge kids, genres, hide non-English countries)
+    filtered = _autoCombineService.applyRules(filtered);
+
+    // Build the final list with special sections at the top
+    final topSections = <CategoryViewModel>[];
+
     // Add hidden favorites category at the top if available
     if (_hiddenFavoritesVod != null) {
-      return [_hiddenFavoritesVod!, ...filtered];
+      topSections.add(_hiddenFavoritesVod!);
     }
-    return filtered;
+
+    // Add New Releases section if enabled and has content
+    if (_showNewReleases && _newReleasesMovies != null && _newReleasesMovies!.contentItems.isNotEmpty) {
+      topSections.add(_newReleasesMovies!);
+    }
+
+    return [...topSections, ...filtered];
   }
 
   List<CategoryViewModel>? get seriesCategories {
-    final filtered = _applyParentalFiltering(_seriesCategories);
+    var filtered = _applyParentalFiltering(_seriesCategories);
+    // Apply auto-combine rules (merge kids, genres, hide non-English countries)
+    filtered = _autoCombineService.applyRules(filtered);
+
+    // Build the final list with special sections at the top
+    final topSections = <CategoryViewModel>[];
+
     // Add hidden favorites category at the top if available
     if (_hiddenFavoritesSeries != null) {
-      return [_hiddenFavoritesSeries!, ...filtered];
+      topSections.add(_hiddenFavoritesSeries!);
     }
-    return filtered;
+
+    // Add New Releases section if enabled and has content
+    if (_showNewReleases && _newReleasesSeries != null && _newReleasesSeries!.contentItems.isNotEmpty) {
+      topSections.add(_newReleasesSeries!);
+    }
+
+    return [...topSections, ...filtered];
   }
 
   // Consolidation services
@@ -78,6 +116,7 @@ class M3UHomeController extends ChangeNotifier {
   final ContentPreferenceService _preferenceService = ContentPreferenceService();
   final HiddenFavoritesService _hiddenFavoritesService = HiddenFavoritesService();
   final ContentFilterService _contentFilterService = ContentFilterService();
+  final AutoCombineService _autoCombineService = AutoCombineService();
   bool _consolidationEnabled = true;
 
   // Hidden favorites category cache
@@ -87,21 +126,21 @@ class M3UHomeController extends ChangeNotifier {
 
   // Hidden category tracking
   Set<String> _hiddenCategoryIds = {};
+  Set<String> _hiddenCategoryNames = {};
 
-  // Filter categories and content based on parental controls and content filters, then consolidate
+  // Offline stream tracking
+  final OfflineItemsRepository _offlineItemsRepository = OfflineItemsRepository();
+  Set<String> _offlineStreamIds = {};
+
+  // Filter categories and content based on hidden categories, parental controls, and content filters, then consolidate
   List<CategoryViewModel> _applyParentalFiltering(List<CategoryViewModel> categories) {
     return categories
+        .where((c) => !_isCategoryHidden(c))
         .where((c) => !_parentalService.shouldHideCategory(
             c.category.categoryId, c.category.categoryName))
         .map((category) {
           // First apply parental controls
-          var filteredItems = _parentalService.filterContent<ContentItem>(
-            category.contentItems,
-            getId: (item) => item.id,
-            getName: (item) => item.name,
-            getCategoryId: (item) => category.category.categoryId,
-            getCategoryName: (item) => category.category.categoryName,
-          );
+          var filteredItems = _parentalService.filterContent(category.contentItems);
 
           // Then apply content filter rules (like ## pattern)
           filteredItems = filteredItems.where((item) {
@@ -109,6 +148,11 @@ class M3UHomeController extends ChangeNotifier {
               item.name,
               categoryId: category.category.categoryId,
             );
+          }).toList();
+
+          // Filter out offline streams from category previews
+          filteredItems = filteredItems.where((item) {
+            return !_offlineStreamIds.contains(item.id);
           }).toList();
 
           // Apply consolidation if enabled
@@ -179,12 +223,18 @@ class M3UHomeController extends ChangeNotifier {
     _consolidationEnabled = await UserPreferences.getConsolidationEnabled();
     // Initialize hidden favorites service
     await _hiddenFavoritesService.initialize();
+    // Initialize auto-combine service
+    await _autoCombineService.initialize();
     // Load category configuration (ordering, merging)
     await CategoryConfigService().loadConfigs();
     // Load hidden categories
     await _loadHiddenCategories();
+    // Load offline stream IDs
+    await _loadOfflineStreamIds();
     _loadM3uItems();
     await _loadCategories();
+    // Load new releases after loading categories
+    await _loadNewReleases();
     // Build hidden favorites categories
     await _buildHiddenFavoritesCategories();
   }
@@ -192,6 +242,29 @@ class M3UHomeController extends ChangeNotifier {
   Future<void> _loadHiddenCategories() async {
     final hidden = await UserPreferences.getHiddenCategories();
     _hiddenCategoryIds = hidden.toSet();
+    final hiddenNames = await UserPreferences.getHiddenCategoryNames();
+    _hiddenCategoryNames = hiddenNames.toSet();
+  }
+
+  /// Check if a category is hidden (by ID or by normalized name)
+  bool _isCategoryHidden(CategoryViewModel category) {
+    // Check by exact ID match
+    if (_hiddenCategoryIds.contains(category.category.categoryId)) {
+      return true;
+    }
+    // Check by normalized name match (for cross-source consistency)
+    final normalizedName = category.category.categoryName.toLowerCase().trim();
+    if (_hiddenCategoryNames.contains(normalizedName)) {
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> _loadOfflineStreamIds() async {
+    final playlistId = AppState.currentPlaylist?.id;
+    if (playlistId != null) {
+      _offlineStreamIds = await _offlineItemsRepository.getOfflineStreamIds(playlistId);
+    }
   }
 
   Future<void> _loadDefaultPanel() async {
@@ -378,6 +451,83 @@ class M3UHomeController extends ChangeNotifier {
       _errorMessage = 'Kategoriler yüklenemedi: $e';
       _setViewState(ViewState.error);
       _isLoading = false;
+    }
+  }
+
+  /// Load new releases for movies and series
+  Future<void> _loadNewReleases() async {
+    try {
+      // Load preferences
+      _showNewReleases = await UserPreferences.getShowNewReleases();
+      _newReleasesLookbackDays = await UserPreferences.getNewReleasesLookbackDays();
+
+      if (!_showNewReleases) return;
+
+      final playlistId = AppState.currentPlaylist?.id;
+      if (playlistId == null) return;
+
+      // Load recently added M3U movies
+      final recentMovies = await _database.getRecentlyAddedM3uMovies(
+        playlistId: playlistId,
+        daysBack: _newReleasesLookbackDays,
+        limit: 20,
+      );
+
+      if (recentMovies.isNotEmpty) {
+        _newReleasesMovies = CategoryViewModel(
+          category: Category(
+            categoryId: '_new_releases_movies',
+            categoryName: 'New Releases',
+            parentId: 0,
+            playlistId: playlistId,
+            type: CategoryType.vod,
+          ),
+          contentItems: recentMovies
+              .map((movie) => ContentItem(
+                    movie.url,
+                    movie.name ?? '',
+                    movie.tvgLogo ?? '',
+                    ContentType.vod,
+                    m3uItem: movie,
+                    sourcePlaylistId: playlistId,
+                    sourceType: PlaylistType.m3u,
+                  ))
+              .toList(),
+        );
+      }
+
+      // Load recently added M3U series
+      final recentSeries = await _database.getRecentlyAddedM3uSeries(
+        playlistId: playlistId,
+        daysBack: _newReleasesLookbackDays,
+        limit: 20,
+      );
+
+      if (recentSeries.isNotEmpty) {
+        _newReleasesSeries = CategoryViewModel(
+          category: Category(
+            categoryId: '_new_releases_series',
+            categoryName: 'New Releases',
+            parentId: 0,
+            playlistId: playlistId,
+            type: CategoryType.series,
+          ),
+          contentItems: recentSeries
+              .map((series) => ContentItem(
+                    series.seriesId,
+                    series.name,
+                    '',
+                    ContentType.series,
+                    sourcePlaylistId: playlistId,
+                    sourceType: PlaylistType.m3u,
+                  ))
+              .toList(),
+        );
+      }
+
+      debugPrint('M3U New Releases loaded: ${recentMovies.length} movies, ${recentSeries.length} series');
+    } catch (e) {
+      debugPrint('Error loading M3U new releases: $e');
     }
   }
 

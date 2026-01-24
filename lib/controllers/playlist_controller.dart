@@ -74,6 +74,7 @@ class PlaylistController extends ChangeNotifier {
     required String name,
     required PlaylistType type,
     String? url,
+    List<String>? additionalUrls,
     String? username,
     String? password,
   }) async {
@@ -90,6 +91,7 @@ class PlaylistController extends ChangeNotifier {
         name: name.trim(),
         type: type,
         url: url?.trim(),
+        additionalUrls: additionalUrls ?? const [],
         username: username?.trim(),
         password: password?.trim(),
         createdAt: DateTime.now(),

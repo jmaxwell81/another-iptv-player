@@ -1,18 +1,23 @@
 import 'package:flutter/foundation.dart';
 import 'package:another_iptv_player/database/database.dart';
+import 'package:another_iptv_player/models/category_type.dart';
 import 'package:another_iptv_player/models/content_type.dart';
 import 'package:another_iptv_player/models/epg_channel.dart';
+import 'package:another_iptv_player/models/epg_fetch_status.dart';
 import 'package:another_iptv_player/models/epg_program.dart';
-import 'package:another_iptv_player/models/live_stream.dart';
-import 'package:another_iptv_player/models/m3u_item.dart';
 import 'package:another_iptv_player/models/playlist_model.dart';
 import 'package:another_iptv_player/models/tv_guide_channel.dart';
 import 'package:another_iptv_player/repositories/epg_repository.dart';
 import 'package:another_iptv_player/repositories/hidden_items_repository.dart';
 import 'package:another_iptv_player/repositories/user_preferences.dart';
 import 'package:another_iptv_player/services/app_state.dart';
+import 'package:another_iptv_player/services/auto_combine_service.dart';
 import 'package:another_iptv_player/services/epg_matching_service.dart';
 import 'package:another_iptv_player/services/service_locator.dart';
+import 'package:another_iptv_player/utils/renaming_extension.dart';
+import 'package:another_iptv_player/services/name_tag_cleaner_service.dart';
+import 'package:another_iptv_player/services/renaming_service.dart';
+import 'package:another_iptv_player/services/custom_rename_service.dart';
 
 class TvGuideController extends ChangeNotifier {
   final EpgRepository _epgRepository = EpgRepository();
@@ -25,6 +30,10 @@ class TvGuideController extends ChangeNotifier {
   String? _errorMessage;
   String? _epgStatus;
   bool _isFetchingEpg = false;
+
+  // Enhanced EPG fetch progress tracking
+  EpgFetchProgress? _epgFetchProgress;
+  bool _cancelRequested = false;
 
   // View state
   DateTime _viewStartTime = DateTime.now().subtract(const Duration(minutes: 30));
@@ -44,6 +53,10 @@ class TvGuideController extends ChangeNotifier {
   Set<String> _hiddenCategoryIds = {};
   Set<String> _hiddenCategoryNames = {};
 
+  // Favorites filtering
+  Set<String> _favoritesOnlyCategoryIds = {};
+  Set<String> _favoriteStreamIds = {};
+
   // Data
   List<TvGuideChannel> _channels = [];
 
@@ -52,6 +65,7 @@ class TvGuideController extends ChangeNotifier {
   bool get isFetchingEpg => _isFetchingEpg;
   String? get errorMessage => _errorMessage;
   String? get epgStatus => _epgStatus;
+  EpgFetchProgress? get epgFetchProgress => _epgFetchProgress;
   DateTime get viewStartTime => _viewStartTime;
   int get visibleHours => _visibleHours;
   double get pixelsPerMinute => _pixelsPerMinute;
@@ -95,11 +109,11 @@ class TvGuideController extends ChangeNotifier {
       result = result.where((c) => c.hasEpgData).toList();
     }
 
-    // Filter by search query
+    // Filter by search query (use displayName for cleaned names)
     if (_searchQuery.isNotEmpty) {
       final query = _searchQuery.toLowerCase();
       result = result.where((c) {
-        return c.name.toLowerCase().contains(query) ||
+        return c.displayName.toLowerCase().contains(query) ||
             (c.currentProgram?.title.toLowerCase().contains(query) ?? false);
       }).toList();
     }
@@ -122,51 +136,124 @@ class TvGuideController extends ChangeNotifier {
   /// Whether there's a previous page
   bool get hasPreviousPage => _currentPage > 0;
 
+  /// Cancel the current EPG fetch operation
+  void cancelEpgFetch() {
+    _cancelRequested = true;
+    _notifyIfNotDisposed();
+  }
+
   /// Fetch EPG data for a playlist if needed
   Future<void> fetchEpgData({bool force = false}) async {
     if (_isFetchingEpg) return;
 
     try {
       _isFetchingEpg = true;
+      _cancelRequested = false;
       _epgStatus = 'Checking EPG data...';
       _notifyIfNotDisposed();
 
-      // Fetch for current playlist or all active playlists
-      if (AppState.isCombinedMode) {
-        for (final entry in AppState.activePlaylists.entries) {
-          final playlist = entry.value;
-          _epgStatus = 'Fetching EPG for ${playlist.name}...';
-          _notifyIfNotDisposed();
+      final completedSources = <EpgSourceStatus>[];
 
-          await _epgRepository.fetchAndStoreEpg(
-            playlist,
-            force: force,
-            onProgress: (progress) {
-              _epgStatus = '${playlist.name}: $progress';
-              _notifyIfNotDisposed();
-            },
+      // Get list of playlists to fetch EPG for
+      final playlists = AppState.isCombinedMode
+          ? AppState.activePlaylists.values.toList()
+          : AppState.currentPlaylist != null
+              ? [AppState.currentPlaylist!]
+              : <Playlist>[];
+
+      if (playlists.isEmpty) {
+        _epgStatus = null;
+        _epgFetchProgress = null;
+        return;
+      }
+
+      for (var i = 0; i < playlists.length; i++) {
+        // Check for cancellation
+        if (_cancelRequested) {
+          _epgFetchProgress = _epgFetchProgress?.copyWith(
+            isCancelled: true,
+            completedSources: completedSources,
           );
+          _notifyIfNotDisposed();
+          break;
         }
-      } else if (AppState.currentPlaylist != null) {
-        final playlist = AppState.currentPlaylist!;
-        _epgStatus = 'Fetching EPG for ${playlist.name}...';
+
+        final playlist = playlists[i];
+
+        // Initialize progress for this source
+        _epgFetchProgress = EpgFetchProgress(
+          currentSourceIndex: i,
+          totalSources: playlists.length,
+          currentSource: EpgSourceStatus(
+            playlistId: playlist.id,
+            playlistName: playlist.name,
+            state: EpgFetchState.checking,
+            startTime: DateTime.now(),
+          ),
+          completedSources: completedSources,
+          isCancelled: false,
+        );
+        _epgStatus = 'EPG: Source ${i + 1} of ${playlists.length}';
         _notifyIfNotDisposed();
 
-        await _epgRepository.fetchAndStoreEpg(
+        final result = await _epgRepository.fetchAndStoreEpgWithStatus(
           playlist,
           force: force,
           onProgress: (progress) {
-            _epgStatus = progress;
+            _epgStatus = '${playlist.name}: $progress';
             _notifyIfNotDisposed();
           },
+          onStatusUpdate: (status) {
+            _epgFetchProgress = _epgFetchProgress?.copyWith(
+              currentSource: status,
+            );
+            _notifyIfNotDisposed();
+          },
+          isCancelled: () => _cancelRequested,
         );
+
+        // Determine final state for this source
+        EpgFetchState finalState;
+        if (_cancelRequested || result.message == 'Cancelled') {
+          finalState = EpgFetchState.cancelled;
+        } else if (result.skipped) {
+          finalState = EpgFetchState.skipped;
+        } else if (result.success) {
+          finalState = EpgFetchState.completed;
+        } else {
+          finalState = EpgFetchState.failed;
+        }
+
+        // Check if the error indicates the source was offline
+        final isOffline = result.message.toLowerCase().contains('timeout') ||
+            result.message.toLowerCase().contains('connection') ||
+            result.message.toLowerCase().contains('socket') ||
+            result.message.toLowerCase().contains('offline');
+
+        // Record completion status
+        completedSources.add(EpgSourceStatus(
+          playlistId: playlist.id,
+          playlistName: playlist.name,
+          state: finalState,
+          wasOffline: isOffline,
+          errorMessage: result.success ? null : result.message,
+          progress: 1.0,
+        ));
+
+        // Update progress with completed source
+        _epgFetchProgress = _epgFetchProgress?.copyWith(
+          completedSources: completedSources,
+        );
+        _notifyIfNotDisposed();
       }
 
       _epgStatus = null;
+      _epgFetchProgress = null;
     } catch (e) {
       _epgStatus = 'EPG fetch failed: $e';
     } finally {
       _isFetchingEpg = false;
+      _cancelRequested = false;
       _notifyIfNotDisposed();
     }
   }
@@ -191,8 +278,83 @@ class TvGuideController extends ChangeNotifier {
       final hiddenCategoryNamesList = await UserPreferences.getHiddenCategoryNames();
       _hiddenCategoryIds = hiddenCategoryIdsList.toSet();
       _hiddenCategoryNames = hiddenCategoryNamesList.toSet();
+
+      // Load favorites-only categories
+      final favOnlyCats = await UserPreferences.getFavoritesOnlyCategories();
+      _favoritesOnlyCategoryIds = favOnlyCats.toSet();
+
+      // Load favorite stream IDs for filtering
+      await _loadFavoriteStreamIds();
+
+      // Also apply auto-combine service filtering for non-English categories
+      await _loadAutoCombineHiddenCategories();
     } catch (e) {
       // Hidden data loading failed, continue with empty filters
+    }
+  }
+
+  /// Load favorite stream IDs for filtering
+  Future<void> _loadFavoriteStreamIds() async {
+    _favoriteStreamIds = {};
+    try {
+      final favorites = await _database.getFavoritesByContentType(
+        AppState.currentPlaylist?.id ?? '',
+        ContentType.liveStream,
+      );
+
+      // In combined mode, get favorites from all active playlists
+      if (AppState.isCombinedMode) {
+        for (final playlistId in AppState.activePlaylists.keys) {
+          final playlistFavorites = await _database.getFavoritesByContentType(
+            playlistId,
+            ContentType.liveStream,
+          );
+          for (final fav in playlistFavorites) {
+            _favoriteStreamIds.add(fav.streamId);
+          }
+        }
+      } else {
+        for (final fav in favorites) {
+          _favoriteStreamIds.add(fav.streamId);
+        }
+      }
+    } catch (e) {
+      // Favorites loading failed, continue without filtering
+    }
+  }
+
+  /// Load categories that should be hidden based on auto-combine rules (e.g., non-English)
+  Future<void> _loadAutoCombineHiddenCategories() async {
+    try {
+      final autoCombineService = AutoCombineService();
+      await autoCombineService.initialize();
+
+      if (AppState.isCombinedMode) {
+        for (final playlistId in AppState.activePlaylists.keys) {
+          final categories = await _database.getCategoriesByPlaylist(playlistId);
+          // Filter for live stream categories only (TV Guide is for live content)
+          final liveCategories = categories.where((c) => c.type == CategoryType.live);
+          for (final cat in liveCategories) {
+            if (autoCombineService.shouldHideCategory(cat.categoryName)) {
+              _hiddenCategoryIds.add(cat.categoryId);
+              _hiddenCategoryNames.add(cat.categoryName.toUpperCase());
+            }
+          }
+        }
+      } else if (AppState.currentPlaylist != null) {
+        final playlist = AppState.currentPlaylist!;
+        final categories = await _database.getCategoriesByPlaylist(playlist.id);
+        // Filter for live stream categories only
+        final liveCategories = categories.where((c) => c.type == CategoryType.live);
+        for (final cat in liveCategories) {
+          if (autoCombineService.shouldHideCategory(cat.categoryName)) {
+            _hiddenCategoryIds.add(cat.categoryId);
+            _hiddenCategoryNames.add(cat.categoryName.toUpperCase());
+          }
+        }
+      }
+    } catch (e) {
+      // Auto-combine filtering failed, continue with existing filters
     }
   }
 
@@ -201,12 +363,27 @@ class TvGuideController extends ChangeNotifier {
     _channelsPerPage = await UserPreferences.getTvGuideChannelLimit();
   }
 
+  /// Initialize renaming services for synchronous use
+  Future<void> _initializeRenamingServices() async {
+    try {
+      // Initialize all renaming-related services
+      await NameTagCleanerService().initialize();
+      await RenamingService().loadRules();
+      await CustomRenameService().loadRenames();
+    } catch (e) {
+      // Services may fail to initialize, but continue anyway
+    }
+  }
+
   /// Load channels from active playlists (fetches EPG first if needed)
   /// This is optimized to only load channels for the current page
   Future<void> loadChannels({bool fetchEpgFirst = true, bool resetPage = true}) async {
     try {
       _setLoading(true);
       _setError(null);
+
+      // Initialize renaming services first
+      await _initializeRenamingServices();
 
       // Load settings and hidden data
       await _loadChannelsPerPageSetting();
@@ -237,6 +414,29 @@ class TvGuideController extends ChangeNotifier {
   Future<void> _loadVisibleChannels() async {
     final allVisibleChannels = <TvGuideChannel>[];
 
+    // Time range for EPG programs
+    final timeRangeStart = _viewStartTime.subtract(const Duration(hours: 1));
+    final timeRangeEnd = _viewStartTime.add(Duration(hours: _visibleHours + 1));
+
+    // When not showing channels without EPG, we need to pre-filter by EPG availability
+    // Get EPG channel IDs that have programs for each playlist
+    final playlistEpgChannelIds = <String, Set<String>>{};
+
+    if (!_showChannelsWithoutEpg) {
+      if (AppState.isCombinedMode) {
+        for (final playlistId in AppState.activePlaylists.keys) {
+          final epgIds = await _database.getEpgChannelIdsWithPrograms(
+            playlistId, timeRangeStart, timeRangeEnd);
+          playlistEpgChannelIds[playlistId] = epgIds;
+        }
+      } else if (AppState.currentPlaylist != null) {
+        final playlistId = AppState.currentPlaylist!.id;
+        final epgIds = await _database.getEpgChannelIdsWithPrograms(
+          playlistId, timeRangeStart, timeRangeEnd);
+        playlistEpgChannelIds[playlistId] = epgIds;
+      }
+    }
+
     // Calculate total count first for pagination UI
     int totalCount = 0;
     final playlistCounts = <String, int>{};
@@ -245,6 +445,7 @@ class TvGuideController extends ChangeNotifier {
       for (final entry in AppState.activePlaylists.entries) {
         final playlistId = entry.key;
         final playlist = entry.value;
+        final epgChannelIds = playlistEpgChannelIds[playlistId];
 
         if (playlist.type == PlaylistType.xtream) {
           final count = await _database.countLiveStreamsFiltered(
@@ -252,6 +453,7 @@ class TvGuideController extends ChangeNotifier {
             excludedCategoryIds: _hiddenCategoryIds,
             excludedStreamIds: _hiddenStreamIds,
             searchQuery: _searchQuery.isNotEmpty ? _searchQuery : null,
+            requireEpgChannelIds: epgChannelIds,
           );
           playlistCounts[playlistId] = count;
           totalCount += count;
@@ -268,12 +470,15 @@ class TvGuideController extends ChangeNotifier {
       }
     } else if (AppState.currentPlaylist != null) {
       final playlist = AppState.currentPlaylist!;
+      final epgChannelIds = playlistEpgChannelIds[playlist.id];
+
       if (playlist.type == PlaylistType.xtream) {
         totalCount = await _database.countLiveStreamsFiltered(
           playlist.id,
           excludedCategoryIds: _hiddenCategoryIds,
           excludedStreamIds: _hiddenStreamIds,
           searchQuery: _searchQuery.isNotEmpty ? _searchQuery : null,
+          requireEpgChannelIds: epgChannelIds,
         );
         playlistCounts[playlist.id] = totalCount;
       } else {
@@ -298,10 +503,6 @@ class TvGuideController extends ChangeNotifier {
       return;
     }
 
-    // Load paginated channels and EPG data
-    final timeRangeStart = _viewStartTime.subtract(const Duration(hours: 1));
-    final timeRangeEnd = _viewStartTime.add(Duration(hours: _visibleHours + 1));
-
     // Track how many items to skip/take across playlists
     int skipRemaining = pageOffset;
     int takeRemaining = _channelsPerPage;
@@ -313,6 +514,7 @@ class TvGuideController extends ChangeNotifier {
         final playlistId = entry.key;
         final playlist = entry.value;
         final playlistCount = playlistCounts[playlistId] ?? 0;
+        final epgChannelIds = playlistEpgChannelIds[playlistId];
 
         // Skip this playlist if we still need to skip more than its count
         if (skipRemaining >= playlistCount) {
@@ -327,7 +529,8 @@ class TvGuideController extends ChangeNotifier {
 
         if (playlist.type == PlaylistType.xtream) {
           final channels = await _loadXtreamChannelsPage(
-            playlistId, localOffset, localLimit, timeRangeStart, timeRangeEnd);
+            playlistId, localOffset, localLimit, timeRangeStart, timeRangeEnd,
+            requireEpgChannelIds: epgChannelIds);
           allVisibleChannels.addAll(channels);
         } else {
           final channels = await _loadM3uChannelsPage(
@@ -339,9 +542,12 @@ class TvGuideController extends ChangeNotifier {
       }
     } else if (AppState.currentPlaylist != null) {
       final playlist = AppState.currentPlaylist!;
+      final epgChannelIds = playlistEpgChannelIds[playlist.id];
+
       if (playlist.type == PlaylistType.xtream) {
         final channels = await _loadXtreamChannelsPage(
-          playlist.id, pageOffset, _channelsPerPage, timeRangeStart, timeRangeEnd);
+          playlist.id, pageOffset, _channelsPerPage, timeRangeStart, timeRangeEnd,
+          requireEpgChannelIds: epgChannelIds);
         allVisibleChannels.addAll(channels);
       } else {
         final channels = await _loadM3uChannelsPage(
@@ -350,12 +556,214 @@ class TvGuideController extends ChangeNotifier {
       }
     }
 
-    // Filter by EPG availability if needed
-    if (!_showChannelsWithoutEpg) {
-      _channels = allVisibleChannels.where((c) => c.hasEpgData).toList();
-    } else {
-      _channels = allVisibleChannels;
+    // Apply renaming rules to all channels
+    final renamedChannels = _applyRenamingRules(allVisibleChannels);
+
+    // Filter channels for favorites-only categories
+    final filteredChannels = _filterFavoritesOnlyCategories(renamedChannels);
+
+    // Combine channels with the same display name
+    _channels = _combineChannelsByDisplayName(filteredChannels);
+  }
+
+  /// Filter out non-favorite channels from categories set to show only favorites
+  List<TvGuideChannel> _filterFavoritesOnlyCategories(List<TvGuideChannel> channels) {
+    if (_favoritesOnlyCategoryIds.isEmpty) {
+      return channels;
     }
+
+    return channels.where((channel) {
+      // Get the category ID for this channel
+      final categoryId = channel.liveStream?.categoryId ?? channel.m3uItem?.categoryId;
+
+      // If not in a favorites-only category, keep it
+      if (categoryId == null || !_favoritesOnlyCategoryIds.contains(categoryId)) {
+        return true;
+      }
+
+      // In a favorites-only category - only keep if it's a favorite
+      return _favoriteStreamIds.contains(channel.streamId);
+    }).toList();
+  }
+
+  /// Apply renaming rules (tag cleaning, etc.) to channel names
+  /// Falls back to built-in prefix removal if no renaming occurs
+  List<TvGuideChannel> _applyRenamingRules(List<TvGuideChannel> channels) {
+    return channels.map((channel) {
+      // First try the renaming extension (custom renames, rules, tag cleaner)
+      var displayName = channel.name.applyRenamingRules(
+        contentType: ContentType.liveStream,
+        itemId: channel.streamId,
+        playlistId: channel.playlistId,
+      );
+
+      // If the name wasn't changed by renaming rules, apply built-in cleaning
+      // This ensures prefixes like "US:", "HU:", "UK |" are always removed in TV Guide
+      if (displayName == channel.name) {
+        displayName = _cleanChannelName(channel.name);
+      }
+
+      return channel.copyWith(displayName: displayName);
+    }).toList();
+  }
+
+  /// Clean channel name by removing common prefixes, suffixes, and quality indicators
+  /// This is a fallback when the NameTagCleanerService isn't enabled
+  String _cleanChannelName(String name) {
+    var result = name.trim();
+
+    // Quality indicators to remove
+    const qualityPatterns = [
+      'UHD', '4K', 'FHD', 'HD', 'SD',
+      '2160P', '1080P', '720P', '480P',
+      'HEVC', 'H264', 'H265', 'H.264', 'H.265',
+      'HDR', 'HDR10', 'DOLBY', 'ATMOS',
+    ];
+
+    // Language/country codes to remove
+    const langCountryCodes = [
+      'US', 'USA', 'UK', 'GB', 'CA', 'AU', 'NZ', 'IE',
+      'EN', 'ENGLISH', 'AMERICAN', 'BRITISH',
+      'FR', 'FRENCH', 'ES', 'SPANISH', 'DE', 'GERMAN',
+      'IT', 'ITALIAN', 'PT', 'PORTUGUESE', 'NL', 'DUTCH',
+      'PL', 'POLISH', 'RU', 'RUSSIAN', 'AR', 'ARABIC',
+      'TR', 'TURKISH', 'HU', 'HUNGARIAN',
+    ];
+
+    // Remove bracket tags: [EN], [US], [HD], [4K], [MULTI-SUB], etc.
+    result = result.replaceAll(RegExp(r'\[[^\]]+\]'), '');
+
+    // Remove parenthesis tags: (US), (HD), (EN), (MULTI-SUB), etc.
+    result = result.replaceAll(RegExp(r'\([^)]+\)'), '');
+
+    // Remove common provider/region prefixes (e.g., "SLING:", "US:", "HU:", "UK |", "EN|", "EN -")
+    result = result.replaceAll(RegExp(r'^[A-Za-z]{2,10}\s*[:\|\-]\s*', caseSensitive: false), '');
+
+    // Remove quality indicators anywhere in the name (with word boundaries)
+    for (final quality in qualityPatterns) {
+      // Match quality word with optional surrounding spaces, handling start/end of string
+      result = result.replaceAll(
+        RegExp('\\b$quality\\b', caseSensitive: false),
+        ' ',
+      );
+    }
+
+    // Remove language/country codes at start with separator
+    for (final code in langCountryCodes) {
+      result = result.replaceAll(
+        RegExp('^$code\\s*[:\\|\\-]\\s*', caseSensitive: false),
+        '',
+      );
+    }
+
+    // Remove language/country codes at end with separator
+    for (final code in langCountryCodes) {
+      result = result.replaceAll(
+        RegExp('\\s*[:\\|\\-]\\s*$code\$', caseSensitive: false),
+        '',
+      );
+    }
+
+    // Remove standalone quality/lang codes at start or end (with space separator)
+    final allCodes = [...qualityPatterns, ...langCountryCodes];
+    for (final code in allCodes) {
+      // At start: "HD Channel Name" -> "Channel Name"
+      result = result.replaceAll(
+        RegExp('^$code\\s+', caseSensitive: false),
+        '',
+      );
+      // At end: "Channel Name HD" -> "Channel Name"
+      result = result.replaceAll(
+        RegExp('\\s+$code\$', caseSensitive: false),
+        '',
+      );
+    }
+
+    // Remove superscript markers like ᴿᴬᵂ
+    result = result.replaceAll(RegExp(r'[ᴬᴮᴰᴱᴳᴴᴵᴶᴷᴸᴹᴺᴼᴾᴿˢᵀᵁⱽᵂˣʸᶻ]+'), '');
+
+    // Clean up separators and whitespace
+    result = result.replaceAll(RegExp(r'\s*[:\|\-]\s*[:\|\-]\s*'), ' '); // Double separators
+    result = result.replaceAll(RegExp(r'^[\s:\|\-]+'), ''); // Leading separators
+    result = result.replaceAll(RegExp(r'[\s:\|\-]+$'), ''); // Trailing separators
+    result = result.replaceAll(RegExp(r'\s{2,}'), ' '); // Multiple spaces
+
+    return result.trim();
+  }
+
+  /// Combine channels that have the same display name into a single entry
+  /// This merges EPG programs and keeps the channel with the most EPG data as primary
+  List<TvGuideChannel> _combineChannelsByDisplayName(List<TvGuideChannel> channels) {
+    // Group channels by lowercase display name for case-insensitive matching
+    final groupedByName = <String, List<TvGuideChannel>>{};
+
+    for (final channel in channels) {
+      final key = channel.displayName.toLowerCase().trim();
+      groupedByName.putIfAbsent(key, () => []).add(channel);
+    }
+
+    // Combine groups into single channels
+    final combinedChannels = <TvGuideChannel>[];
+
+    for (final group in groupedByName.values) {
+      if (group.length == 1) {
+        // No duplicates, keep as-is
+        combinedChannels.add(group.first);
+      } else {
+        // Combine multiple channels with the same name
+        combinedChannels.add(_mergeChannelGroup(group));
+      }
+    }
+
+    // Sort by display name to maintain consistent order
+    combinedChannels.sort((a, b) =>
+        a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()));
+
+    return combinedChannels;
+  }
+
+  /// Merge a group of channels with the same display name into one
+  TvGuideChannel _mergeChannelGroup(List<TvGuideChannel> group) {
+    // Sort by EPG program count (descending) to pick the best primary
+    group.sort((a, b) => b.programs.length.compareTo(a.programs.length));
+
+    final primary = group.first;
+
+    // Collect all unique programs from all channels
+    final allPrograms = <EpgProgram>[];
+    final seenProgramKeys = <String>{};
+
+    for (final channel in group) {
+      for (final program in channel.programs) {
+        // Use start time + title as unique key to deduplicate
+        final key = '${program.startTime.toIso8601String()}_${program.title}';
+        if (!seenProgramKeys.contains(key)) {
+          seenProgramKeys.add(key);
+          allPrograms.add(program);
+        }
+      }
+    }
+
+    // Sort programs by start time
+    allPrograms.sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    // Pick the best icon (prefer non-null, non-empty)
+    String? bestIcon = primary.icon;
+    if (bestIcon == null || bestIcon.isEmpty) {
+      for (final channel in group) {
+        if (channel.icon != null && channel.icon!.isNotEmpty) {
+          bestIcon = channel.icon;
+          break;
+        }
+      }
+    }
+
+    // Create combined channel with all sources stored
+    return primary.copyWith(
+      programs: allPrograms,
+      icon: bestIcon,
+      combinedSources: group,
+    );
   }
 
   /// Load a page of Xtream channels with EPG data
@@ -364,8 +772,9 @@ class TvGuideController extends ChangeNotifier {
     int offset,
     int limit,
     DateTime timeRangeStart,
-    DateTime timeRangeEnd,
-  ) async {
+    DateTime timeRangeEnd, {
+    Set<String>? requireEpgChannelIds,
+  }) async {
     final liveStreams = await _database.getLiveStreamsPaginated(
       playlistId,
       offset: offset,
@@ -373,6 +782,7 @@ class TvGuideController extends ChangeNotifier {
       excludedCategoryIds: _hiddenCategoryIds,
       excludedStreamIds: _hiddenStreamIds,
       searchQuery: _searchQuery.isNotEmpty ? _searchQuery : null,
+      requireEpgChannelIds: requireEpgChannelIds,
     );
 
     if (liveStreams.isEmpty) return [];

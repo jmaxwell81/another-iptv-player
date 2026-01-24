@@ -1,218 +1,289 @@
 import 'package:flutter/foundation.dart';
-import 'package:another_iptv_player/models/parental_settings.dart';
-import 'package:another_iptv_player/repositories/user_preferences.dart';
+import '../models/parental_control.dart';
+import '../models/content_type.dart';
+import '../models/playlist_content_model.dart';
+import '../models/category.dart' as models;
+import '../repositories/parental_control_repository.dart';
+import 'event_bus.dart';
 
-/// Service for managing parental controls
-/// When parentModeActive is false, adult/locked content is hidden
-/// When parentModeActive is true, all content is visible
+/// Service for managing parental controls and content filtering
 class ParentalControlService extends ChangeNotifier {
   static final ParentalControlService _instance = ParentalControlService._internal();
   factory ParentalControlService() => _instance;
   ParentalControlService._internal();
 
-  ParentalSettings _settings = ParentalSettings();
-  bool _parentModeActive = false;
+  ParentalControlSettings _settings = const ParentalControlSettings();
+  List<ParentalBlockedCategory> _blockedCategories = [];
   bool _isInitialized = false;
 
-  ParentalSettings get settings => _settings;
-  bool get parentModeActive => _parentModeActive;
-  bool get isEnabled => _settings.isEnabled;
-  bool get isInitialized => _isInitialized;
+  ParentalControlSettings get settings => _settings;
+  List<ParentalBlockedCategory> get blockedCategories => _blockedCategories;
+  bool get isEnabled => _settings.enabled;
+  bool get isUnlocked => _settings.isUnlocked;
+  bool get hasPin => _settings.pin != null && _settings.pin!.isNotEmpty;
 
-  /// Initialize the service by loading settings
+  /// Initialize the service
   Future<void> initialize() async {
     if (_isInitialized) return;
     await _loadSettings();
     _isInitialized = true;
   }
 
+  /// Load settings from repository
   Future<void> _loadSettings() async {
-    _settings = await UserPreferences.getParentalSettings();
+    _settings = await ParentalControlRepository.getSettings();
+    _blockedCategories = await ParentalControlRepository.getBlockedCategories();
     notifyListeners();
   }
 
-  Future<void> _saveSettings() async {
-    await UserPreferences.setParentalSettings(_settings);
-    notifyListeners();
+  /// Refresh settings
+  Future<void> refresh() async {
+    await _loadSettings();
   }
 
-  /// Verify PIN and enter parent mode if correct
-  bool verifyPin(String enteredPin) {
-    if (enteredPin == _settings.pin) {
-      _parentModeActive = true;
-      notifyListeners();
+  /// Enable parental controls
+  Future<void> enable() async {
+    await ParentalControlRepository.setEnabled(true);
+    await _loadSettings();
+    EventBus().emit('parental_controls_changed', true);
+  }
+
+  /// Disable parental controls
+  Future<void> disable() async {
+    await ParentalControlRepository.setEnabled(false);
+    await _loadSettings();
+    EventBus().emit('parental_controls_changed', false);
+  }
+
+  /// Set PIN
+  Future<void> setPin(String pin) async {
+    await ParentalControlRepository.setPin(pin);
+    await _loadSettings();
+  }
+
+  /// Verify PIN
+  Future<bool> verifyPin(String pin) async {
+    return await ParentalControlRepository.verifyPin(pin);
+  }
+
+  /// Unlock (show parental content)
+  Future<void> unlock() async {
+    await ParentalControlRepository.unlock();
+    await _loadSettings();
+    EventBus().emit('parental_controls_unlocked', null);
+  }
+
+  /// Lock (hide parental content)
+  Future<void> lock() async {
+    await ParentalControlRepository.lock();
+    await _loadSettings();
+    EventBus().emit('parental_controls_locked', null);
+  }
+
+  /// Add a blocked keyword
+  Future<void> addBlockedKeyword(String keyword) async {
+    await ParentalControlRepository.addBlockedKeyword(keyword);
+    await _loadSettings();
+    EventBus().emit('parental_controls_changed', null);
+  }
+
+  /// Remove a blocked keyword
+  Future<void> removeBlockedKeyword(String keyword) async {
+    await ParentalControlRepository.removeBlockedKeyword(keyword);
+    await _loadSettings();
+    EventBus().emit('parental_controls_changed', null);
+  }
+
+  /// Add a blocked category
+  Future<void> addBlockedCategory(String categoryId, String name, ContentType contentType) async {
+    await ParentalControlRepository.addBlockedCategory(categoryId);
+
+    final category = ParentalBlockedCategory(
+      id: categoryId,
+      name: name,
+      contentType: contentType,
+    );
+    final categories = [..._blockedCategories];
+    if (!categories.any((c) => c.id == categoryId)) {
+      categories.add(category);
+      await ParentalControlRepository.saveBlockedCategories(categories);
+    }
+
+    await _loadSettings();
+    EventBus().emit('parental_controls_changed', null);
+  }
+
+  /// Remove a blocked category
+  Future<void> removeBlockedCategory(String categoryId) async {
+    await ParentalControlRepository.removeBlockedCategory(categoryId);
+
+    final categories = _blockedCategories.where((c) => c.id != categoryId).toList();
+    await ParentalControlRepository.saveBlockedCategories(categories);
+
+    await _loadSettings();
+    EventBus().emit('parental_controls_changed', null);
+  }
+
+  /// Get category ID from a ContentItem
+  String? _getCategoryIdFromItem(ContentItem item) {
+    // Try to get categoryId from the underlying stream objects
+    if (item.liveStream != null) {
+      return item.liveStream!.categoryId;
+    } else if (item.vodStream != null) {
+      return item.vodStream!.categoryId;
+    } else if (item.seriesStream != null) {
+      return item.seriesStream!.categoryId;
+    } else if (item.m3uItem != null) {
+      return item.m3uItem!.groupTitle;
+    }
+    return null;
+  }
+
+  /// Add a blocked item
+  Future<void> addBlockedItem(ContentItem item) async {
+    final blockedItem = ParentalBlockedItem(
+      id: item.id,
+      name: item.name,
+      contentType: item.contentType,
+      categoryId: _getCategoryIdFromItem(item),
+      imagePath: item.imagePath,
+    );
+    await ParentalControlRepository.addBlockedItem(blockedItem);
+    await _loadSettings();
+    EventBus().emit('parental_controls_changed', null);
+  }
+
+  /// Remove a blocked item
+  Future<void> removeBlockedItem(String id, ContentType contentType) async {
+    await ParentalControlRepository.removeBlockedItem(id, contentType);
+    await _loadSettings();
+    EventBus().emit('parental_controls_changed', null);
+  }
+
+  /// Check if content should be hidden
+  bool shouldHideContent(ContentItem item) {
+    if (!_settings.enabled) return false;
+    if (_settings.isUnlocked) return false;
+    return isContentBlocked(item);
+  }
+
+  /// Check if content is blocked (regardless of unlock state)
+  bool isContentBlocked(ContentItem item) {
+    if (_settings.blockedItems.any((blocked) =>
+        blocked.id == item.id && blocked.contentType == item.contentType)) {
       return true;
     }
-    return false;
-  }
 
-  /// Exit parent mode (re-enable content filtering)
-  void exitParentMode() {
-    _parentModeActive = false;
-    notifyListeners();
-  }
-
-  /// Change the PIN (requires current PIN verification)
-  Future<bool> changePin(String currentPin, String newPin) async {
-    if (currentPin != _settings.pin) return false;
-    if (newPin.length != 4 || !RegExp(r'^\d{4}$').hasMatch(newPin)) return false;
-
-    _settings = _settings.copyWith(pin: newPin);
-    await _saveSettings();
-    return true;
-  }
-
-  /// Reset PIN to default (0000) - emergency reset
-  Future<void> resetPinToDefault() async {
-    _settings = _settings.copyWith(pin: '0000');
-    await _saveSettings();
-  }
-
-  /// Enable or disable parental controls entirely
-  Future<void> setEnabled(bool enabled) async {
-    _settings = _settings.copyWith(isEnabled: enabled);
-    await _saveSettings();
-  }
-
-  /// Enable or disable auto-lock for adult content
-  Future<void> setAutoLockAdultContent(bool autoLock) async {
-    _settings = _settings.copyWith(autoLockAdultContent: autoLock);
-    await _saveSettings();
-  }
-
-  /// Add a keyword to the blocked list
-  Future<void> addBlockedKeyword(String keyword) async {
-    if (keyword.trim().isEmpty) return;
-    final keywords = List<String>.from(_settings.blockedKeywords);
-    final lowerKeyword = keyword.toLowerCase().trim();
-    if (!keywords.any((k) => k.toLowerCase() == lowerKeyword)) {
-      keywords.add(keyword.trim());
-      _settings = _settings.copyWith(blockedKeywords: keywords);
-      await _saveSettings();
+    final categoryId = _getCategoryIdFromItem(item);
+    if (categoryId != null &&
+        _settings.blockedCategoryIds.contains(categoryId)) {
+      return true;
     }
-  }
 
-  /// Remove a keyword from the blocked list
-  Future<void> removeBlockedKeyword(String keyword) async {
-    final keywords = List<String>.from(_settings.blockedKeywords);
-    keywords.removeWhere((k) => k.toLowerCase() == keyword.toLowerCase());
-    _settings = _settings.copyWith(blockedKeywords: keywords);
-    await _saveSettings();
-  }
+    final nameLower = item.name.toLowerCase();
+    for (final keyword in _settings.blockedKeywords) {
+      if (nameLower.contains(keyword.toLowerCase())) {
+        return true;
+      }
+    }
 
-  /// Reset keywords to default adult content keywords
-  Future<void> resetKeywordsToDefault() async {
-    _settings = _settings.copyWith(
-      blockedKeywords: List.from(ParentalSettings.defaultAdultKeywords),
-    );
-    await _saveSettings();
-  }
-
-  /// Lock a specific category
-  Future<void> lockCategory(String categoryId) async {
-    final locked = Set<String>.from(_settings.lockedCategoryIds);
-    locked.add(categoryId);
-    _settings = _settings.copyWith(lockedCategoryIds: locked);
-    await _saveSettings();
-  }
-
-  /// Unlock a specific category
-  Future<void> unlockCategory(String categoryId) async {
-    final locked = Set<String>.from(_settings.lockedCategoryIds);
-    locked.remove(categoryId);
-    _settings = _settings.copyWith(lockedCategoryIds: locked);
-    await _saveSettings();
-  }
-
-  /// Lock a specific content item
-  Future<void> lockContent(String contentId) async {
-    final locked = Set<String>.from(_settings.lockedContentIds);
-    locked.add(contentId);
-    _settings = _settings.copyWith(lockedContentIds: locked);
-    await _saveSettings();
-  }
-
-  /// Unlock a specific content item
-  Future<void> unlockContent(String contentId) async {
-    final locked = Set<String>.from(_settings.lockedContentIds);
-    locked.remove(contentId);
-    _settings = _settings.copyWith(lockedContentIds: locked);
-    await _saveSettings();
-  }
-
-  /// Check if content is locked (returns true if content should be hidden)
-  bool isContentLocked(String contentId) {
-    return _settings.lockedContentIds.contains(contentId);
-  }
-
-  /// Check if category is locked
-  bool isCategoryLocked(String categoryId) {
-    return _settings.lockedCategoryIds.contains(categoryId);
-  }
-
-  /// Check if content should be hidden based on current mode and settings
-  /// Returns true if content should be HIDDEN
-  bool shouldHideContent({
-    required String contentId,
-    required String contentName,
-    String? categoryId,
-    String? categoryName,
-  }) {
-    // If parental controls are disabled, nothing is hidden
-    if (!_settings.isEnabled) return false;
-
-    // If parent mode is active, nothing is hidden
-    if (_parentModeActive) return false;
-
-    // Check if content should be hidden
-    return _settings.shouldHideContent(
-      contentId: contentId,
-      contentName: contentName,
-      categoryId: categoryId,
-      categoryName: categoryName,
-    );
+    return false;
   }
 
   /// Check if a category should be hidden
   bool shouldHideCategory(String categoryId, String categoryName) {
-    if (!_settings.isEnabled) return false;
-    if (_parentModeActive) return false;
+    if (!_settings.enabled) return false;
+    if (_settings.isUnlocked) return false;
+    return isCategoryBlocked(categoryId, categoryName);
+  }
 
-    // Check if category is manually locked
-    if (_settings.isCategoryLocked(categoryId)) return true;
+  /// Check if a category is blocked
+  bool isCategoryBlocked(String categoryId, String categoryName) {
+    if (_settings.blockedCategoryIds.contains(categoryId)) {
+      return true;
+    }
 
-    // Check keyword matches
-    if (_settings.isCategoryBlocked(categoryName)) return true;
+    final nameLower = categoryName.toLowerCase();
+    for (final keyword in _settings.blockedKeywords) {
+      if (nameLower.contains(keyword.toLowerCase())) {
+        return true;
+      }
+    }
 
     return false;
   }
 
-  /// Filter a list of content items, removing those that should be hidden
-  List<T> filterContent<T>(
-    List<T> items, {
-    required String Function(T) getId,
-    required String Function(T) getName,
-    String? Function(T)? getCategoryId,
-    String? Function(T)? getCategoryName,
-  }) {
-    if (!_settings.isEnabled || _parentModeActive) return items;
-
-    return items.where((item) {
-      return !shouldHideContent(
-        contentId: getId(item),
-        contentName: getName(item),
-        categoryId: getCategoryId?.call(item),
-        categoryName: getCategoryName?.call(item),
-      );
-    }).toList();
+  /// Filter a list of content items
+  List<ContentItem> filterContent(List<ContentItem> items) {
+    if (!_settings.enabled) return items;
+    if (_settings.isUnlocked) return items;
+    return items.where((item) => !isContentBlocked(item)).toList();
   }
 
-  /// Get list of all blocked keywords
-  List<String> get blockedKeywords => List.unmodifiable(_settings.blockedKeywords);
+  /// Filter a list of categories
+  List<models.Category> filterCategories(List<models.Category> categories) {
+    if (!_settings.enabled) return categories;
+    if (_settings.isUnlocked) return categories;
+    return categories
+        .where((models.Category cat) => !isCategoryBlocked(cat.categoryId, cat.categoryName))
+        .toList();
+  }
 
-  /// Get count of manually locked categories
-  int get lockedCategoryCount => _settings.lockedCategoryIds.length;
+  /// Get blocked content items
+  List<ContentItem> getBlockedContent(List<ContentItem> allItems) {
+    return allItems.where((item) => isContentBlocked(item)).toList();
+  }
 
-  /// Get count of manually locked content items
-  int get lockedContentCount => _settings.lockedContentIds.length;
+  /// Separate content into regular and blocked
+  (List<ContentItem>, List<ContentItem>) separateContent(List<ContentItem> items) {
+    if (!_settings.enabled) {
+      return (items, []);
+    }
+
+    final regular = <ContentItem>[];
+    final blocked = <ContentItem>[];
+
+    for (final item in items) {
+      if (isContentBlocked(item)) {
+        blocked.add(item);
+      } else {
+        regular.add(item);
+      }
+    }
+
+    return (regular, blocked);
+  }
+
+  /// Separate categories into regular and blocked
+  (List<models.Category>, List<models.Category>) separateCategories(List<models.Category> categories) {
+    if (!_settings.enabled) {
+      return (categories, []);
+    }
+
+    final regular = <models.Category>[];
+    final blocked = <models.Category>[];
+
+    for (final category in categories) {
+      if (isCategoryBlocked(category.categoryId, category.categoryName)) {
+        blocked.add(category);
+      } else {
+        regular.add(category);
+      }
+    }
+
+    return (regular, blocked);
+  }
+
+  /// Set lock timeout
+  Future<void> setLockTimeout(int minutes) async {
+    await ParentalControlRepository.setLockTimeout(minutes);
+    await _loadSettings();
+  }
+
+  /// Clear all settings
+  Future<void> clearAll() async {
+    await ParentalControlRepository.clearAll();
+    await _loadSettings();
+    EventBus().emit('parental_controls_changed', null);
+  }
 }

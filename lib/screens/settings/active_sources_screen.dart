@@ -24,6 +24,15 @@ class _ActiveSourcesScreenState extends State<ActiveSourcesScreen> {
   bool _isLoading = true;
   bool _isActivating = false;
 
+  // Track if changes were made while in combined mode
+  bool get _hasUnappliedChanges {
+    if (!AppState.isCombinedMode) return false;
+    final currentActiveIds = AppState.activePlaylists.keys.toSet();
+    final selectedIds = _service.activePlaylistIds.toSet();
+    return !currentActiveIds.containsAll(selectedIds) ||
+           !selectedIds.containsAll(currentActiveIds);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -181,7 +190,9 @@ class _ActiveSourcesScreenState extends State<ActiveSourcesScreen> {
                   const SizedBox(height: 8),
                   Text(
                     AppState.isCombinedMode
-                        ? '${AppState.activePlaylists.length} playlists are being combined. Categories with the same name will be merged.'
+                        ? _hasUnappliedChanges
+                            ? 'Selection changed. Tap "Apply Changes" to update combined sources.'
+                            : '${AppState.activePlaylists.length} playlists are being combined. Add or remove sources below.'
                         : 'Select at least 2 playlists below, then tap "Activate Combined Mode" to merge their content.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
@@ -201,6 +212,38 @@ class _ActiveSourcesScreenState extends State<ActiveSourcesScreen> {
                         label: Text(_isActivating ? 'Activating...' : 'Activate Combined Mode'),
                       ),
                     ),
+                  ],
+                  // Show "Apply Changes" button when in combined mode and selection changed
+                  if (AppState.isCombinedMode && _hasUnappliedChanges) ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _service.activeCount >= 2 && !_isActivating
+                            ? _activateCombinedMode
+                            : null,
+                        icon: _isActivating
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.refresh),
+                        label: Text(_isActivating
+                            ? 'Applying...'
+                            : 'Apply Changes (${_service.activeCount} sources)'),
+                      ),
+                    ),
+                    if (_service.activeCount < 2)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          'Select at least 2 playlists to apply changes',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
                   ],
                 ],
               ),
@@ -283,12 +326,11 @@ class _ActiveSourcesScreenState extends State<ActiveSourcesScreen> {
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (!AppState.isCombinedMode)
-                            IconButton(
-                              icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-                              onPressed: () => _togglePlaylist(playlist),
-                              tooltip: 'Remove from combined',
-                            ),
+                          IconButton(
+                            icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                            onPressed: () => _togglePlaylist(playlist),
+                            tooltip: 'Remove from combined',
+                          ),
                           ReorderableDragStartListener(
                             index: index,
                             child: const Icon(Icons.drag_handle),
@@ -402,9 +444,7 @@ class _ActiveSourcesScreenState extends State<ActiveSourcesScreen> {
                           ),
                           trailing: Switch(
                             value: isActive,
-                            onChanged: AppState.isCombinedMode
-                                ? null // Disable switching when combined mode is active
-                                : (_) => _togglePlaylist(playlist),
+                            onChanged: (_) => _togglePlaylist(playlist),
                           ),
                         ),
                       );

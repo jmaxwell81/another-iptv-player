@@ -11,6 +11,7 @@ import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/utils/navigate_by_content_type.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
 import 'package:another_iptv_player/models/content_type.dart';
+import 'package:another_iptv_player/widgets/epg_loading_status_widget.dart';
 import 'package:another_iptv_player/widgets/tv_guide/tv_guide_program_cell.dart';
 import 'package:another_iptv_player/widgets/player_widget.dart';
 
@@ -122,7 +123,13 @@ class _TvGuideScreenState extends State<TvGuideScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(context.loc.tv_guide),
-          if (controller.epgStatus != null)
+          // Show compact EPG fetch progress in title area
+          if (controller.epgFetchProgress != null)
+            EpgLoadingStatusCompact(
+              progress: controller.epgFetchProgress!,
+              onCancel: controller.cancelEpgFetch,
+            )
+          else if (controller.epgStatus != null)
             Text(
               controller.epgStatus!,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -270,6 +277,12 @@ class _TvGuideScreenState extends State<TvGuideScreen> {
         // Preview panel (when auto-preview is on and a channel is selected)
         if (_autoPreview && _selectedChannel != null)
           _buildPreviewPanel(context),
+        // EPG loading status widget (when fetching EPG data)
+        if (controller.epgFetchProgress != null)
+          EpgLoadingStatusWidget(
+            progress: controller.epgFetchProgress!,
+            onCancel: controller.cancelEpgFetch,
+          ),
         // Time navigation bar
         _buildTimeNavBar(context, controller),
         // Pagination bar
@@ -290,7 +303,7 @@ class _TvGuideScreenState extends State<TvGuideScreen> {
     // Create ContentItem from TvGuideChannel for player
     final contentItem = ContentItem(
       channel.streamId,
-      channel.name,
+      channel.displayName,  // Use cleaned display name
       channel.icon ?? '',
       ContentType.liveStream,
       liveStream: channel.liveStream,
@@ -354,9 +367,9 @@ class _TvGuideScreenState extends State<TvGuideScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Channel name
+                  // Channel name (use displayName for cleaned version)
                   Text(
-                    channel.name,
+                    channel.displayName,
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -464,7 +477,7 @@ class _TvGuideScreenState extends State<TvGuideScreen> {
 
     final contentItem = ContentItem(
       channel.streamId,
-      channel.name,
+      channel.displayName,  // Use cleaned display name
       channel.icon ?? '',
       ContentType.liveStream,
       liveStream: channel.liveStream,
@@ -681,7 +694,7 @@ class _TvGuideScreenState extends State<TvGuideScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    channel.name,
+                    channel.displayName,
                     style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

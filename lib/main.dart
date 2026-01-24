@@ -1,17 +1,21 @@
+import 'dart:io';
 import 'package:another_iptv_player/controllers/playlist_controller.dart';
 import 'package:another_iptv_player/screens/app_initializer_screen.dart';
 import 'package:another_iptv_player/screens/stream_server_screen.dart';
 import 'package:another_iptv_player/services/category_config_service.dart';
 import 'package:another_iptv_player/services/custom_rename_service.dart';
 import 'package:another_iptv_player/services/failed_domain_cache.dart';
+import 'package:another_iptv_player/services/fullscreen_service.dart';
 import 'package:another_iptv_player/services/renaming_service.dart';
 import 'package:another_iptv_player/services/timeshift_service.dart';
 import 'package:another_iptv_player/services/vpn_detection_service.dart';
+import 'package:another_iptv_player/services/name_tag_cleaner_service.dart';
 import 'package:another_iptv_player/widgets/vpn_status_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:another_iptv_player/services/service_locator.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:window_manager/window_manager.dart';
 import 'controllers/locale_provider.dart';
 import 'controllers/theme_provider.dart';
 import 'l10n/app_localizations.dart';
@@ -19,6 +23,13 @@ import 'l10n/supported_languages.dart';
 import 'utils/app_themes.dart';
 
 Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize window manager for desktop platforms
+  if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+    await windowManager.ensureInitialized();
+  }
+
   await setupServiceLocator();
   await RenamingService().loadRules();
   await CustomRenameService().loadRenames();
@@ -26,6 +37,8 @@ Future<void> main() async {
   await VpnDetectionService().initialize();
   await FailedDomainCache().initialize();
   await TimeshiftService().initialize();
+  await NameTagCleanerService().initialize();
+  await FullscreenService().initialize();
   runApp(
     MultiProvider(
       providers: [

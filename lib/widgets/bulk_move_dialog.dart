@@ -4,8 +4,18 @@ import 'package:another_iptv_player/models/content_type.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
 import 'package:another_iptv_player/services/custom_category_service.dart';
 
+/// Sort options for the bulk add dialog
+enum BulkSortOption {
+  nameAsc,
+  nameDesc,
+  ratingAsc,
+  ratingDesc,
+  genreAsc,
+  genreDesc,
+}
+
 /// Dialog for searching and bulk moving items into custom categories.
-/// Features pagination, search, and content type filtering.
+/// Features pagination, search, sorting, filtering, and multi-category selection.
 class BulkMoveDialog extends StatefulWidget {
   /// All available content items to search from
   final List<ContentItem> allItems;
@@ -61,15 +71,23 @@ class _BulkMoveDialogState extends State<BulkMoveDialog> {
 
   // Filtering
   ContentType? _selectedTypeFilter;
+  double? _minRatingFilter;
+  String? _genreFilter;
+
+  // Sorting
+  BulkSortOption _sortOption = BulkSortOption.nameAsc;
 
   // Results
   List<ContentItem> _filteredItems = [];
   Set<String> _selectedItems = {};
 
-  // Category selection
-  String? _selectedTargetCategoryId;
+  // Multi-category selection
+  Set<String> _selectedTargetCategoryIds = {};
   bool _isCreatingCategory = false;
   final _newCategoryController = TextEditingController();
+
+  // Available genres (extracted from items)
+  List<String> _availableGenres = [];
 
   @override
   void initState() {
@@ -78,11 +96,14 @@ class _BulkMoveDialogState extends State<BulkMoveDialog> {
 
     // Pre-select category if provided
     if (widget.preSelectedCategoryId != null) {
-      _selectedTargetCategoryId = widget.preSelectedCategoryId;
+      _selectedTargetCategoryIds.add(widget.preSelectedCategoryId!);
     }
 
     // Set initial type filter from widget
     _selectedTypeFilter = widget.contentType;
+
+    // Extract available genres
+    _extractGenres();
 
     // Load initial items
     _applyFilters();
@@ -94,6 +115,41 @@ class _BulkMoveDialogState extends State<BulkMoveDialog> {
     _newCategoryController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _extractGenres() {
+    final genres = <String>{};
+    for (final item in widget.allItems) {
+      final genre = _getItemGenre(item);
+      if (genre != null && genre.isNotEmpty) {
+        // Split genres by comma and add each one
+        for (final g in genre.split(',')) {
+          final trimmed = g.trim();
+          if (trimmed.isNotEmpty) {
+            genres.add(trimmed);
+          }
+        }
+      }
+    }
+    _availableGenres = genres.toList()..sort();
+  }
+
+  String? _getItemGenre(ContentItem item) {
+    if (item.vodStream != null) {
+      return item.vodStream!.genre;
+    } else if (item.seriesStream != null) {
+      return item.seriesStream!.genre;
+    }
+    return null;
+  }
+
+  double? _getItemRating(ContentItem item) {
+    if (item.vodStream != null) {
+      return item.vodStream!.rating5based;
+    } else if (item.seriesStream != null) {
+      return item.seriesStream!.rating5based;
+    }
+    return null;
   }
 
   void _applyFilters() {
@@ -114,6 +170,11 @@ class _BulkMoveDialogState extends State<BulkMoveDialog> {
         if (item.name.toLowerCase().contains(searchPattern)) {
           return true;
         }
+        // Search in genre
+        final genre = _getItemGenre(item);
+        if (genre != null && genre.toLowerCase().contains(searchPattern)) {
+          return true;
+        }
         // Search in category names
         for (final entry in widget.itemsByCategory.entries) {
           if (entry.key.toLowerCase().contains(searchPattern) &&
@@ -125,15 +186,70 @@ class _BulkMoveDialogState extends State<BulkMoveDialog> {
       }).toList();
     }
 
-    // Remove duplicates and sort
+    // Filter by minimum rating
+    if (_minRatingFilter != null) {
+      items = items.where((item) {
+        final rating = _getItemRating(item);
+        return rating != null && rating >= _minRatingFilter!;
+      }).toList();
+    }
+
+    // Filter by genre
+    if (_genreFilter != null && _genreFilter!.isNotEmpty) {
+      items = items.where((item) {
+        final genre = _getItemGenre(item);
+        if (genre == null) return false;
+        return genre.toLowerCase().contains(_genreFilter!.toLowerCase());
+      }).toList();
+    }
+
+    // Remove duplicates
     final uniqueItems = <String, ContentItem>{};
     for (final item in items) {
       uniqueItems[item.id] = item;
     }
 
+    // Sort items
+    var sortedItems = uniqueItems.values.toList();
+    switch (_sortOption) {
+      case BulkSortOption.nameAsc:
+        sortedItems.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        break;
+      case BulkSortOption.nameDesc:
+        sortedItems.sort((a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
+        break;
+      case BulkSortOption.ratingAsc:
+        sortedItems.sort((a, b) {
+          final ratingA = _getItemRating(a) ?? 0;
+          final ratingB = _getItemRating(b) ?? 0;
+          return ratingA.compareTo(ratingB);
+        });
+        break;
+      case BulkSortOption.ratingDesc:
+        sortedItems.sort((a, b) {
+          final ratingA = _getItemRating(a) ?? 0;
+          final ratingB = _getItemRating(b) ?? 0;
+          return ratingB.compareTo(ratingA);
+        });
+        break;
+      case BulkSortOption.genreAsc:
+        sortedItems.sort((a, b) {
+          final genreA = _getItemGenre(a) ?? '';
+          final genreB = _getItemGenre(b) ?? '';
+          return genreA.toLowerCase().compareTo(genreB.toLowerCase());
+        });
+        break;
+      case BulkSortOption.genreDesc:
+        sortedItems.sort((a, b) {
+          final genreA = _getItemGenre(a) ?? '';
+          final genreB = _getItemGenre(b) ?? '';
+          return genreB.toLowerCase().compareTo(genreA.toLowerCase());
+        });
+        break;
+    }
+
     setState(() {
-      _filteredItems = uniqueItems.values.toList()
-        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      _filteredItems = sortedItems;
       _visibleCount = _pageSize;
     });
   }
@@ -162,7 +278,7 @@ class _BulkMoveDialogState extends State<BulkMoveDialog> {
   }
 
   Future<void> _addItems() async {
-    if (_selectedItems.isEmpty || _selectedTargetCategoryId == null) return;
+    if (_selectedItems.isEmpty || _selectedTargetCategoryIds.isEmpty) return;
 
     final itemsToAdd = widget.allItems
         .where((item) => _selectedItems.contains(item.id))
@@ -176,17 +292,27 @@ class _BulkMoveDialogState extends State<BulkMoveDialog> {
       }
     }
 
-    await _categoryService.addItemsToCategory(
-      _selectedTargetCategoryId!,
-      itemsToAdd,
-      originalCategoryName: originalCategoryName,
-    );
+    // Add items to all selected categories
+    final categoryNames = <String>[];
+    for (final categoryId in _selectedTargetCategoryIds) {
+      await _categoryService.addItemsToCategory(
+        categoryId,
+        itemsToAdd,
+        originalCategoryName: originalCategoryName,
+      );
+      final category = _categoryService.getCategoryById(categoryId);
+      if (category != null) {
+        categoryNames.add(category.name);
+      }
+    }
 
     if (mounted) {
-      final category = _categoryService.getCategoryById(_selectedTargetCategoryId!);
+      final categoriesText = categoryNames.length == 1
+          ? '"${categoryNames.first}"'
+          : '${categoryNames.length} categories';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Added ${_selectedItems.length} items to "${category?.name ?? 'category'}"'),
+          content: Text('Added ${_selectedItems.length} items to $categoriesText'),
         ),
       );
       Navigator.pop(context);
@@ -203,7 +329,7 @@ class _BulkMoveDialogState extends State<BulkMoveDialog> {
     );
 
     setState(() {
-      _selectedTargetCategoryId = category.id;
+      _selectedTargetCategoryIds.add(category.id);
       _isCreatingCategory = false;
       _newCategoryController.clear();
     });
@@ -225,6 +351,54 @@ class _BulkMoveDialogState extends State<BulkMoveDialog> {
     return widget.allItems.where((i) => i.contentType == type).length;
   }
 
+  String _getSortLabel(BulkSortOption option) {
+    switch (option) {
+      case BulkSortOption.nameAsc:
+        return 'Name (A-Z)';
+      case BulkSortOption.nameDesc:
+        return 'Name (Z-A)';
+      case BulkSortOption.ratingAsc:
+        return 'Rating (Low-High)';
+      case BulkSortOption.ratingDesc:
+        return 'Rating (High-Low)';
+      case BulkSortOption.genreAsc:
+        return 'Genre (A-Z)';
+      case BulkSortOption.genreDesc:
+        return 'Genre (Z-A)';
+    }
+  }
+
+  String _buildItemSubtitle(ContentItem item) {
+    final parts = <String>[];
+
+    // Add content type
+    parts.add(_getTypeLabel(item.contentType));
+
+    // Add rating if available
+    final rating = _getItemRating(item);
+    if (rating != null && rating > 0) {
+      parts.add('${rating.toStringAsFixed(1)}/5');
+    }
+
+    // Add genre if available
+    final genre = _getItemGenre(item);
+    if (genre != null && genre.isNotEmpty) {
+      // Truncate long genre strings
+      final displayGenre = genre.length > 30 ? '${genre.substring(0, 27)}...' : genre;
+      parts.add(displayGenre);
+    }
+
+    return parts.join(' • ');
+  }
+
+  String _buildItemTitle(ContentItem item) {
+    final rating = _getItemRating(item);
+    if (rating != null && rating > 0) {
+      return '${item.name} (${rating.toStringAsFixed(1)})';
+    }
+    return item.name;
+  }
+
   @override
   Widget build(BuildContext context) {
     final categories = _categoryService.getCategoriesForType(_selectedTypeFilter ?? widget.contentType);
@@ -234,9 +408,9 @@ class _BulkMoveDialogState extends State<BulkMoveDialog> {
 
     return Dialog(
       child: Container(
-        width: MediaQuery.of(context).size.width * 0.85,
-        height: MediaQuery.of(context).size.height * 0.85,
-        constraints: const BoxConstraints(maxWidth: 800),
+        width: MediaQuery.of(context).size.width * 0.9,
+        height: MediaQuery.of(context).size.height * 0.9,
+        constraints: const BoxConstraints(maxWidth: 900),
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,26 +473,145 @@ class _BulkMoveDialogState extends State<BulkMoveDialog> {
               ),
               const SizedBox(height: 12),
 
-              // Search
-              TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  labelText: 'Search',
-                  hintText: 'Search by name or category...',
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () {
-                            _searchController.clear();
-                            _applyFilters();
-                          },
-                        )
-                      : null,
-                  isDense: true,
-                ),
-                onChanged: (_) => _applyFilters(),
+              // Search and filters row
+              Row(
+                children: [
+                  // Search field
+                  Expanded(
+                    flex: 3,
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        labelText: 'Search',
+                        hintText: 'Search by name, genre, or category...',
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  _applyFilters();
+                                },
+                              )
+                            : null,
+                        isDense: true,
+                      ),
+                      onChanged: (_) => _applyFilters(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Sort dropdown
+                  Expanded(
+                    flex: 2,
+                    child: DropdownButtonFormField<BulkSortOption>(
+                      value: _sortOption,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Sort by',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        prefixIcon: Icon(Icons.sort),
+                      ),
+                      items: BulkSortOption.values.map((option) {
+                        return DropdownMenuItem(
+                          value: option,
+                          child: Text(_getSortLabel(option), style: const TextStyle(fontSize: 13)),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => _sortOption = value);
+                          _applyFilters();
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Advanced filters row
+              Row(
+                children: [
+                  // Rating filter
+                  Expanded(
+                    child: DropdownButtonFormField<double?>(
+                      value: _minRatingFilter,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Min Rating',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        prefixIcon: Icon(Icons.star),
+                      ),
+                      items: [
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('Any'),
+                        ),
+                        ...[1.0, 2.0, 3.0, 3.5, 4.0, 4.5].map((rating) {
+                          return DropdownMenuItem(
+                            value: rating,
+                            child: Text('$rating+'),
+                          );
+                        }),
+                      ],
+                      onChanged: (value) {
+                        setState(() => _minRatingFilter = value);
+                        _applyFilters();
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Genre filter
+                  Expanded(
+                    flex: 2,
+                    child: DropdownButtonFormField<String?>(
+                      value: _genreFilter,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Genre',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        prefixIcon: Icon(Icons.category),
+                      ),
+                      items: [
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('Any Genre'),
+                        ),
+                        ..._availableGenres.map((genre) {
+                          return DropdownMenuItem(
+                            value: genre,
+                            child: Text(
+                              genre.length > 25 ? '${genre.substring(0, 22)}...' : genre,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }),
+                      ],
+                      onChanged: (value) {
+                        setState(() => _genreFilter = value);
+                        _applyFilters();
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Clear filters button
+                  if (_minRatingFilter != null || _genreFilter != null)
+                    TextButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _minRatingFilter = null;
+                          _genreFilter = null;
+                        });
+                        _applyFilters();
+                      },
+                      icon: const Icon(Icons.clear_all, size: 18),
+                      label: const Text('Clear'),
+                    ),
+                ],
               ),
               const SizedBox(height: 8),
 
@@ -351,7 +644,7 @@ class _BulkMoveDialogState extends State<BulkMoveDialog> {
                 child: _filteredItems.isEmpty
                     ? Center(
                         child: Text(
-                          _searchController.text.isEmpty
+                          _searchController.text.isEmpty && _minRatingFilter == null && _genreFilter == null
                               ? 'No items available'
                               : 'No matches found',
                           style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey),
@@ -376,6 +669,7 @@ class _BulkMoveDialogState extends State<BulkMoveDialog> {
 
                           final item = visibleItems[index];
                           final isSelected = _selectedItems.contains(item.id);
+                          final rating = _getItemRating(item);
 
                           return CheckboxListTile(
                             value: isSelected,
@@ -389,18 +683,44 @@ class _BulkMoveDialogState extends State<BulkMoveDialog> {
                               });
                             },
                             title: Text(
-                              item.name,
+                              _buildItemTitle(item),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                             subtitle: Text(
-                              _getTypeLabel(item.contentType),
+                              _buildItemSubtitle(item),
                               style: TextStyle(
-                                color: theme.colorScheme.primary,
+                                color: theme.colorScheme.onSurfaceVariant,
                                 fontSize: 12,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            secondary: _buildItemIcon(item),
+                            secondary: Stack(
+                              children: [
+                                _buildItemIcon(item),
+                                if (rating != null && rating > 0)
+                                  Positioned(
+                                    right: 0,
+                                    bottom: 0,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: _getRatingColor(rating),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        rating.toStringAsFixed(1),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                             dense: true,
                           );
                         },
@@ -409,9 +729,9 @@ class _BulkMoveDialogState extends State<BulkMoveDialog> {
 
               const Divider(),
 
-              // Target category
+              // Target categories (multi-select)
               Text(
-                context.loc.move_to_category,
+                'Add to Categories (select multiple)',
                 style: theme.textTheme.titleSmall,
               ),
               const SizedBox(height: 8),
@@ -448,37 +768,70 @@ class _BulkMoveDialogState extends State<BulkMoveDialog> {
                   ],
                 )
               else
-                Row(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: categories.isEmpty
-                          ? Text(
-                              context.loc.no_custom_categories,
-                              style: const TextStyle(color: Colors.grey),
-                            )
-                          : DropdownButtonFormField<String>(
-                              value: _selectedTargetCategoryId,
-                              isExpanded: true,
-                              decoration: InputDecoration(
-                                border: const OutlineInputBorder(),
-                                isDense: true,
-                                hintText: context.loc.select_category,
+                    if (categories.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text(
+                          context.loc.no_custom_categories,
+                          style: const TextStyle(color: Colors.grey),
+                        ),
+                      )
+                    else
+                      SizedBox(
+                        height: 100,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: categories.length,
+                          itemBuilder: (context, index) {
+                            final category = categories[index];
+                            final isSelected = _selectedTargetCategoryIds.contains(category.id);
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: FilterChip(
+                                avatar: isSelected
+                                    ? const Icon(Icons.check, size: 18)
+                                    : (category.icon != null
+                                        ? Text(category.icon!, style: const TextStyle(fontSize: 16))
+                                        : const Icon(Icons.folder, size: 18)),
+                                label: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      category.name,
+                                      style: TextStyle(
+                                        fontWeight: isSelected ? FontWeight.bold : null,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${category.itemCount} items',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                selected: isSelected,
+                                showCheckmark: false,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    if (selected) {
+                                      _selectedTargetCategoryIds.add(category.id);
+                                    } else {
+                                      _selectedTargetCategoryIds.remove(category.id);
+                                    }
+                                  });
+                                },
                               ),
-                              items: categories.map((c) {
-                                return DropdownMenuItem(
-                                  value: c.id,
-                                  child: Text(
-                                    c.icon != null ? '${c.icon} ${c.name} (${c.itemCount})' : '${c.name} (${c.itemCount})',
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                );
-                              }).toList(),
-                              onChanged: (value) {
-                                setState(() => _selectedTargetCategoryId = value);
-                              },
-                            ),
-                    ),
-                    const SizedBox(width: 8),
+                            );
+                          },
+                        ),
+                      ),
+                    const SizedBox(height: 8),
                     ElevatedButton.icon(
                       onPressed: () => setState(() => _isCreatingCategory = true),
                       icon: const Icon(Icons.add),
@@ -491,19 +844,30 @@ class _BulkMoveDialogState extends State<BulkMoveDialog> {
 
               // Actions
               Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text(context.loc.cancel),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: _selectedItems.isEmpty || _selectedTargetCategoryId == null
-                        ? null
-                        : _addItems,
-                    icon: const Icon(Icons.playlist_add),
-                    label: Text('Add ${_selectedItems.length} Items'),
+                  if (_selectedTargetCategoryIds.isNotEmpty)
+                    Text(
+                      '${_selectedTargetCategoryIds.length} ${_selectedTargetCategoryIds.length == 1 ? 'category' : 'categories'} selected',
+                      style: theme.textTheme.bodySmall,
+                    )
+                  else
+                    const SizedBox.shrink(),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text(context.loc.cancel),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton.icon(
+                        onPressed: _selectedItems.isEmpty || _selectedTargetCategoryIds.isEmpty
+                            ? null
+                            : _addItems,
+                        icon: const Icon(Icons.playlist_add),
+                        label: Text('Add ${_selectedItems.length} to ${_selectedTargetCategoryIds.length} ${_selectedTargetCategoryIds.length == 1 ? 'Category' : 'Categories'}'),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -513,14 +877,21 @@ class _BulkMoveDialogState extends State<BulkMoveDialog> {
       );
   }
 
+  Color _getRatingColor(double rating) {
+    if (rating >= 4.0) return Colors.green;
+    if (rating >= 3.0) return Colors.orange;
+    if (rating >= 2.0) return Colors.deepOrange;
+    return Colors.red;
+  }
+
   Widget _buildItemIcon(ContentItem item) {
     if (item.imagePath.isNotEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(4),
         child: Image.network(
           item.imagePath,
-          width: 40,
-          height: 40,
+          width: 48,
+          height: 48,
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => _buildTypeIcon(item.contentType),
         ),
@@ -544,8 +915,8 @@ class _BulkMoveDialogState extends State<BulkMoveDialog> {
         color = Colors.purple;
     }
     return Container(
-      width: 40,
-      height: 40,
+      width: 48,
+      height: 48,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),

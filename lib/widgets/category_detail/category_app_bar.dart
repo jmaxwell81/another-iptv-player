@@ -9,6 +9,8 @@ class CategoryAppBar extends StatelessWidget {
   final VoidCallback onSearchStop;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback? onSortPressed;
+  final VoidCallback? onFilterPressed;
+  final int activeFilterCount;
 
   const CategoryAppBar({
     super.key,
@@ -19,6 +21,8 @@ class CategoryAppBar extends StatelessWidget {
     required this.onSearchStop,
     required this.onSearchChanged,
     this.onSortPressed,
+    this.onFilterPressed,
+    this.activeFilterCount = 0,
   });
 
   @override
@@ -31,6 +35,16 @@ class CategoryAppBar extends StatelessWidget {
         style: const TextStyle(fontWeight: FontWeight.bold),
       ),
       actions: [
+        if (onFilterPressed != null)
+          Badge(
+            isLabelVisible: activeFilterCount > 0,
+            label: Text(activeFilterCount.toString()),
+            child: IconButton(
+              icon: const Icon(Icons.filter_list),
+              tooltip: 'Filter',
+              onPressed: onFilterPressed,
+            ),
+          ),
         if (onSortPressed != null)
           IconButton(
             icon: const Icon(Icons.sort),

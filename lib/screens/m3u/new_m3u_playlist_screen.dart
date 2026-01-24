@@ -2,6 +2,7 @@ import 'package:another_iptv_player/controllers/m3u_controller.dart';
 import 'package:another_iptv_player/models/playlist_model.dart';
 import 'package:another_iptv_player/screens/m3u/m3u_data_loader_screen.dart';
 import 'package:another_iptv_player/services/m3u_parser.dart';
+import 'package:another_iptv_player/services/url_failover_service.dart';
 import 'package:another_iptv_player/l10n/localization_extension.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -13,7 +14,9 @@ import '../../models/m3u_item.dart';
 import '../../utils/show_loading_dialog.dart';
 
 class NewM3uPlaylistScreen extends StatefulWidget {
-  const NewM3uPlaylistScreen({super.key});
+  final Playlist? editPlaylist;
+
+  const NewM3uPlaylistScreen({super.key, this.editPlaylist});
 
   @override
   NewM3uPlaylistScreenState createState() => NewM3uPlaylistScreenState();
@@ -21,19 +24,57 @@ class NewM3uPlaylistScreen extends StatefulWidget {
 
 class NewM3uPlaylistScreenState extends State<NewM3uPlaylistScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController(text: 'M3U Playlist-1');
-  final _urlController = TextEditingController();
+  late final TextEditingController _nameController;
+  late final TextEditingController _urlController;
   bool _isUrlSource = true;
   bool _isFormValid = false;
   String? _selectedFilePath;
   String? _selectedFileName;
   bool isLoading = false;
+  bool _showAdvancedUrls = false;
+  List<String> _additionalUrls = [];
+  final UrlFailoverService _failoverService = UrlFailoverService();
+
+  bool get _isEditing => widget.editPlaylist != null;
 
   @override
   void initState() {
     super.initState();
+    // Initialize controllers with existing values if editing
+    _nameController = TextEditingController(
+      text: widget.editPlaylist?.name ?? 'M3U Playlist-1',
+    );
+
+    // Determine if the playlist URL is a file path or URL
+    final existingUrl = widget.editPlaylist?.url;
+    if (existingUrl != null) {
+      final isUrl = existingUrl.startsWith('http://') || existingUrl.startsWith('https://');
+      _isUrlSource = isUrl;
+      if (isUrl) {
+        _urlController = TextEditingController(text: existingUrl);
+      } else {
+        _urlController = TextEditingController();
+        _selectedFileName = existingUrl;
+      }
+    } else {
+      _urlController = TextEditingController();
+    }
+
+    // Load additional URLs if editing
+    if (widget.editPlaylist != null) {
+      _additionalUrls = List.from(widget.editPlaylist!.additionalUrls);
+      if (_additionalUrls.isNotEmpty) {
+        _showAdvancedUrls = true;
+      }
+    }
+
     _nameController.addListener(_validateForm);
     _urlController.addListener(_validateForm);
+
+    // Validate immediately for edit mode
+    if (_isEditing) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _validateForm());
+    }
   }
 
   @override
@@ -96,7 +137,7 @@ class NewM3uPlaylistScreenState extends State<NewM3uPlaylistScreen> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: Text(context.loc.m3u_playlist)),
+      appBar: AppBar(title: Text(_isEditing ? 'Edit Playlist' : context.loc.m3u_playlist)),
       body: Consumer<PlaylistController>(
         builder: (context, controller, child) {
           return SingleChildScrollView(
@@ -120,6 +161,10 @@ class NewM3uPlaylistScreenState extends State<NewM3uPlaylistScreen> {
                   _isUrlSource
                       ? _buildUrlField(colorScheme)
                       : _buildFilePickerField(colorScheme),
+                  if (_isUrlSource) ...[
+                    SizedBox(height: 12),
+                    _buildBackupUrlsSection(colorScheme),
+                  ],
                   SizedBox(height: 32),
                   _buildSaveButton(controller, colorScheme),
                   if (controller.error != null) ...[
@@ -148,11 +193,15 @@ class NewM3uPlaylistScreenState extends State<NewM3uPlaylistScreen> {
             color: Colors.green,
             borderRadius: BorderRadius.circular(30),
           ),
-          child: Icon(Icons.playlist_play, size: 30, color: Colors.white),
+          child: Icon(
+            _isEditing ? Icons.edit : Icons.playlist_play,
+            size: 30,
+            color: Colors.white,
+          ),
         ),
         SizedBox(height: 16),
         Text(
-          context.loc.m3u_playlist,
+          _isEditing ? 'Edit M3U Playlist' : context.loc.m3u_playlist,
           style: TextStyle(
             fontSize: 26,
             fontWeight: FontWeight.bold,
@@ -161,7 +210,9 @@ class NewM3uPlaylistScreenState extends State<NewM3uPlaylistScreen> {
         ),
         SizedBox(height: 8),
         Text(
-          context.loc.m3u_playlist_load_description,
+          _isEditing
+              ? 'Update the playlist name or source below'
+              : context.loc.m3u_playlist_load_description,
           style: TextStyle(
             fontSize: 16,
             color: colorScheme.onSurface.withOpacity(0.7),
@@ -434,6 +485,202 @@ class NewM3uPlaylistScreenState extends State<NewM3uPlaylistScreen> {
     );
   }
 
+  Widget _buildBackupUrlsSection(ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Toggle button for advanced URLs
+        InkWell(
+          onTap: () {
+            setState(() {
+              _showAdvancedUrls = !_showAdvancedUrls;
+            });
+          },
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                Icon(
+                  _showAdvancedUrls
+                      ? Icons.keyboard_arrow_down
+                      : Icons.keyboard_arrow_right,
+                  color: colorScheme.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Backup URLs (optional)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.primary,
+                  ),
+                ),
+                if (_additionalUrls.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${_additionalUrls.length}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+
+        // Backup URLs editor
+        if (_showAdvancedUrls) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: colorScheme.outlineVariant),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Add backup M3U URLs that will be used if the primary URL is offline.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: colorScheme.onSurface.withOpacity(0.7),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // List of backup URLs
+                ..._buildBackupUrlFields(colorScheme),
+
+                // Add backup URL button
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _addBackupUrl,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add Backup URL'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: colorScheme.primary,
+                    side: BorderSide(color: colorScheme.outline),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  List<Widget> _buildBackupUrlFields(ColorScheme colorScheme) {
+    final widgets = <Widget>[];
+
+    for (var i = 0; i < _additionalUrls.length; i++) {
+      final controller = TextEditingController(text: _additionalUrls[i]);
+
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: controller,
+                  keyboardType: TextInputType.url,
+                  decoration: InputDecoration(
+                    hintText: 'http://backup-server.com/playlist.m3u',
+                    prefixIcon: Icon(Icons.backup, color: colorScheme.outline),
+                    labelText: 'Backup URL ${i + 1}',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                  ),
+                  onChanged: (value) {
+                    _additionalUrls[i] = value;
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Check health button
+              IconButton(
+                onPressed: () => _checkBackupUrlHealth(i),
+                icon: const Icon(Icons.network_check, size: 20),
+                tooltip: 'Check connection',
+                style: IconButton.styleFrom(
+                  foregroundColor: colorScheme.primary,
+                ),
+              ),
+              // Remove button
+              IconButton(
+                onPressed: () => _removeBackupUrl(i),
+                icon: const Icon(Icons.remove_circle_outline, size: 20),
+                tooltip: 'Remove',
+                style: IconButton.styleFrom(
+                  foregroundColor: colorScheme.error,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return widgets;
+  }
+
+  void _addBackupUrl() {
+    setState(() {
+      _additionalUrls.add('');
+    });
+  }
+
+  void _removeBackupUrl(int index) {
+    setState(() {
+      _additionalUrls.removeAt(index);
+    });
+  }
+
+  Future<void> _checkBackupUrlHealth(int index) async {
+    final url = _additionalUrls[index];
+    if (url.isEmpty) return;
+
+    final result = await _failoverService.checkUrlHealth(
+      url,
+      type: PlaylistType.m3u,
+      useCache: false,
+    );
+
+    if (!mounted) return;
+
+    final statusText = result.isHealthy
+        ? 'Online (${result.responseTimeMs}ms)'
+        : 'Offline: ${result.error ?? 'Unknown error'}';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Backup URL ${index + 1}: $statusText'),
+        backgroundColor: result.isHealthy ? Colors.green : Colors.red,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   Widget _buildSaveButton(
     PlaylistController controller,
     ColorScheme colorScheme,
@@ -480,7 +727,7 @@ class NewM3uPlaylistScreenState extends State<NewM3uPlaylistScreen> {
                   Icon(Icons.save, size: 20),
                   SizedBox(width: 8),
                   Text(
-                    context.loc.create_playlist,
+                    _isEditing ? 'Save Changes' : context.loc.create_playlist,
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                 ],
@@ -575,45 +822,77 @@ class NewM3uPlaylistScreenState extends State<NewM3uPlaylistScreen> {
 
       playlistController.clearError();
 
-      var playlist = await playlistController.createPlaylist(
-        name: _nameController.text.trim(),
-        type: PlaylistType.m3u,
-        url: _isUrlSource ? _urlController.text : _selectedFileName,
-      );
+      // Filter out empty backup URLs (only for URL source)
+      final validBackupUrls = _isUrlSource
+          ? _additionalUrls.map((u) => u.trim()).where((u) => u.isNotEmpty).toList()
+          : <String>[];
 
-      List<M3uItem> m3uItems = [];
-      showLoadingDialog(context, context.loc.loading_m3u);
+      if (_isEditing) {
+        // For edit mode, just update the playlist name (and optionally URL)
+        final updatedPlaylist = Playlist(
+          id: widget.editPlaylist!.id,
+          name: _nameController.text.trim(),
+          type: PlaylistType.m3u,
+          url: _isUrlSource ? _urlController.text.trim() : _selectedFileName,
+          additionalUrls: validBackupUrls,
+          createdAt: widget.editPlaylist!.createdAt,
+          activeUrlIndex: widget.editPlaylist!.activeUrlIndex,
+        );
 
-      try {
-        if (_isUrlSource) {
-          print('URL: ${_urlController.text.trim()}');
-          final params = {'id': playlist!.id, 'url': _urlController.text};
+        final success = await playlistController.updatePlaylist(updatedPlaylist);
 
-          m3uItems = await compute(M3uParser.parseM3uUrl, params);
-        } else {
-          print('File Path: $_selectedFilePath');
-          print('File Name: $_selectedFileName');
-          final params = {'id': playlist!.id, 'filePath': _selectedFilePath!};
-
-          m3uItems = await compute(M3uParser.parseM3uFile, params);
+        if (success && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Playlist updated successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context, true); // Return true to indicate update
         }
-      } catch (ex) {}
+      } else {
+        // Create new playlist
+        var playlist = await playlistController.createPlaylist(
+          name: _nameController.text.trim(),
+          type: PlaylistType.m3u,
+          url: _isUrlSource ? _urlController.text : _selectedFileName,
+          additionalUrls: validBackupUrls,
+        );
 
-      Navigator.of(context).pop();
+        List<M3uItem> m3uItems = [];
+        showLoadingDialog(context, context.loc.loading_m3u);
 
-      if (m3uItems.length == 0) {
-        playlistController.setError(context.loc.m3u_error);
-        await playlistController.deletePlaylist(playlist!.id);
-        return;
+        try {
+          if (_isUrlSource) {
+            print('URL: ${_urlController.text.trim()}');
+            final params = {'id': playlist!.id, 'url': _urlController.text};
+
+            m3uItems = await compute(M3uParser.parseM3uUrl, params);
+          } else {
+            print('File Path: $_selectedFilePath');
+            print('File Name: $_selectedFileName');
+            final params = {'id': playlist!.id, 'filePath': _selectedFilePath!};
+
+            m3uItems = await compute(M3uParser.parseM3uFile, params);
+          }
+        } catch (ex) {}
+
+        Navigator.of(context).pop();
+
+        if (m3uItems.length == 0) {
+          playlistController.setError(context.loc.m3u_error);
+          await playlistController.deletePlaylist(playlist!.id);
+          return;
+        }
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                M3UDataLoaderScreen(playlist: playlist!, m3uItems: m3uItems),
+          ),
+        );
       }
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) =>
-              M3uDataLoaderScreen(playlist: playlist!, m3uItems: m3uItems),
-        ),
-      );
     }
   }
 }

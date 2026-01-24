@@ -3,6 +3,7 @@ import 'package:another_iptv_player/models/m3u_item.dart';
 import 'package:another_iptv_player/models/playlist_model.dart';
 import 'package:another_iptv_player/screens/m3u/m3u_player_screen.dart';
 import 'package:another_iptv_player/services/app_state.dart';
+import 'package:another_iptv_player/services/parental_control_service.dart';
 import 'package:flutter/material.dart';
 import '../../models/content_type.dart';
 import '../../models/playlist_content_model.dart';
@@ -27,7 +28,48 @@ class _M3uItemsScreenState extends State<M3uItemsScreen> {
   @override
   void initState() {
     super.initState();
-    filteredItems = widget.m3uItems;
+    filteredItems = _applyParentalFiltering(widget.m3uItems);
+  }
+
+  /// Convert M3uItem to ContentItem for parental control filtering
+  ContentItem _m3uItemToContentItem(M3uItem item) {
+    final playlistId = item.playlistId ?? AppState.currentPlaylist?.id;
+    return ContentItem(
+      item.url,
+      item.name ?? '',
+      item.tvgLogo ?? '',
+      item.contentType,
+      m3uItem: item,
+      sourcePlaylistId: playlistId,
+      sourceType: PlaylistType.m3u,
+    );
+  }
+
+  /// Apply parental control filtering to M3U items
+  List<M3uItem> _applyParentalFiltering(List<M3uItem> items) {
+    final parentalService = ParentalControlService();
+    if (!parentalService.isEnabled) {
+      return items;
+    }
+
+    // Convert to ContentItems for filtering
+    final contentItems = items.map((item) => _m3uItemToContentItem(item)).toList();
+    final (regularItems, blockedItems) = parentalService.separateContent(contentItems);
+
+    // Convert back to M3uItems
+    final regularIds = regularItems.map((c) => c.id).toSet();
+    final blockedIds = blockedItems.map((c) => c.id).toSet();
+
+    if (parentalService.isUnlocked) {
+      // Show regular items first, then blocked at the end
+      return [
+        ...items.where((item) => regularIds.contains(item.url)),
+        ...items.where((item) => blockedIds.contains(item.url)),
+      ];
+    } else {
+      // Only show regular items when locked
+      return items.where((item) => regularIds.contains(item.url)).toList();
+    }
   }
 
   @override
@@ -40,24 +82,29 @@ class _M3uItemsScreenState extends State<M3uItemsScreen> {
   void _filterItems(String query) {
     setState(() {
       searchQuery = query;
+      List<M3uItem> items;
       if (query.isEmpty) {
-        filteredItems = widget.m3uItems;
+        items = widget.m3uItems;
       } else {
-        filteredItems = widget.m3uItems.where((item) {
+        items = widget.m3uItems.where((item) {
           final name = item.name?.toLowerCase() ?? '';
           final group = item.groupTitle?.toLowerCase() ?? '';
           final searchLower = query.toLowerCase();
           return name.contains(searchLower) || group.contains(searchLower);
         }).toList();
       }
+      // Apply parental control filtering
+      filteredItems = _applyParentalFiltering(items);
     });
   }
 
   void _filterByGroup(String group) {
     setState(() {
-      filteredItems = widget.m3uItems
+      var items = widget.m3uItems
           .where((item) => item.groupTitle == group)
           .toList();
+      // Apply parental control filtering
+      filteredItems = _applyParentalFiltering(items);
       searchQuery = group;
     });
   }
