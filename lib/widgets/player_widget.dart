@@ -8,7 +8,9 @@ import 'package:another_iptv_player/repositories/offline_items_repository.dart';
 import 'package:another_iptv_player/repositories/user_preferences.dart';
 import 'package:another_iptv_player/services/app_state.dart';
 import 'package:another_iptv_player/services/event_bus.dart';
+import 'package:another_iptv_player/utils/renaming_extension.dart';
 import 'package:another_iptv_player/services/source_health_service.dart';
+import 'package:another_iptv_player/services/source_offline_service.dart';
 import 'package:another_iptv_player/services/timeshift_service.dart';
 import 'package:another_iptv_player/services/vpn_detection_service.dart';
 import 'package:another_iptv_player/services/watch_history_service.dart';
@@ -22,6 +24,7 @@ import 'package:audio_service/audio_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:another_iptv_player/utils/tv_key_handler.dart';
 import 'package:media_kit/media_kit.dart' hide PlayerState;
 import 'package:media_kit_video/media_kit_video.dart';
 import '../../models/content_type.dart';
@@ -105,6 +108,9 @@ class _PlayerWidgetState extends State<PlayerWidget>
   Timer? _autoOfflineTimer;
   bool _hasReceivedBytes = false;
 
+  // Source-level offline tracking
+  final SourceOfflineService _sourceOfflineService = SourceOfflineService();
+
   @override
   void initState() {
     WidgetsBinding.instance.addObserver(this);
@@ -121,7 +127,11 @@ class _PlayerWidgetState extends State<PlayerWidget>
     }
     // ----------------------------------------
 
-    PlayerState.title = widget.contentItem.name;
+    PlayerState.title = widget.contentItem.name.applyRenamingRules(
+      contentType: widget.contentItem.contentType,
+      itemId: widget.contentItem.id,
+      playlistId: widget.contentItem.sourcePlaylistId,
+    );
     _player = Player(
       configuration: const PlayerConfiguration(
         // Allow loading URLs from HLS/M3U playlists (required for IPTV streams)
@@ -306,7 +316,11 @@ class _PlayerWidgetState extends State<PlayerWidget>
     return await _timeshiftService.startTimeshift(
       streamUrl: contentItem.url,
       contentId: contentItem.id,
-      contentName: contentItem.name,
+      contentName: contentItem.name.applyRenamingRules(
+        contentType: contentItem.contentType,
+        itemId: contentItem.id,
+        playlistId: contentItem.sourcePlaylistId,
+      ),
       playlistId: playlistId,
     );
   }
@@ -367,7 +381,11 @@ class _PlayerWidgetState extends State<PlayerWidget>
               ? contentItem.id
               : contentItem.m3uItem?.id ?? contentItem.id,
           lastWatched: DateTime.now(),
-          title: contentItem.name,
+          title: contentItem.name.applyRenamingRules(
+            contentType: contentItem.contentType,
+            itemId: contentItem.id,
+            playlistId: contentItem.sourcePlaylistId,
+          ),
           imagePath: contentItem.imagePath,
           totalDuration: _pendingTotalDuration,
           watchDuration: _pendingWatchDuration,
@@ -504,10 +522,16 @@ class _PlayerWidgetState extends State<PlayerWidget>
           itemIsXtream ? item.id : item.m3uItem?.id ?? item.id,
         );
 
+        final renamedTitle = item.name.applyRenamingRules(
+          contentType: item.contentType,
+          itemId: item.id,
+          playlistId: item.sourcePlaylistId,
+        );
+
         mediaItems.add(
           MediaItem(
             id: item.id.toString(),
-            title: item.name,
+            title: renamedTitle,
             artist: _getContentTypeDisplayName(),
             album: AppState.currentPlaylist?.name ?? '',
             artUri: _parseArtUri(item.imagePath),
@@ -533,7 +557,7 @@ class _PlayerWidgetState extends State<PlayerWidget>
             mediaItems.add(
               MediaItem(
                 id: item.id.toString(),
-                title: item.name,
+                title: renamedTitle,
                 artist: _getContentTypeDisplayName(),
                 album: AppState.currentPlaylist?.name ?? '',
                 artUri: _parseArtUri(item.imagePath),
@@ -573,7 +597,11 @@ class _PlayerWidgetState extends State<PlayerWidget>
     } else {
       final mediaItem = MediaItem(
         id: contentItem.id.toString(),
-        title: contentItem.name,
+        title: contentItem.name.applyRenamingRules(
+          contentType: contentItem.contentType,
+          itemId: contentItem.id,
+          playlistId: contentItem.sourcePlaylistId,
+        ),
         artist: _getContentTypeDisplayName(),
         artUri: _parseArtUri(contentItem.imagePath),
         extras: {
@@ -828,7 +856,11 @@ class _PlayerWidgetState extends State<PlayerWidget>
       }
       // ----------------------------------------
 
-      PlayerState.title = contentItem.name;
+      PlayerState.title = contentItem.name.applyRenamingRules(
+        contentType: contentItem.contentType,
+        itemId: contentItem.id,
+        playlistId: contentItem.sourcePlaylistId,
+      );
       EventBus().emit('player_content_item', contentItem);
       EventBus().emit('player_content_item_index', playlist.index);
 
@@ -861,7 +893,11 @@ class _PlayerWidgetState extends State<PlayerWidget>
             // --- INSERTION 3: EXTERNAL CHANGE SETTER ---
             PlayerState.currentContent = contentItem;
             PlayerState.currentIndex = index;
-            PlayerState.title = item.name;
+            PlayerState.title = item.name.applyRenamingRules(
+              contentType: item.contentType,
+              itemId: item.id,
+              playlistId: item.sourcePlaylistId,
+            );
             _currentItemIndex = index;
             if (!item.url.startsWith('error://')) {
               PlayerState.originalStreamUrl = item.url;
@@ -939,9 +975,10 @@ class _PlayerWidgetState extends State<PlayerWidget>
     if (_queue == null || _queue!.length <= 1) return;
 
     // Find the next/previous non-offline channel
+    // Skip items that are: individually offline OR from an offline source
     int newIndex = _currentItemIndex + direction;
     while (newIndex >= 0 && newIndex < _queue!.length &&
-           _offlineStreamIds.contains(_queue![newIndex].id)) {
+           _isItemUnavailable(_queue![newIndex])) {
       newIndex += direction;
     }
 
@@ -950,9 +987,29 @@ class _PlayerWidgetState extends State<PlayerWidget>
     EventBus().emit('player_content_item_index_changed', newIndex);
   }
 
+  /// Check if an item is unavailable (individually offline or from offline source)
+  bool _isItemUnavailable(ContentItem item) {
+    // Check if individually marked as offline
+    if (_offlineStreamIds.contains(item.id)) return true;
+
+    // Check if the source is offline
+    final sourceId = item.sourcePlaylistId;
+    if (sourceId != null && _sourceOfflineService.isSourceOffline(sourceId)) {
+      return true;
+    }
+
+    return false;
+  }
+
   Widget _buildChannelListOverlay(BuildContext context) {
-    // Filter out hidden items from the channel list
-    final items = _queue!.where((item) => !_hiddenStreamIds.contains(item.id)).toList();
+    // Filter out hidden items and items from offline sources from the channel list
+    final items = _queue!.where((item) {
+      // Filter hidden items
+      if (_hiddenStreamIds.contains(item.id)) return false;
+      // Filter items from offline sources
+      if (_isItemUnavailable(item)) return false;
+      return true;
+    }).toList();
     final currentContent = PlayerState.currentContent;
     final screenWidth = MediaQuery.of(context).size.width;
     final panelWidth = (screenWidth / 3).clamp(200.0, 400.0);
@@ -1154,7 +1211,11 @@ class _PlayerWidgetState extends State<PlayerWidget>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    item.name,
+                    item.name.applyRenamingRules(
+                      contentType: item.contentType,
+                      itemId: item.id,
+                      playlistId: item.sourcePlaylistId,
+                    ),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: isSelected
@@ -1444,7 +1505,61 @@ class _PlayerWidgetState extends State<PlayerWidget>
     final isLiveStreamContent = contentItem.contentType == ContentType.liveStream &&
         !contentItem.isCatchUp;
 
-    Widget playerContent = GestureDetector(
+    // For VOD content (movies/series), wrap with Focus for D-pad/remote control support
+    Widget playerContent = Focus(
+      autofocus: !isLiveStreamContent, // Autofocus for VOD, live stream has its own focus
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent) {
+          // Play/Pause (Space, Select, or media keys)
+          if (TvKeyHandler.isPlayPauseKey(event) ||
+              event.logicalKey == LogicalKeyboardKey.space ||
+              event.logicalKey == LogicalKeyboardKey.select) {
+            _player.playOrPause();
+            return KeyEventResult.handled;
+          }
+          // Seek backward (Left arrow or media rewind)
+          else if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+              TvKeyHandler.isRewindKey(event)) {
+            final currentPos = _player.state.position;
+            final newPos = currentPos - const Duration(seconds: 10);
+            _player.seek(newPos < Duration.zero ? Duration.zero : newPos);
+            return KeyEventResult.handled;
+          }
+          // Seek forward (Right arrow or media fast forward)
+          else if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+              TvKeyHandler.isFastForwardKey(event)) {
+            final currentPos = _player.state.position;
+            final duration = _player.state.duration;
+            final newPos = currentPos + const Duration(seconds: 10);
+            _player.seek(newPos > duration ? duration : newPos);
+            return KeyEventResult.handled;
+          }
+          // Previous episode/movie (Up arrow, or Amazon Fire TV wheel backward/previous track)
+          else if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
+              TvKeyHandler.isPreviousTrackKey(event)) {
+            if (_queue != null && _currentItemIndex > 0) {
+              _changeChannel(-1);
+              return KeyEventResult.handled;
+            }
+          }
+          // Next episode/movie (Down arrow, or Amazon Fire TV wheel forward/next track)
+          else if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+              TvKeyHandler.isNextTrackKey(event)) {
+            if (_queue != null && _currentItemIndex < _queue!.length - 1) {
+              _changeChannel(1);
+              return KeyEventResult.handled;
+            }
+          }
+          // Back key (Escape or TV back button)
+          else if (TvKeyHandler.isBackKey(event) ||
+              event.logicalKey == LogicalKeyboardKey.escape) {
+            Navigator.of(context).maybePop();
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
+      },
+      child: GestureDetector(
       onVerticalDragEnd: (details) {
         if (_queue == null || _queue!.length <= 1) return;
 
@@ -1528,6 +1643,7 @@ class _PlayerWidgetState extends State<PlayerWidget>
               ),
             ),
         ],
+      ),
       ),
     );
 

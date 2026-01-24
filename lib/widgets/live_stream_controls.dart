@@ -14,6 +14,7 @@ import 'package:another_iptv_player/widgets/player-buttons/video_hide_widget.dar
 import 'package:another_iptv_player/widgets/player-buttons/video_offline_widget.dart';
 import 'package:another_iptv_player/widgets/recording_dialog.dart';
 import 'package:another_iptv_player/widgets/recording_status_widget.dart';
+import 'package:another_iptv_player/utils/tv_key_handler.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -490,17 +491,44 @@ class _LiveStreamControlsState extends State<LiveStreamControls> {
             autofocus: false, // Don't steal focus
             onKeyEvent: (node, event) {
               if (event is KeyDownEvent) {
-                if (event.logicalKey == LogicalKeyboardKey.space ||
+                // Play/Pause (Space, Select, or media keys)
+                if (TvKeyHandler.isPlayPauseKey(event) ||
+                    event.logicalKey == LogicalKeyboardKey.space ||
                     event.logicalKey == LogicalKeyboardKey.select) {
                   _togglePlayPause();
                   return KeyEventResult.handled;
-                } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                }
+                // Seek backward (Left arrow or media rewind)
+                else if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+                    TvKeyHandler.isRewindKey(event)) {
                   _seekRelative(-10);
                   return KeyEventResult.handled;
-                } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                }
+                // Seek forward (Right arrow or media fast forward)
+                else if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                    TvKeyHandler.isFastForwardKey(event)) {
                   _seekRelative(10);
                   return KeyEventResult.handled;
-                } else if (event.logicalKey == LogicalKeyboardKey.escape) {
+                }
+                // Previous channel (Up arrow, or Amazon Fire TV wheel backward/previous track)
+                else if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
+                    TvKeyHandler.isPreviousTrackKey(event)) {
+                  if (_hasPrevChannel) {
+                    _goToPrevChannel();
+                    return KeyEventResult.handled;
+                  }
+                }
+                // Next channel (Down arrow, or Amazon Fire TV wheel forward/next track)
+                else if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+                    TvKeyHandler.isNextTrackKey(event)) {
+                  if (_hasNextChannel) {
+                    _goToNextChannel();
+                    return KeyEventResult.handled;
+                  }
+                }
+                // Back key (Escape or TV back button)
+                else if (TvKeyHandler.isBackKey(event) ||
+                    event.logicalKey == LogicalKeyboardKey.escape) {
                   // Exit fullscreen first, then go back if not in fullscreen
                   if (_fullscreenService.isFullscreen) {
                     _fullscreenService.exitFullscreen();
@@ -508,8 +536,9 @@ class _LiveStreamControlsState extends State<LiveStreamControls> {
                     _goBack();
                   }
                   return KeyEventResult.handled;
-                } else if (event.logicalKey == LogicalKeyboardKey.keyF) {
-                  // F key toggles fullscreen
+                }
+                // F key toggles fullscreen (desktop)
+                else if (event.logicalKey == LogicalKeyboardKey.keyF) {
                   _fullscreenService.toggle();
                   return KeyEventResult.handled;
                 }

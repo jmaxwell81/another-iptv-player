@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:another_iptv_player/controllers/unified_home_controller.dart';
@@ -6,6 +7,7 @@ import 'package:another_iptv_player/controllers/hidden_items_controller.dart';
 import 'package:another_iptv_player/models/category.dart';
 import 'package:another_iptv_player/models/category_type.dart';
 import 'package:another_iptv_player/models/category_view_model.dart';
+import 'package:another_iptv_player/models/content_filters.dart';
 import 'package:another_iptv_player/models/content_type.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
 import 'package:another_iptv_player/screens/category_detail_screen.dart';
@@ -14,12 +16,14 @@ import 'package:another_iptv_player/screens/favorites/favorites_screen.dart';
 import 'package:another_iptv_player/screens/settings/general_settings_section.dart';
 import 'package:another_iptv_player/screens/tv_guide/tv_guide_screen.dart';
 import 'package:another_iptv_player/services/app_state.dart';
+import 'package:another_iptv_player/services/source_offline_service.dart';
 import 'package:another_iptv_player/repositories/user_preferences.dart';
 import 'package:another_iptv_player/utils/app_themes.dart';
 import 'package:another_iptv_player/utils/navigate_by_content_type.dart';
 import 'package:another_iptv_player/utils/responsive_helper.dart';
 import 'package:another_iptv_player/widgets/category_section.dart';
 import 'package:another_iptv_player/widgets/global_search_delegate.dart';
+import 'package:another_iptv_player/widgets/tv/tv_focus_scope.dart';
 import 'package:another_iptv_player/services/parental_control_service.dart';
 
 /// Home screen for combined/unified mode showing content from multiple playlists
@@ -40,11 +44,17 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
   // Categories that should show only favorites
   Set<String> _favoritesOnlyCategories = {};
 
-  // Pinned categories (appear at top)
-  List<String> _pinnedCategories = [];
+  // Pinned categories (appear at top) - both IDs and names for reliable matching
+  List<String> _pinnedCategoryIds = [];
+  List<String> _pinnedCategoryNames = [];
 
-  // Demoted categories (appear at bottom)
-  List<String> _demotedCategories = [];
+  // Demoted categories (appear at bottom) - both IDs and names for reliable matching
+  List<String> _demotedCategoryIds = [];
+  List<String> _demotedCategoryNames = [];
+
+  // Source offline service for recovery notifications
+  final SourceOfflineService _sourceOfflineService = SourceOfflineService();
+  StreamSubscription<SourceStatusEvent>? _sourceStatusSubscription;
 
   @override
   void initState() {
@@ -57,6 +67,55 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
     _loadFavoritesOnlyCategories();
     _loadPinnedCategories();
     _loadDemotedCategories();
+    _subscribeToSourceStatus();
+  }
+
+  /// Subscribe to source status events for showing recovery/offline notifications
+  void _subscribeToSourceStatus() {
+    _sourceStatusSubscription = _sourceOfflineService.statusEvents.listen((event) {
+      if (!mounted) return;
+
+      final playlist = AppState.activePlaylists[event.playlistId];
+      final sourceName = playlist?.name ?? 'Source';
+
+      if (event.isOnline) {
+        // Source recovered - show success notification
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text('$sourceName is back online'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      } else {
+        // Source went offline - show warning notification
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.cloud_off, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text('$sourceName is offline${event.error != null ? ': ${event.error}' : ''}'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    });
   }
 
   Future<void> _loadFavoritesOnlyCategories() async {
@@ -82,91 +141,117 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
   }
 
   Future<void> _loadPinnedCategories() async {
-    final pinned = await UserPreferences.getPinnedCategories();
+    final pinnedIds = await UserPreferences.getPinnedCategories();
+    final pinnedNames = await UserPreferences.getPinnedCategoryNames();
     if (mounted) {
       setState(() {
-        _pinnedCategories = pinned;
+        _pinnedCategoryIds = pinnedIds;
+        _pinnedCategoryNames = pinnedNames;
       });
     }
   }
 
-  Future<void> _togglePinnedCategory(String categoryId) async {
-    if (_pinnedCategories.contains(categoryId)) {
-      await UserPreferences.unpinCategory(categoryId);
+  Future<void> _togglePinnedCategory(String categoryId, String categoryName) async {
+    final normalizedName = categoryName.toLowerCase().trim();
+    final isPinned = _pinnedCategoryIds.contains(categoryId) ||
+        _pinnedCategoryNames.contains(normalizedName);
+
+    if (isPinned) {
+      await UserPreferences.unpinCategoryWithName(categoryId, categoryName);
     } else {
-      await UserPreferences.pinCategoryToTop(categoryId);
+      await UserPreferences.pinCategoryToTopWithName(categoryId, categoryName);
     }
     await _loadPinnedCategories();
   }
 
   Future<void> _loadDemotedCategories() async {
-    final demoted = await UserPreferences.getDemotedCategories();
+    final demotedIds = await UserPreferences.getDemotedCategories();
+    final demotedNames = await UserPreferences.getDemotedCategoryNames();
     if (mounted) {
       setState(() {
-        _demotedCategories = demoted;
+        _demotedCategoryIds = demotedIds;
+        _demotedCategoryNames = demotedNames;
       });
     }
   }
 
-  Future<void> _toggleDemotedCategory(String categoryId) async {
-    if (_demotedCategories.contains(categoryId)) {
-      await UserPreferences.undemoteCategory(categoryId);
+  Future<void> _toggleDemotedCategory(String categoryId, String categoryName) async {
+    final normalizedName = categoryName.toLowerCase().trim();
+    final isDemoted = _demotedCategoryIds.contains(categoryId) ||
+        _demotedCategoryNames.contains(normalizedName);
+
+    if (isDemoted) {
+      await UserPreferences.undemoteCategoryWithName(categoryId, categoryName);
     } else {
-      await UserPreferences.demoteCategoryToBottom(categoryId);
+      await UserPreferences.demoteCategoryToBottomWithName(categoryId, categoryName);
     }
     await _loadDemotedCategories();
     await _loadPinnedCategories(); // Refresh pinned too since demoting removes from pinned
   }
 
+  /// Check if a category is pinned (by ID or normalized name)
+  bool _isCategoryPinned(CategoryViewModel category) {
+    final catId = category.category.categoryId;
+    final normalizedName = category.category.categoryName.toLowerCase().trim();
+    return _pinnedCategoryIds.contains(catId) || _pinnedCategoryNames.contains(normalizedName);
+  }
+
+  /// Check if a category is demoted (by ID or normalized name)
+  bool _isCategoryDemoted(CategoryViewModel category) {
+    final catId = category.category.categoryId;
+    final normalizedName = category.category.categoryName.toLowerCase().trim();
+    return _demotedCategoryIds.contains(catId) || _demotedCategoryNames.contains(normalizedName);
+  }
+
+  /// Get the pinned index for a category (by ID or name)
+  int _getPinnedIndex(CategoryViewModel category) {
+    final catId = category.category.categoryId;
+    final normalizedName = category.category.categoryName.toLowerCase().trim();
+
+    // Check ID first
+    final idIndex = _pinnedCategoryIds.indexOf(catId);
+    if (idIndex >= 0) return idIndex;
+
+    // Check name
+    final nameIndex = _pinnedCategoryNames.indexOf(normalizedName);
+    return nameIndex;
+  }
+
   /// Sort categories: pinned first, then normal, then demoted
   List<CategoryViewModel> _sortCategoriesWithPinnedFirst(List<CategoryViewModel> categories) {
-    if (_pinnedCategories.isEmpty && _demotedCategories.isEmpty) return categories;
+    if (_pinnedCategoryIds.isEmpty && _pinnedCategoryNames.isEmpty &&
+        _demotedCategoryIds.isEmpty && _demotedCategoryNames.isEmpty) {
+      return categories;
+    }
 
     final pinned = <CategoryViewModel>[];
     final normal = <CategoryViewModel>[];
     final demoted = <CategoryViewModel>[];
 
-    // First, find all pinned categories in pinned order
-    for (final pinnedId in _pinnedCategories) {
-      final cat = categories.firstWhere(
-        (c) => c.category.categoryId == pinnedId,
-        orElse: () => CategoryViewModel(
-          category: Category(categoryId: '', categoryName: '', parentId: 0, playlistId: '', type: CategoryType.live),
-          contentItems: [],
-        ),
-      );
-      if (cat.category.categoryId.isNotEmpty) {
-        pinned.add(cat);
-      }
-    }
-
-    // Find all demoted categories in demoted order
-    for (final demotedId in _demotedCategories) {
-      final cat = categories.firstWhere(
-        (c) => c.category.categoryId == demotedId,
-        orElse: () => CategoryViewModel(
-          category: Category(categoryId: '', categoryName: '', parentId: 0, playlistId: '', type: CategoryType.live),
-          contentItems: [],
-        ),
-      );
-      if (cat.category.categoryId.isNotEmpty) {
-        demoted.add(cat);
-      }
-    }
-
-    // Add normal categories (neither pinned nor demoted)
+    // Separate categories into pinned, normal, and demoted
     for (final cat in categories) {
-      final catId = cat.category.categoryId;
-      if (!_pinnedCategories.contains(catId) && !_demotedCategories.contains(catId)) {
+      if (_isCategoryPinned(cat)) {
+        pinned.add(cat);
+      } else if (_isCategoryDemoted(cat)) {
+        demoted.add(cat);
+      } else {
         normal.add(cat);
       }
     }
+
+    // Sort pinned categories by their pinned order
+    pinned.sort((a, b) {
+      final aIndex = _getPinnedIndex(a);
+      final bIndex = _getPinnedIndex(b);
+      return aIndex.compareTo(bIndex);
+    });
 
     return [...pinned, ...normal, ...demoted];
   }
 
   @override
   void dispose() {
+    _sourceStatusSubscription?.cancel();
     _controller.dispose();
     _favoritesController.dispose();
     _hiddenItemsController.dispose();
@@ -403,9 +488,13 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
     String title,
   ) {
     final categoryType = _contentTypeToCategoryType(contentType);
-    final currentFilter = controller.getSourceFilter(categoryType);
+    final filters = controller.getFilters(categoryType);
     final availableSources = controller.availableSources;
-    final hasFilter = currentFilter != null && currentFilter.isNotEmpty;
+    final filterCount = filters.activeFilterCount;
+    final hasFilter = filterCount > 0;
+
+    // For Live, only use source filter
+    final isLive = contentType == ContentType.liveStream;
 
     return Scaffold(
       appBar: AppBar(
@@ -418,15 +507,17 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
             onPressed: () => _showGlobalSearch(context, controller),
             tooltip: 'Search',
           ),
-          // Source filter button
+          // Filter button
           IconButton(
             icon: Badge(
               isLabelVisible: hasFilter,
-              label: hasFilter ? Text('${currentFilter!.length}') : null,
+              label: hasFilter ? Text('$filterCount') : null,
               child: const Icon(Icons.filter_list),
             ),
-            onPressed: () => _showSourceFilterSheet(context, controller, categoryType, availableSources),
-            tooltip: 'Filter by source',
+            onPressed: () => isLive
+                ? _showSourceFilterSheet(context, controller, categoryType, availableSources)
+                : _showContentFilterSheet(context, controller, categoryType, availableSources),
+            tooltip: isLive ? 'Filter by source' : 'Filters',
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -504,16 +595,19 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
     // Sort categories with pinned ones first
     final sortedCategories = _sortCategoriesWithPinnedFirst(filteredCategories);
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: sortedCategories.length,
-      itemBuilder: (context, index) => _buildCategorySection(
-        sortedCategories[index],
-        contentType,
-        favoriteStreamIds,
-        hiddenStreamIds,
-        favoritesController,
-        hiddenItemsController,
+    // Wrap with TvVerticalFocusColumn for vertical D-pad navigation between category rows
+    return TvVerticalFocusColumn(
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: sortedCategories.length,
+        itemBuilder: (context, index) => _buildCategorySection(
+          sortedCategories[index],
+          contentType,
+          favoriteStreamIds,
+          hiddenStreamIds,
+          favoritesController,
+          hiddenItemsController,
+        ),
       ),
     );
   }
@@ -555,7 +649,10 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
     }
 
     final categoryId = category.category.categoryId;
-    final pinnedIndex = _pinnedCategories.indexOf(categoryId);
+    final categoryName = category.category.categoryName;
+    final isPinned = _isCategoryPinned(category);
+    final pinnedIndex = _getPinnedIndex(category);
+    final isDemoted = _isCategoryDemoted(category);
 
     return CategorySection(
       category: filteredCategory,
@@ -571,14 +668,14 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
       playlistId: 'unified',
       isFavoritesOnly: _favoritesOnlyCategories.contains(categoryId),
       onToggleFavoritesOnly: _toggleFavoritesOnlyCategory,
-      isPinned: pinnedIndex >= 0,
-      pinnedIndex: pinnedIndex >= 0 ? pinnedIndex : null,
+      isPinned: isPinned,
+      pinnedIndex: isPinned ? pinnedIndex : null,
       onTogglePinned: _togglePinnedCategory,
       onMoveToTop: () async {
-        await UserPreferences.pinCategoryToTop(categoryId);
+        await UserPreferences.pinCategoryToTopWithName(categoryId, categoryName);
         await _loadPinnedCategories();
       },
-      isDemoted: _demotedCategories.contains(categoryId),
+      isDemoted: isDemoted,
       onToggleDemoted: _toggleDemotedCategory,
     );
   }
@@ -693,8 +790,6 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
     CategoryType categoryType,
     Map<String, String> availableSources,
   ) {
-    final currentFilter = controller.getSourceFilter(categoryType);
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -771,6 +866,380 @@ class _UnifiedHomeScreenState extends State<UnifiedHomeScreen> {
                   ],
                 ),
               ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// Show comprehensive filter sheet for Movies/Series (rating, genre, year, source)
+  void _showContentFilterSheet(
+    BuildContext context,
+    UnifiedHomeController controller,
+    CategoryType categoryType,
+    Map<String, String> availableSources,
+  ) {
+    final isMovies = categoryType == CategoryType.vod;
+    final initialFilters = controller.getFilters(categoryType);
+    final availableGenres = isMovies
+        ? (controller.availableMovieGenres.toList()..sort())
+        : (controller.availableSeriesGenres.toList()..sort());
+    final availableYears = isMovies
+        ? (controller.availableMovieYears.toList()..sort((a, b) => b.compareTo(a)))
+        : (controller.availableSeriesYears.toList()..sort((a, b) => b.compareTo(a)));
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        // Local state for the filter sheet
+        double? selectedRating = initialFilters.minRating;
+        Set<String> selectedGenres = Set.from(initialFilters.genres);
+        int? selectedMinYear = initialFilters.minYear;
+        int? selectedMaxYear = initialFilters.maxYear;
+        Set<String> selectedSources = Set.from(initialFilters.sources);
+        ContentSortBy selectedSort = initialFilters.sortBy;
+
+        return StatefulBuilder(
+          builder: (builderContext, setSheetState) {
+            final hasActiveFilters = selectedRating != null ||
+                selectedGenres.isNotEmpty ||
+                selectedMinYear != null ||
+                selectedMaxYear != null ||
+                selectedSources.isNotEmpty;
+            final hasNonDefaultSort = selectedSort != ContentSortBy.addedDate;
+
+            return DraggableScrollableSheet(
+              initialChildSize: 0.7,
+              minChildSize: 0.5,
+              maxChildSize: 0.9,
+              expand: false,
+              builder: (context, scrollController) {
+                return SafeArea(
+                  child: Column(
+                    children: [
+                      // Header
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Filters',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            TextButton(
+                              onPressed: (hasActiveFilters || hasNonDefaultSort)
+                                  ? () {
+                                      setSheetState(() {
+                                        selectedRating = null;
+                                        selectedGenres.clear();
+                                        selectedMinYear = null;
+                                        selectedMaxYear = null;
+                                        selectedSources.clear();
+                                        selectedSort = ContentSortBy.addedDate;
+                                      });
+                                    }
+                                  : null,
+                              child: const Text('Clear All'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      // Filter content
+                      Expanded(
+                        child: ListView(
+                          controller: scrollController,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          children: [
+                            // Sort options
+                            const SizedBox(height: 16),
+                            Text(
+                              'Sort By',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              children: ContentSortBy.values.map((sortOption) {
+                                final isSelected = selectedSort == sortOption;
+                                return ChoiceChip(
+                                  avatar: Icon(sortOption.icon, size: 18),
+                                  label: Text(sortOption.label),
+                                  selected: isSelected,
+                                  onSelected: (selected) {
+                                    if (selected) {
+                                      setSheetState(() {
+                                        selectedSort = sortOption;
+                                      });
+                                    }
+                                  },
+                                );
+                              }).toList(),
+                            ),
+
+                            // Rating filter
+                            const SizedBox(height: 24),
+                            Text(
+                              'Minimum Rating',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              children: RatingThresholds.values.map((rating) {
+                                final isSelected = selectedRating == (rating == 0 ? null : rating);
+                                return FilterChip(
+                                  label: Text(RatingThresholds.getLabel(rating)),
+                                  selected: isSelected,
+                                  onSelected: (selected) {
+                                    setSheetState(() {
+                                      selectedRating = selected && rating > 0 ? rating : null;
+                                    });
+                                  },
+                                );
+                              }).toList(),
+                            ),
+
+                            // Genre filter
+                            if (availableGenres.isNotEmpty) ...[
+                              const SizedBox(height: 24),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Genres',
+                                    style: Theme.of(context).textTheme.titleMedium,
+                                  ),
+                                  if (selectedGenres.isNotEmpty)
+                                    TextButton(
+                                      onPressed: () {
+                                        setSheetState(() {
+                                          selectedGenres.clear();
+                                        });
+                                      },
+                                      child: const Text('Clear'),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                children: availableGenres.map((genre) {
+                                  final isSelected = selectedGenres.contains(genre);
+                                  return FilterChip(
+                                    label: Text(genre),
+                                    selected: isSelected,
+                                    onSelected: (selected) {
+                                      setSheetState(() {
+                                        if (selected) {
+                                          selectedGenres.add(genre);
+                                        } else {
+                                          selectedGenres.remove(genre);
+                                        }
+                                      });
+                                    },
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+
+                            // Year filter
+                            if (availableYears.isNotEmpty) ...[
+                              const SizedBox(height: 24),
+                              Text(
+                                'Release Year',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: DropdownButtonFormField<int?>(
+                                      value: selectedMinYear,
+                                      decoration: const InputDecoration(
+                                        labelText: 'From',
+                                        border: OutlineInputBorder(),
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      ),
+                                      items: [
+                                        const DropdownMenuItem<int?>(
+                                          value: null,
+                                          child: Text('Any'),
+                                        ),
+                                        ...availableYears.map((year) => DropdownMenuItem<int?>(
+                                          value: year,
+                                          child: Text('$year'),
+                                        )),
+                                      ],
+                                      onChanged: (value) {
+                                        setSheetState(() {
+                                          selectedMinYear = value;
+                                          // Ensure maxYear is not less than minYear
+                                          if (selectedMaxYear != null && value != null && selectedMaxYear! < value) {
+                                            selectedMaxYear = value;
+                                          }
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: DropdownButtonFormField<int?>(
+                                      value: selectedMaxYear,
+                                      decoration: const InputDecoration(
+                                        labelText: 'To',
+                                        border: OutlineInputBorder(),
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      ),
+                                      items: [
+                                        const DropdownMenuItem<int?>(
+                                          value: null,
+                                          child: Text('Any'),
+                                        ),
+                                        ...availableYears.map((year) => DropdownMenuItem<int?>(
+                                          value: year,
+                                          child: Text('$year'),
+                                        )),
+                                      ],
+                                      onChanged: (value) {
+                                        setSheetState(() {
+                                          selectedMaxYear = value;
+                                          // Ensure minYear is not greater than maxYear
+                                          if (selectedMinYear != null && value != null && selectedMinYear! > value) {
+                                            selectedMinYear = value;
+                                          }
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              // Quick year presets
+                              Wrap(
+                                spacing: 8,
+                                children: [
+                                  ActionChip(
+                                    label: Text('${YearRanges.currentYear}'),
+                                    onPressed: () {
+                                      setSheetState(() {
+                                        selectedMinYear = YearRanges.currentYear;
+                                        selectedMaxYear = YearRanges.currentYear;
+                                      });
+                                    },
+                                  ),
+                                  ActionChip(
+                                    label: const Text('Last 5 years'),
+                                    onPressed: () {
+                                      setSheetState(() {
+                                        selectedMinYear = YearRanges.currentYear - 5;
+                                        selectedMaxYear = null;
+                                      });
+                                    },
+                                  ),
+                                  ActionChip(
+                                    label: const Text('Classics'),
+                                    onPressed: () {
+                                      setSheetState(() {
+                                        selectedMinYear = null;
+                                        selectedMaxYear = 2000;
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ],
+
+                            // Source filter
+                            if (availableSources.length > 1) ...[
+                              const SizedBox(height: 24),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Sources',
+                                    style: Theme.of(context).textTheme.titleMedium,
+                                  ),
+                                  if (selectedSources.isNotEmpty)
+                                    TextButton(
+                                      onPressed: () {
+                                        setSheetState(() {
+                                          selectedSources.clear();
+                                        });
+                                      },
+                                      child: const Text('All Sources'),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                children: availableSources.entries.map((entry) {
+                                  final isSelected = selectedSources.contains(entry.key);
+                                  final isXtream = AppState.xtreamRepositories.containsKey(entry.key);
+                                  return FilterChip(
+                                    avatar: Icon(
+                                      isXtream ? Icons.live_tv : Icons.playlist_play,
+                                      size: 18,
+                                      color: isSelected ? null : (isXtream ? Colors.blue : Colors.green),
+                                    ),
+                                    label: Text(entry.value),
+                                    selected: isSelected,
+                                    onSelected: (selected) {
+                                      setSheetState(() {
+                                        if (selected) {
+                                          selectedSources.add(entry.key);
+                                        } else {
+                                          selectedSources.remove(entry.key);
+                                        }
+                                      });
+                                    },
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                            const SizedBox(height: 24),
+                          ],
+                        ),
+                      ),
+                      // Apply button
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: () {
+                              // Apply the filters
+                              final newFilters = ContentFilters(
+                                minRating: selectedRating,
+                                genres: selectedGenres,
+                                minYear: selectedMinYear,
+                                maxYear: selectedMaxYear,
+                                sources: selectedSources,
+                                sortBy: selectedSort,
+                              );
+
+                              if (isMovies) {
+                                controller.setMovieFilters(newFilters);
+                              } else {
+                                controller.setSeriesFilters(newFilters);
+                              }
+
+                              Navigator.pop(sheetContext);
+                            },
+                            child: const Text('Apply'),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             );
           },
         );

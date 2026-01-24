@@ -32,10 +32,10 @@ class CategorySection extends StatefulWidget {
   final Function(String categoryId)? onToggleFavoritesOnly;
   final bool isPinned;
   final int? pinnedIndex; // null if not pinned, 0 = at top, >0 = not at top
-  final Function(String categoryId)? onTogglePinned;
+  final Function(String categoryId, String categoryName)? onTogglePinned;
   final VoidCallback? onMoveToTop; // explicit move-to-top action
   final bool isDemoted;
-  final Function(String categoryId)? onToggleDemoted;
+  final Function(String categoryId, String categoryName)? onToggleDemoted;
 
   const CategorySection({
     super.key,
@@ -88,7 +88,8 @@ class _CategorySectionState extends State<CategorySection> {
 
   /// Get filtered content items based on favorites-only mode
   List<ContentItem> _getDisplayItems() {
-    var items = widget.category.contentItems;
+    // Use displayItems which returns consolidated items when available
+    var items = widget.category.displayItems;
 
     // If favorites-only mode is enabled, filter to only favorites
     if (widget.isFavoritesOnly && widget.favoriteStreamIds != null) {
@@ -185,6 +186,7 @@ class _CategorySectionState extends State<CategorySection> {
                                     } else {
                                       widget.onTogglePinned?.call(
                                         widget.category.category.categoryId,
+                                        widget.category.category.categoryName,
                                       );
                                     }
                                   });
@@ -208,6 +210,7 @@ class _CategorySectionState extends State<CategorySection> {
                                   Future.delayed(Duration.zero, () {
                                     widget.onTogglePinned?.call(
                                       widget.category.category.categoryId,
+                                      widget.category.category.categoryName,
                                     );
                                   });
                                 },
@@ -231,6 +234,7 @@ class _CategorySectionState extends State<CategorySection> {
                                   Future.delayed(Duration.zero, () {
                                     widget.onToggleDemoted?.call(
                                       widget.category.category.categoryId,
+                                      widget.category.category.categoryName,
                                     );
                                   });
                                 },

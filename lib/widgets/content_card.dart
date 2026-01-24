@@ -7,12 +7,14 @@ import 'package:another_iptv_player/screens/catch_up/catch_up_screen.dart';
 import 'package:another_iptv_player/services/event_bus.dart';
 import 'package:another_iptv_player/services/parental_control_service.dart';
 import 'package:another_iptv_player/services/source_health_service.dart';
+import 'package:another_iptv_player/services/tv_detection_service.dart';
 import 'package:another_iptv_player/utils/app_themes.dart';
 import 'package:another_iptv_player/utils/renaming_extension.dart';
 import 'package:another_iptv_player/widgets/rename_dialog.dart';
 import 'package:another_iptv_player/widgets/smart_cached_image.dart';
 import 'package:another_iptv_player/widgets/source_selection_widget.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:another_iptv_player/models/playlist_content_model.dart';
 import 'package:another_iptv_player/models/content_type.dart';
 
@@ -70,6 +72,48 @@ class ContentCard extends StatefulWidget {
 
 class _ContentCardState extends State<ContentCard> {
   bool _isHovered = false;
+  bool _isFocused = false;
+  late FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode();
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    if (_focusNode.hasFocus != _isFocused) {
+      setState(() {
+        _isFocused = _focusNode.hasFocus;
+      });
+      // When focused on TV, emit hover event for preview
+      if (_isFocused && widget.content.contentType == ContentType.liveStream) {
+        EventBus().emit('live_stream_hover', widget.content);
+      }
+    }
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    // Handle Enter/Select key to activate the card
+    if (event.logicalKey == LogicalKeyboardKey.enter ||
+        event.logicalKey == LogicalKeyboardKey.select ||
+        event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+      widget.onTap?.call();
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -98,8 +142,11 @@ class _ContentCardState extends State<ContentCard> {
     final Widget? ratingBadge =
     isLiveStream ? null : _buildRatingBadge(context);
 
-    // Show context menu only when hovered or selected
-    final bool shouldShowContextMenu = widget.showContextMenu && (_isHovered || widget.isSelected);
+    // Combined hover/focus state for TV and desktop
+    final bool isHighlighted = _isHovered || _isFocused;
+
+    // Show context menu only when hovered, focused, or selected
+    final bool shouldShowContextMenu = widget.showContextMenu && (isHighlighted || widget.isSelected);
 
     // Check if source is available
     final sourceId = widget.sourceId ?? widget.content.sourcePlaylistId;
@@ -108,6 +155,13 @@ class _ContentCardState extends State<ContentCard> {
 
     // Combined opacity for hidden items, offline items, and source down state
     final double cardOpacity = widget.isHidden ? 0.4 : (widget.isOffline ? 0.5 : (isSourceDown ? 0.5 : 1.0));
+
+    // Determine if we're on Android TV for focus handling
+    final isTV = TvDetectionService().isAndroidTV;
+
+    // Focus border color for TV
+    final theme = Theme.of(context);
+    final focusBorderColor = _isFocused ? theme.colorScheme.primary : Colors.transparent;
 
     Widget cardWidget = MouseRegion(
       onEnter: (_) {
@@ -121,23 +175,28 @@ class _ContentCardState extends State<ContentCard> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOutCubic,
-        transform: Matrix4.identity()..scale(_isHovered ? 1.05 : 1.0),
+        transform: Matrix4.identity()..scale(isHighlighted ? 1.05 : 1.0),
         transformAlignment: Alignment.center,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: (_isHovered || widget.isSelected)
-                  ? Colors.white.withOpacity(0.4)
-                  : Colors.transparent,
-              width: 2,
+              // Use accent color border when focused on TV, white border for hover/selected
+              color: _isFocused
+                  ? focusBorderColor
+                  : (isHighlighted || widget.isSelected)
+                      ? Colors.white.withOpacity(0.4)
+                      : Colors.transparent,
+              width: _isFocused ? 3.0 : 2,
             ),
-            boxShadow: _isHovered
+            boxShadow: isHighlighted
                 ? [
                     BoxShadow(
-                      color: Colors.white.withOpacity(0.15),
-                      blurRadius: 16,
+                      color: _isFocused
+                          ? focusBorderColor.withOpacity(0.4)
+                          : Colors.white.withOpacity(0.15),
+                      blurRadius: _isFocused ? 12 : 16,
                       spreadRadius: 2,
                     ),
                   ]
@@ -372,6 +431,16 @@ class _ContentCardState extends State<ContentCard> {
       ),
       ),
     );
+
+    // Wrap with Focus widget for TV D-pad navigation
+    if (isTV) {
+      return Focus(
+        focusNode: _focusNode,
+        onKeyEvent: _handleKeyEvent,
+        child: cardWidget,
+      );
+    }
+
     return cardWidget;
   }
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:another_iptv_player/models/epg_program.dart';
+import 'package:another_iptv_player/widgets/tv/tv_focus_scope.dart';
 import '../../models/playlist_content_model.dart';
 import '../../services/event_bus.dart';
 import '../../utils/helpers.dart';
@@ -148,49 +149,12 @@ class _ContentItemCardWidgetState extends State<ContentItemCardWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: widget.cardHeight,
-      child: isDesktop
-          ? Scrollbar(
-              controller: _scrollController,
-              thumbVisibility: false,
-              trackVisibility: false,
-              child: ListView.builder(
-                controller: _scrollController,
-                scrollDirection: Axis.horizontal,
-                padding: EdgeInsets.symmetric(horizontal: 12),
-                itemCount: widget.contentItems.length,
-                itemBuilder: (context, index) {
-                  final item = widget.contentItems[index];
-                  return Container(
-                    width: widget.cardWidth,
-                    margin: EdgeInsets.symmetric(horizontal: 4),
-                    child: ContentCard(
-                      content: item,
-                      width: widget.cardWidth,
-                      onTap: () {
-                        selectAndScrollToIndex(index);
-                        widget.onContentTap?.call(item);
-                      },
-                      isSelected: selectedIndex == index,
-                      isFavorite: _isFavorite(item),
-                      isHidden: _isHidden(item),
-                      showContextMenu: widget.showContextMenu,
-                      onToggleFavorite: widget.onToggleFavorite,
-                      onToggleHidden: widget.onToggleHidden,
-                      onRename: widget.onRename,
-                      categoryId: widget.categoryId,
-                      categoryName: widget.categoryName,
-                      playlistId: widget.playlistId,
-                      onHideCategory: widget.onHideCategory,
-                      currentProgram: _getCurrentProgram(item),
-                      key: widget.key,
-                    ),
-                  );
-                },
-              ),
-            )
-          : ListView.builder(
+    Widget listView = isDesktop
+        ? Scrollbar(
+            controller: _scrollController,
+            thumbVisibility: false,
+            trackVisibility: false,
+            child: ListView.builder(
               controller: _scrollController,
               scrollDirection: Axis.horizontal,
               padding: EdgeInsets.symmetric(horizontal: 12),
@@ -224,6 +188,49 @@ class _ContentItemCardWidgetState extends State<ContentItemCardWidget> {
                 );
               },
             ),
+          )
+        : ListView.builder(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.symmetric(horizontal: 12),
+            itemCount: widget.contentItems.length,
+            itemBuilder: (context, index) {
+              final item = widget.contentItems[index];
+              return Container(
+                width: widget.cardWidth,
+                margin: EdgeInsets.symmetric(horizontal: 4),
+                child: ContentCard(
+                  content: item,
+                  width: widget.cardWidth,
+                  onTap: () {
+                    selectAndScrollToIndex(index);
+                    widget.onContentTap?.call(item);
+                  },
+                  isSelected: selectedIndex == index,
+                  isFavorite: _isFavorite(item),
+                  isHidden: _isHidden(item),
+                  showContextMenu: widget.showContextMenu,
+                  onToggleFavorite: widget.onToggleFavorite,
+                  onToggleHidden: widget.onToggleHidden,
+                  onRename: widget.onRename,
+                  categoryId: widget.categoryId,
+                  categoryName: widget.categoryName,
+                  playlistId: widget.playlistId,
+                  onHideCategory: widget.onHideCategory,
+                  currentProgram: _getCurrentProgram(item),
+                  key: widget.key,
+                ),
+              );
+            },
+          );
+
+    // Wrap with TvHorizontalFocusRow for TV D-pad navigation
+    return SizedBox(
+      height: widget.cardHeight,
+      child: TvHorizontalFocusRow(
+        scrollController: _scrollController,
+        child: listView,
+      ),
     );
   }
 }

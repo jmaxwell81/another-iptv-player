@@ -23,6 +23,7 @@ import 'package:another_iptv_player/widgets/category_section.dart';
 import 'package:another_iptv_player/widgets/global_search_delegate.dart';
 import 'package:another_iptv_player/widgets/live_stream_preview_widget.dart';
 import 'package:another_iptv_player/widgets/pip_overlay_widget.dart';
+import 'package:another_iptv_player/widgets/tv/tv_focus_scope.dart';
 import 'package:another_iptv_player/controllers/favorites_controller.dart';
 import 'package:another_iptv_player/controllers/hidden_items_controller.dart';
 import 'package:another_iptv_player/models/favorite.dart';
@@ -105,11 +106,11 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
     }
   }
 
-  Future<void> _togglePinnedCategory(String categoryId) async {
+  Future<void> _togglePinnedCategory(String categoryId, String categoryName) async {
     if (_pinnedCategories.contains(categoryId)) {
-      await UserPreferences.unpinCategory(categoryId);
+      await UserPreferences.unpinCategoryWithName(categoryId, categoryName);
     } else {
-      await UserPreferences.pinCategoryToTop(categoryId);
+      await UserPreferences.pinCategoryToTopWithName(categoryId, categoryName);
     }
     await _loadPinnedCategories();
   }
@@ -123,11 +124,11 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
     }
   }
 
-  Future<void> _toggleDemotedCategory(String categoryId) async {
+  Future<void> _toggleDemotedCategory(String categoryId, String categoryName) async {
     if (_demotedCategories.contains(categoryId)) {
-      await UserPreferences.undemoteCategory(categoryId);
+      await UserPreferences.undemoteCategoryWithName(categoryId, categoryName);
     } else {
-      await UserPreferences.demoteCategoryToBottom(categoryId);
+      await UserPreferences.demoteCategoryToBottomWithName(categoryId, categoryName);
     }
     await _loadDemotedCategories();
     await _loadPinnedCategories(); // Refresh pinned too since demoting removes from pinned
@@ -568,17 +569,20 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
     // Sort categories with pinned ones first
     final sortedCategories = _sortCategoriesWithPinnedFirst(filteredCategories);
 
-    return ListView.builder(
-      shrinkWrap: true,
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: sortedCategories.length,
-      itemBuilder: (context, index) => _buildCategorySection(
-        sortedCategories[index],
-        contentType,
-        favoriteStreamIds,
-        hiddenStreamIds,
-        favoritesController,
-        hiddenItemsController,
+    // Wrap with TvVerticalFocusColumn for vertical D-pad navigation between category rows
+    return TvVerticalFocusColumn(
+      child: ListView.builder(
+        shrinkWrap: true,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: sortedCategories.length,
+        itemBuilder: (context, index) => _buildCategorySection(
+          sortedCategories[index],
+          contentType,
+          favoriteStreamIds,
+          hiddenStreamIds,
+          favoritesController,
+          hiddenItemsController,
+        ),
       ),
     );
   }
@@ -616,6 +620,7 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
     );
 
     final categoryId = category.category.categoryId;
+    final categoryName = category.category.categoryName;
     final pinnedIndex = _pinnedCategories.indexOf(categoryId);
 
     return CategorySection(
@@ -628,14 +633,14 @@ class _XtreamCodeHomeScreenState extends State<XtreamCodeHomeScreen> {
       hiddenStreamIds: hiddenStreamIds,
       onToggleFavorite: (item) => _toggleFavorite(context, item, favoritesController),
       onToggleHidden: (item) => _toggleHidden(context, item, hiddenItemsController),
-      onHideCategory: (categoryId, categoryName) => _hideCategory(context, categoryId, categoryName),
+      onHideCategory: (catId, catName) => _hideCategory(context, catId, catName),
       isFavoritesOnly: _favoritesOnlyCategories.contains(categoryId),
       onToggleFavoritesOnly: _toggleFavoritesOnlyCategory,
       isPinned: pinnedIndex >= 0,
       pinnedIndex: pinnedIndex >= 0 ? pinnedIndex : null,
       onTogglePinned: _togglePinnedCategory,
       onMoveToTop: () async {
-        await UserPreferences.pinCategoryToTop(categoryId);
+        await UserPreferences.pinCategoryToTopWithName(categoryId, categoryName);
         await _loadPinnedCategories();
       },
       isDemoted: _demotedCategories.contains(categoryId),

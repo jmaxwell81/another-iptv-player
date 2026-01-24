@@ -14,6 +14,7 @@ import 'package:another_iptv_player/repositories/m3u_repository.dart';
 import 'package:another_iptv_player/screens/category_detail_screen.dart';
 import 'package:another_iptv_player/widgets/category_section.dart';
 import 'package:another_iptv_player/widgets/global_search_delegate.dart';
+import 'package:another_iptv_player/widgets/tv/tv_focus_scope.dart';
 import 'package:another_iptv_player/utils/responsive_helper.dart';
 import 'package:another_iptv_player/utils/navigate_by_content_type.dart';
 
@@ -98,11 +99,11 @@ class _M3UHomeScreenState extends State<M3UHomeScreen> {
     }
   }
 
-  Future<void> _togglePinnedCategory(String categoryId) async {
+  Future<void> _togglePinnedCategory(String categoryId, String categoryName) async {
     if (_pinnedCategories.contains(categoryId)) {
-      await UserPreferences.unpinCategory(categoryId);
+      await UserPreferences.unpinCategoryWithName(categoryId, categoryName);
     } else {
-      await UserPreferences.pinCategoryToTop(categoryId);
+      await UserPreferences.pinCategoryToTopWithName(categoryId, categoryName);
     }
     await _loadPinnedCategories();
   }
@@ -116,11 +117,11 @@ class _M3UHomeScreenState extends State<M3UHomeScreen> {
     }
   }
 
-  Future<void> _toggleDemotedCategory(String categoryId) async {
+  Future<void> _toggleDemotedCategory(String categoryId, String categoryName) async {
     if (_demotedCategories.contains(categoryId)) {
-      await UserPreferences.undemoteCategory(categoryId);
+      await UserPreferences.undemoteCategoryWithName(categoryId, categoryName);
     } else {
-      await UserPreferences.demoteCategoryToBottom(categoryId);
+      await UserPreferences.demoteCategoryToBottomWithName(categoryId, categoryName);
     }
     await _loadDemotedCategories();
     await _loadPinnedCategories(); // Refresh pinned too since demoting removes from pinned
@@ -367,16 +368,20 @@ class _M3UHomeScreenState extends State<M3UHomeScreen> {
     // Sort categories with pinned ones first
     final sortedCategories = _sortCategoriesWithPinnedFirst(categories);
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: sortedCategories.length,
-      itemBuilder: (context, index) => _buildCategorySection(sortedCategories[index]),
+    // Wrap with TvVerticalFocusColumn for vertical D-pad navigation between category rows
+    return TvVerticalFocusColumn(
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: sortedCategories.length,
+        itemBuilder: (context, index) => _buildCategorySection(sortedCategories[index]),
+      ),
     );
   }
 
   Widget _buildCategorySection(CategoryViewModel category) {
     final favoriteStreamIds = _favoritesController.favorites.map((f) => f.streamId).toSet();
     final categoryId = category.category.categoryId;
+    final categoryName = category.category.categoryName;
     final pinnedIndex = _pinnedCategories.indexOf(categoryId);
     return CategorySection(
       category: category,
@@ -391,7 +396,7 @@ class _M3UHomeScreenState extends State<M3UHomeScreen> {
       pinnedIndex: pinnedIndex >= 0 ? pinnedIndex : null,
       onTogglePinned: _togglePinnedCategory,
       onMoveToTop: () async {
-        await UserPreferences.pinCategoryToTop(categoryId);
+        await UserPreferences.pinCategoryToTopWithName(categoryId, categoryName);
         await _loadPinnedCategories();
       },
       isDemoted: _demotedCategories.contains(categoryId),

@@ -7,7 +7,9 @@ import 'package:another_iptv_player/services/custom_rename_service.dart';
 import 'package:another_iptv_player/services/failed_domain_cache.dart';
 import 'package:another_iptv_player/services/fullscreen_service.dart';
 import 'package:another_iptv_player/services/renaming_service.dart';
+import 'package:another_iptv_player/services/source_health_monitor_service.dart';
 import 'package:another_iptv_player/services/timeshift_service.dart';
+import 'package:another_iptv_player/services/tv_detection_service.dart';
 import 'package:another_iptv_player/services/vpn_detection_service.dart';
 import 'package:another_iptv_player/services/name_tag_cleaner_service.dart';
 import 'package:another_iptv_player/widgets/vpn_status_widget.dart';
@@ -39,6 +41,12 @@ Future<void> main() async {
   await TimeshiftService().initialize();
   await NameTagCleanerService().initialize();
   await FullscreenService().initialize();
+
+  // Initialize Android TV detection
+  await TvDetectionService().initialize();
+
+  // Start source health monitor (checks sources every 5 minutes)
+  SourceHealthMonitorService().start();
   runApp(
     MultiProvider(
       providers: [
