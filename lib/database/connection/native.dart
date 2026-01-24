@@ -6,6 +6,8 @@ import 'dart:ui';
 import 'package:drift/drift.dart';
 import 'package:drift/isolate.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:meta/meta.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
@@ -31,14 +33,15 @@ QueryExecutor driftDatabase({
   DriftNativeOptions? native,
 }) {
   Future<File> databaseFile() async {
+    File dbFile;
     if (native?.databasePath case final lookupPath?) {
-      return File(await lookupPath());
+      dbFile = File(await lookupPath());
     } else {
       final resolvedDirectory =
           await (native?.databaseDirectory ??
               getApplicationDocumentsDirectory)();
 
-      return File(
+      dbFile = File(
         p.join(switch (resolvedDirectory) {
           Directory(:final path) => path,
           final String path => path,
@@ -51,6 +54,25 @@ QueryExecutor driftDatabase({
         }, '$name.sqlite'),
       );
     }
+
+    // On first run, copy preloaded database from assets if available
+    if (!await dbFile.exists()) {
+      try {
+        final byteData = await rootBundle.load('assets/preloaded_database.sqlite');
+        final bytes = byteData.buffer.asUint8List(
+          byteData.offsetInBytes,
+          byteData.lengthInBytes,
+        );
+        await dbFile.parent.create(recursive: true);
+        await dbFile.writeAsBytes(bytes);
+        debugPrint('Copied preloaded database from assets');
+      } catch (e) {
+        // Asset not found or copy failed - database will be created fresh
+        debugPrint('No preloaded database found in assets: $e');
+      }
+    }
+
+    return dbFile;
   }
 
   return DatabaseConnection.delayed(
