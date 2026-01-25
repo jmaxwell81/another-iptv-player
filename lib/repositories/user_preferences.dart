@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:another_iptv_player/models/renaming_rule.dart';
 import 'package:another_iptv_player/models/custom_rename.dart';
 import 'package:another_iptv_player/models/category_configuration.dart';
+import 'package:another_iptv_player/models/category_type.dart';
 import 'package:another_iptv_player/models/active_playlists_config.dart';
 import 'package:another_iptv_player/models/parental_settings.dart';
 
@@ -38,6 +39,41 @@ class UserPreferences {
   static const String _activePlaylistsConfigKey = 'active_playlists_config';
   static const String _tvGuideChannelLimitKey = 'tv_guide_channel_limit';
   static const String _favoritesOnlyCategoriesKey = 'favorites_only_categories';
+  static const String _autoHideLowRatingEnabled = 'auto_hide_low_rating_enabled';
+  static const String _autoHideLowRatingThreshold = 'auto_hide_low_rating_threshold';
+  static const String _tvModeEnabledKey = 'tv_mode_enabled';
+
+  // TV Mode settings (for remote control navigation)
+  static Future<bool> getTvModeEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_tvModeEnabledKey) ?? false;
+  }
+
+  static Future<void> setTvModeEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_tvModeEnabledKey, enabled);
+  }
+
+  // Auto-hide low rating content settings
+  static Future<bool> getAutoHideLowRatingEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_autoHideLowRatingEnabled) ?? false;
+  }
+
+  static Future<void> setAutoHideLowRatingEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_autoHideLowRatingEnabled, enabled);
+  }
+
+  static Future<double> getAutoHideLowRatingThreshold() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getDouble(_autoHideLowRatingThreshold) ?? 5.0;
+  }
+
+  static Future<void> setAutoHideLowRatingThreshold(double threshold) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_autoHideLowRatingThreshold, threshold);
+  }
 
   // TV Guide channel limit (default 100)
   static Future<void> setTvGuideChannelLimit(int limit) async {
@@ -519,6 +555,58 @@ class UserPreferences {
     await setCategoryConfigs(configs);
   }
 
+  // Category Sync Selection helpers
+  /// Get selected category IDs for a playlist and category type
+  /// Returns null if no custom selection is configured (sync all)
+  static Future<List<String>?> getSelectedCategoryIds(
+    String playlistId,
+    CategoryType type,
+  ) async {
+    final config = await getCategoryConfig(playlistId);
+    return config?.getSelectedCategoryIds(type);
+  }
+
+  /// Check if user has configured custom category selection for a playlist
+  static Future<bool> hasCustomCategorySelection(String playlistId) async {
+    final config = await getCategoryConfig(playlistId);
+    return config?.hasAnyCustomSelection ?? false;
+  }
+
+  /// Save selected category IDs for a playlist and category type
+  static Future<void> setSelectedCategoryIds(
+    String playlistId,
+    CategoryType type,
+    List<String>? categoryIds,
+  ) async {
+    var config = await getCategoryConfig(playlistId);
+    config ??= CategoryConfig(playlistId: playlistId);
+    config = config.updateSelectedCategoryIds(type, categoryIds);
+    await setCategoryConfig(config);
+  }
+
+  /// Save all category selections at once
+  static Future<void> setCategorySelections(
+    String playlistId, {
+    List<String>? liveCategoryIds,
+    List<String>? vodCategoryIds,
+    List<String>? seriesCategoryIds,
+  }) async {
+    var config = await getCategoryConfig(playlistId);
+    config ??= CategoryConfig(playlistId: playlistId);
+
+    if (liveCategoryIds != null) {
+      config = config.updateSelectedCategoryIds(CategoryType.live, liveCategoryIds);
+    }
+    if (vodCategoryIds != null) {
+      config = config.updateSelectedCategoryIds(CategoryType.vod, vodCategoryIds);
+    }
+    if (seriesCategoryIds != null) {
+      config = config.updateSelectedCategoryIds(CategoryType.series, seriesCategoryIds);
+    }
+
+    await setCategoryConfig(config);
+  }
+
   // Active Playlists Configuration (combined mode)
   static Future<ActivePlaylistsConfig> getActivePlaylistsConfig() async {
     final prefs = await SharedPreferences.getInstance();
@@ -953,6 +1041,7 @@ class UserPreferences {
   static const String _keyOpenSubtitlesUsername = 'opensubtitles_username';
   static const String _keyOpenSubtitlesPassword = 'opensubtitles_password';
   static const String _keyTmdbApiKey = 'tmdb_api_key';
+  static const String _keyOmdbApiKey = 'omdb_api_key';
   static const String _keyPreferredSubtitleLanguage = 'preferred_subtitle_language';
   static const String _keyAutoDownloadSubtitles = 'auto_download_subtitles';
   static const String _keySubtitleDownloadPath = 'subtitle_download_path';
@@ -1015,6 +1104,21 @@ class UserPreferences {
   static Future<String?> getTmdbApiKey() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_keyTmdbApiKey);
+  }
+
+  // OMDB API key (free registration at omdbapi.com)
+  static Future<void> setOmdbApiKey(String? apiKey) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (apiKey == null || apiKey.isEmpty) {
+      await prefs.remove(_keyOmdbApiKey);
+    } else {
+      await prefs.setString(_keyOmdbApiKey, apiKey);
+    }
+  }
+
+  static Future<String?> getOmdbApiKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyOmdbApiKey);
   }
 
   // Preferred subtitle language (ISO 639-1 code, e.g., 'en', 'es', 'fr')
@@ -1227,12 +1331,20 @@ class UserPreferences {
   }
 
   // Pinned categories - categories that should appear at the top of the list
+  // We store both IDs and normalized names for reliable matching across restarts
   static const String _keyPinnedCategories = 'pinned_categories';
+  static const String _keyPinnedCategoryNames = 'pinned_category_names';
 
   /// Get list of pinned category IDs in order (first = top)
   static Future<List<String>> getPinnedCategories() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getStringList(_keyPinnedCategories) ?? [];
+  }
+
+  /// Get list of pinned category names in order (first = top)
+  static Future<List<String>> getPinnedCategoryNames() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_keyPinnedCategoryNames) ?? [];
   }
 
   /// Set list of pinned category IDs
@@ -1241,7 +1353,32 @@ class UserPreferences {
     await prefs.setStringList(_keyPinnedCategories, categoryIds);
   }
 
+  /// Set list of pinned category names
+  static Future<void> setPinnedCategoryNames(List<String> names) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_keyPinnedCategoryNames, names);
+  }
+
+  /// Pin a category to the top with its name (for reliable matching)
+  static Future<void> pinCategoryToTopWithName(String categoryId, String categoryName) async {
+    final pinned = await getPinnedCategories();
+    final pinnedNames = await getPinnedCategoryNames();
+    final normalizedName = categoryName.toLowerCase().trim();
+
+    // Remove if already exists (by ID or name) to avoid duplicates
+    pinned.remove(categoryId);
+    pinnedNames.remove(normalizedName);
+
+    // Insert at the beginning (top)
+    pinned.insert(0, categoryId);
+    pinnedNames.insert(0, normalizedName);
+
+    await setPinnedCategories(pinned);
+    await setPinnedCategoryNames(pinnedNames);
+  }
+
   /// Pin a category to the top (or move it to the very top if already pinned)
+  /// @deprecated Use pinCategoryToTopWithName instead for reliable matching
   static Future<void> pinCategoryToTop(String categoryId) async {
     final pinned = await getPinnedCategories();
     // Remove if already exists to avoid duplicates
@@ -1249,6 +1386,19 @@ class UserPreferences {
     // Insert at the beginning (top)
     pinned.insert(0, categoryId);
     await setPinnedCategories(pinned);
+  }
+
+  /// Unpin a category (remove from pinned list) by ID and name
+  static Future<void> unpinCategoryWithName(String categoryId, String categoryName) async {
+    final pinned = await getPinnedCategories();
+    final pinnedNames = await getPinnedCategoryNames();
+    final normalizedName = categoryName.toLowerCase().trim();
+
+    pinned.remove(categoryId);
+    pinnedNames.remove(normalizedName);
+
+    await setPinnedCategories(pinned);
+    await setPinnedCategoryNames(pinnedNames);
   }
 
   /// Unpin a category (remove from pinned list)
@@ -1265,12 +1415,20 @@ class UserPreferences {
   }
 
   // Demoted categories - categories that should appear at the bottom of the list
+  // We store both IDs and normalized names for reliable matching across restarts
   static const String _keyDemotedCategories = 'demoted_categories';
+  static const String _keyDemotedCategoryNames = 'demoted_category_names';
 
   /// Get list of demoted category IDs (shown at bottom)
   static Future<List<String>> getDemotedCategories() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getStringList(_keyDemotedCategories) ?? [];
+  }
+
+  /// Get list of demoted category names (shown at bottom)
+  static Future<List<String>> getDemotedCategoryNames() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_keyDemotedCategoryNames) ?? [];
   }
 
   /// Set list of demoted category IDs
@@ -1279,7 +1437,35 @@ class UserPreferences {
     await prefs.setStringList(_keyDemotedCategories, categoryIds);
   }
 
+  /// Set list of demoted category names
+  static Future<void> setDemotedCategoryNames(List<String> names) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_keyDemotedCategoryNames, names);
+  }
+
+  /// Demote a category to the bottom with its name (for reliable matching)
+  static Future<void> demoteCategoryToBottomWithName(String categoryId, String categoryName) async {
+    // Remove from pinned if it was pinned
+    await unpinCategoryWithName(categoryId, categoryName);
+
+    final demoted = await getDemotedCategories();
+    final demotedNames = await getDemotedCategoryNames();
+    final normalizedName = categoryName.toLowerCase().trim();
+
+    // Remove if already exists to avoid duplicates
+    demoted.remove(categoryId);
+    demotedNames.remove(normalizedName);
+
+    // Add to the end (bottom)
+    demoted.add(categoryId);
+    demotedNames.add(normalizedName);
+
+    await setDemotedCategories(demoted);
+    await setDemotedCategoryNames(demotedNames);
+  }
+
   /// Demote a category to the bottom
+  /// @deprecated Use demoteCategoryToBottomWithName instead for reliable matching
   static Future<void> demoteCategoryToBottom(String categoryId) async {
     // Remove from pinned if it was pinned
     await unpinCategory(categoryId);
@@ -1290,6 +1476,19 @@ class UserPreferences {
     // Add to the end (bottom)
     demoted.add(categoryId);
     await setDemotedCategories(demoted);
+  }
+
+  /// Undemote a category (remove from demoted list) by ID and name
+  static Future<void> undemoteCategoryWithName(String categoryId, String categoryName) async {
+    final demoted = await getDemotedCategories();
+    final demotedNames = await getDemotedCategoryNames();
+    final normalizedName = categoryName.toLowerCase().trim();
+
+    demoted.remove(categoryId);
+    demotedNames.remove(normalizedName);
+
+    await setDemotedCategories(demoted);
+    await setDemotedCategoryNames(demotedNames);
   }
 
   /// Undemote a category (remove from demoted list)

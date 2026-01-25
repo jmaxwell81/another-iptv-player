@@ -13,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:another_iptv_player/services/watch_history_service.dart';
 import 'package:another_iptv_player/utils/renaming_extension.dart';
 import 'package:another_iptv_player/widgets/tmdb_details_widget.dart';
+import 'package:another_iptv_player/widgets/ratings_widget.dart';
 import '../../../controllers/favorites_controller.dart';
 import 'episode_screen.dart';
 
@@ -438,6 +439,13 @@ class _SeriesScreenState extends State<SeriesScreen> {
           _buildRatingSection(),
           const SizedBox(height: 20),
 
+          // IMDB and Rotten Tomatoes ratings
+          RatingsWidget(
+            title: _displayName,
+            year: _extractYear(),
+          ),
+          const SizedBox(height: 20),
+
           // Continue Watching button (only when we have last opened episode)
           if (_lastOpenedEpisode != null) ...[
             _buildContinueWatchingButton(),
@@ -501,6 +509,47 @@ class _SeriesScreenState extends State<SeriesScreen> {
       }
     }
     return null;
+  }
+
+  /// Get series run dates as a formatted string (e.g., "2019 - 2023" or "2019 - Present")
+  String? _getSeriesRunDates() {
+    // Try to get first air date from release date
+    final releaseDate = seriesInfo?.releaseDate ?? widget.contentItem.seriesStream?.releaseDate;
+    int? startYear;
+    if (releaseDate != null && releaseDate.isNotEmpty) {
+      final yearMatch = RegExp(r'(\d{4})').firstMatch(releaseDate);
+      if (yearMatch != null) {
+        startYear = int.tryParse(yearMatch.group(1)!);
+      }
+    }
+
+    // Try to get end year from seasons' air dates
+    int? endYear;
+    if (seasons.isNotEmpty) {
+      for (final season in seasons) {
+        if (season.airDate != null && season.airDate!.isNotEmpty) {
+          final yearMatch = RegExp(r'(\d{4})').firstMatch(season.airDate!);
+          if (yearMatch != null) {
+            final year = int.tryParse(yearMatch.group(1)!);
+            if (year != null && (endYear == null || year > endYear)) {
+              endYear = year;
+            }
+          }
+        }
+      }
+    }
+
+    // Format the result
+    if (startYear == null && endYear == null) return null;
+    if (startYear == null) return endYear.toString();
+    if (endYear == null) return '$startYear - Present';
+    if (startYear == endYear) return startYear.toString();
+
+    // Check if series might be ongoing (last season was recent)
+    final currentYear = DateTime.now().year;
+    final isOngoing = endYear >= currentYear - 1;
+
+    return isOngoing ? '$startYear - Present' : '$startYear - $endYear';
   }
 
   /// Builds the "Continue: S x Episode y" pill button shown on the series page.
@@ -739,6 +788,25 @@ class _SeriesScreenState extends State<SeriesScreen> {
 
   Widget _buildSeriesDetails() {
     final details = <Map<String, dynamic>>[];
+
+    // Total Episodes
+    if (episodes.isNotEmpty) {
+      details.add({
+        'icon': Icons.video_library,
+        'title': 'Episodes',
+        'value': '${episodes.length} episodes across ${seasons.length} seasons',
+      });
+    }
+
+    // Series Run (year range)
+    final runDates = _getSeriesRunDates();
+    if (runDates != null) {
+      details.add({
+        'icon': Icons.date_range,
+        'title': 'Series Run',
+        'value': runDates,
+      });
+    }
 
     // Açıklama
     final plot = seriesInfo?.plot ?? widget.contentItem.seriesStream?.plot;

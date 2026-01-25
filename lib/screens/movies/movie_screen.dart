@@ -24,6 +24,7 @@ import 'package:uuid/uuid.dart';
 import '../../../widgets/player_widget.dart';
 import 'package:another_iptv_player/utils/renaming_extension.dart';
 import 'package:another_iptv_player/widgets/tmdb_details_widget.dart';
+import 'package:another_iptv_player/widgets/ratings_widget.dart';
 
 class MovieScreen extends StatefulWidget {
   final ContentItem contentItem;
@@ -548,6 +549,12 @@ class _MovieScreenState extends State<MovieScreen> {
         const SizedBox(height: 24),
         _buildTitle(context, textAlign: TextAlign.center),
         const SizedBox(height: 16),
+        // IMDB and Rotten Tomatoes ratings
+        RatingsWidget(
+          imdbId: _extractImdbId(),
+          title: _displayName,
+          year: _extractYear(),
+        ),
         if (_buildRatingSection(context) != null) ...[
           _buildRatingSection(context)!,
           const SizedBox(height: 16),
@@ -640,6 +647,12 @@ class _MovieScreenState extends State<MovieScreen> {
             children: [
               _buildTitle(context, textAlign: TextAlign.start),
               const SizedBox(height: 16),
+              // IMDB and Rotten Tomatoes ratings
+              RatingsWidget(
+                imdbId: _extractImdbId(),
+                title: _displayName,
+                year: _extractYear(),
+              ),
               if (_buildRatingSection(context) != null) ...[
                 _buildRatingSection(context)!,
                 const SizedBox(height: 16),
